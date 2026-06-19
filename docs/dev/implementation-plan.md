@@ -176,7 +176,7 @@ DUT-specific bridge code must remain generated in the consuming crate.
 | Milestone | Name | Status |
 |---:|---|---|
 | 0 | Workspace preparation | Complete |
-| 1 | Handwritten Rust ↔ CXX ↔ Verilator bridge | Not started |
+| 1 | Handwritten Rust ↔ CXX ↔ Verilator bridge | Complete |
 | 2 | Reusable Verilator build orchestration | Not started |
 | 3 | Verilator metadata extraction | Not started |
 | 4 | Generated DUT bridge | Not started |
@@ -320,18 +320,18 @@ Verilator-generated Vcounter
 
 ## Verilator invocation
 
-- [ ] Read `OUT_DIR`.
-- [ ] Create a deterministic Verilator output directory.
-- [ ] Emit `cargo::rerun-if-changed=rtl/counter.sv`.
-- [ ] Locate the `verilator` executable.
-- [ ] Invoke Verilator with `--cc`.
-- [ ] Set `--top-module counter`.
-- [ ] Set `--prefix Vcounter`.
-- [ ] Set `--Mdir` below `OUT_DIR`.
-- [ ] Enable `--emit-accessors`.
-- [ ] Build the generated model.
-- [ ] Capture and display useful command failures.
-- [ ] Avoid shell command strings; use `std::process::Command`.
+- [x] Read `OUT_DIR`.
+- [x] Create a deterministic Verilator output directory.
+- [x] Emit `cargo::rerun-if-changed=rtl/counter.sv`.
+- [x] Locate the `verilator` executable.
+- [x] Invoke Verilator with `--cc`.
+- [x] Set `--top-module counter`.
+- [x] Set `--prefix Vcounter`.
+- [x] Set `--Mdir` below `OUT_DIR`.
+- [x] Enable `--emit-accessors`.
+- [x] Build the generated model.
+- [x] Capture and display useful command failures.
+- [x] Avoid shell command strings; use `std::process::Command`.
 
 ## Handwritten C++ adapter
 
@@ -370,16 +370,16 @@ private:
 }
 ```
 
-- [ ] Implement the adapter with PIMPL.
-- [ ] Own a `VerilatedContext`.
-- [ ] Own a `Vcounter`.
-- [ ] Implement construction without leaking exceptions across FFI.
-- [ ] Implement `eval()`.
-- [ ] Implement `finish()`.
-- [ ] Ensure `final()` is called at most once.
-- [ ] Call `finish()` from the destructor if needed.
-- [ ] Implement typed port accessors.
-- [ ] Keep Verilator headers out of the CXX-visible public header.
+- [x] Implement the adapter with PIMPL.
+- [x] Own a `VerilatedContext`.
+- [x] Own a `Vcounter`.
+- [x] Implement construction without leaking exceptions across FFI.
+- [x] Implement `eval()`.
+- [x] Implement `finish()`.
+- [x] Ensure `final()` is called at most once.
+- [x] Call `finish()` from the destructor if needed.
+- [x] Implement typed port accessors.
+- [x] Keep Verilator headers out of the CXX-visible public header.
 
 ## Handwritten CXX bridge
 
@@ -405,26 +405,26 @@ mod ffi {
 }
 ```
 
-- [ ] Create the bridge module.
-- [ ] Configure `cxx_build::bridge`.
-- [ ] Compile the handwritten C++ adapter.
-- [ ] Add required include directories.
-- [ ] Link the Verilated model library.
-- [ ] Link the C++ standard library as needed.
-- [ ] Verify bridge signature checks pass.
-- [ ] Keep the raw FFI module private.
+- [x] Create the bridge module.
+- [x] Configure `cxx_build::bridge`.
+- [x] Compile the handwritten C++ adapter.
+- [x] Add required include directories.
+- [x] Compile the Verilated model sources into the example binary.
+- [x] Link the C++ standard library as needed.
+- [x] Verify bridge signature checks pass.
+- [x] Keep the raw FFI module private.
 
 ## Safe Rust wrapper
 
-- [ ] Create a safe `Counter` wrapper.
-- [ ] Store `cxx::UniquePtr<ffi::Counter>` privately.
-- [ ] Reject null construction.
-- [ ] Expose safe `eval()`.
-- [ ] Expose safe setters.
-- [ ] Expose safe output getters.
-- [ ] Expose explicit `finish()`.
-- [ ] Ensure dropping the wrapper is safe.
-- [ ] Do not expose `Pin`, `UniquePtr`, or raw FFI types to `main.rs`.
+- [x] Create a safe `Counter` wrapper.
+- [x] Store `cxx::UniquePtr<ffi::Counter>` privately.
+- [x] Reject null construction.
+- [x] Expose safe `eval()`.
+- [x] Expose safe setters.
+- [x] Expose safe output getters.
+- [x] Expose explicit `finish()`.
+- [x] Ensure dropping the wrapper is safe.
+- [x] Do not expose `Pin`, `UniquePtr`, or raw FFI types to `main.rs`.
 
 ## Manual simulation
 
@@ -444,22 +444,22 @@ Initial scheduling sequence:
 12. Evaluate.
 13. Confirm count incremented.
 
-- [ ] Implement reset behavior check.
-- [ ] Implement at least three count cycles.
-- [ ] Verify disabled cycles do not increment.
-- [ ] Print cycle and count values.
-- [ ] Return a non-zero process result on mismatch.
-- [ ] Confirm no Verilator object leaks.
-- [ ] Confirm `final()` executes.
+- [x] Implement reset behavior check.
+- [x] Implement at least three count cycles.
+- [x] Verify disabled cycles do not increment.
+- [x] Print cycle and count values.
+- [x] Return a non-zero process result on mismatch.
+- [x] Confirm no Verilator object leaks.
+- [x] Confirm `final()` executes.
 
 ## Acceptance criteria
 
-- [ ] `cargo run -p vvm-example-counter` succeeds.
-- [ ] Count remains zero during reset.
-- [ ] Count increments on rising edges while enabled.
-- [ ] Count does not increment while disabled.
-- [ ] CXX details are hidden behind a safe local Rust wrapper.
-- [ ] No VVM bridge generation exists yet.
+- [x] `cargo run -p vvm-example-counter` succeeds.
+- [x] Count remains zero during reset.
+- [x] Count increments on rising edges while enabled.
+- [x] Count does not increment while disabled.
+- [x] CXX details are hidden behind a safe local Rust wrapper.
+- [x] No VVM bridge generation exists yet.
 
 ---
 

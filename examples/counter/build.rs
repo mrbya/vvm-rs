@@ -3,7 +3,7 @@
 use std::error::Error;
 use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Output};
 use std::{env, fs, io};
 
 /// Default Verilator executable name.
@@ -65,45 +65,30 @@ fn verilator_executable() -> OsString {
 
 /// Invokes Verilator to generate the counter C++ model.
 fn generate_model(verilator: &OsStr, verilated_dir: &Path) -> Result<(), io::Error> {
-    let status = Command::new(verilator)
-        .arg("--cc")
-        .arg("--top-module")
-        .arg("counter")
-        .arg("--prefix")
-        .arg(MODEL_PREFIX)
-        .arg("--Mdir")
-        .arg(verilated_dir)
-        .arg("--emit-accessors")
-        .arg("rtl/counter.sv")
-        .status()
-        .map_err(|source| {
-            io::Error::new(
-                source.kind(),
-                format!("failed to execute Verilator: {source}"),
-            )
-        })?;
-
-    if !status.success() {
-        return Err(io::Error::other(format!(
-            "Verilator model generation failed with status {status}"
-        )));
-    }
-
-    Ok(())
+    run_command(
+        Command::new(verilator)
+            .arg("--cc")
+            .arg("--top-module")
+            .arg("counter")
+            .arg("--prefix")
+            .arg(MODEL_PREFIX)
+            .arg("--Mdir")
+            .arg(verilated_dir)
+            .arg("--emit-accessors")
+            .arg("rtl/counter.sv"),
+        "Verilator model generation",
+    )
+    .map(|_| ())
 }
 
 /// Queries the installation's Verilator root directory.
 fn query_verilator_root(verilator: &OsStr) -> Result<PathBuf, Box<dyn Error>> {
-    let output = Command::new(verilator)
-        .arg("--getenv")
-        .arg("VERILATOR_ROOT")
-        .output()?;
-
-    if !output.status.success() {
-        return Err(
-            io::Error::other(format!("failed to query VERILATOR_ROOT: {}", output.status)).into(),
-        );
-    }
+    let output = run_command(
+        Command::new(verilator)
+            .arg("--getenv")
+            .arg("VERILATOR_ROOT"),
+        "Verilator root discovery",
+    )?;
 
     let stdout = String::from_utf8(output.stdout)?;
     let root = stdout.trim();
@@ -117,6 +102,30 @@ fn query_verilator_root(verilator: &OsStr) -> Result<PathBuf, Box<dyn Error>> {
     }
 
     Ok(PathBuf::from(root))
+}
+
+/// Runs a command and returns its captured output on success.
+fn run_command(command: &mut Command, context: &str) -> Result<Output, io::Error> {
+    let rendered_command = format!("{command:?}");
+
+    let output = command.output().map_err(|source| {
+        io::Error::new(
+            source.kind(),
+            format!("{context} failed to start for `{rendered_command}`: {source}"),
+        )
+    })?;
+
+    if output.status.success() {
+        return Ok(output);
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    Err(io::Error::other(format!(
+        "{context} failed for `{rendered_command}`\nstatus: {}\nstdout:\n{}\nstderr:\n{}",
+        output.status, stdout, stderr
+    )))
 }
 
 /// Finds Verilator-generated C++ translation units.

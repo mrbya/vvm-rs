@@ -1,6 +1,12 @@
 //! Handwritten CXX bridge for the Verilated counter adapter.
 
+use cxx::UniquePtr;
+
+/// Local result type for the handwritten counter wrapper.
+pub type Result<T> = std::result::Result<T, &'static str>;
+
 #[cxx::bridge(namespace = "vvm::counter")]
+/// Raw FFI bindings for the handwritten counter adapter.
 mod ffi {
     unsafe extern "C++" {
         include!("counter.hpp");
@@ -31,36 +37,76 @@ mod ffi {
     }
 }
 
-/// Constructs and evaluates the handwritten counter adapter.
-///
-/// This is deliberately only a bridge-level smoke test. The safe reusable
-/// Rust wrapper will be introduced in the next implementation step.
-pub(crate) fn adapter_smoke_test() -> Result<u8, &'static str> {
-    let mut counter = ffi::create_counter();
+/// Safe local wrapper around the handwritten CXX bridge.
+pub struct Counter {
+    /// Opaque ownership of the handwritten C++ adapter.
+    inner: UniquePtr<ffi::Counter>,
 
-    {
-        let mut counter_ref = counter
-            .as_mut()
-            .ok_or("failed to construct the Verilated counter model")?;
+    /// Tracks whether `finish()` has already been forwarded to C++.
+    finished: bool,
+}
 
-        counter_ref.as_mut().set_clk(false);
-        counter_ref.as_mut().set_reset_n(false);
-        counter_ref.as_mut().set_enable(false);
-        counter_ref.as_mut().eval();
+impl Counter {
+    /// Constructs a Verilated counter model.
+    pub fn new() -> Result<Self> {
+        let inner = ffi::create_counter();
+
+        if inner.is_null() {
+            return Err("failed to construct the Verilated counter model");
+        }
+
+        Ok(Self {
+            inner,
+            finished: false,
+        })
     }
 
-    let count = counter
-        .as_ref()
-        .ok_or("counter model unexpectedly became null")?
-        .count();
-
-    {
-        let counter_ref = counter
-            .as_mut()
-            .ok_or("counter model unexpectedly became null")?;
-
-        counter_ref.finish();
+    /// Evaluates the current model state.
+    pub fn eval(&mut self) {
+        self.inner_mut().eval();
     }
 
-    Ok(count)
+    /// Finalises the model exactly once.
+    pub fn finish(&mut self) {
+        if self.finished {
+            return;
+        }
+
+        self.inner_mut().finish();
+        self.finished = true;
+    }
+
+    /// Drives the clock input.
+    pub fn set_clk(&mut self, value: bool) {
+        self.inner_mut().set_clk(value);
+    }
+
+    /// Drives the active-low reset input.
+    pub fn set_reset_n(&mut self, value: bool) {
+        self.inner_mut().set_reset_n(value);
+    }
+
+    /// Drives the enable input.
+    pub fn set_enable(&mut self, value: bool) {
+        self.inner_mut().set_enable(value);
+    }
+
+    /// Samples the counter output.
+    pub fn count(&self) -> Result<u8> {
+        self.inner
+            .as_ref()
+            .map(ffi::Counter::count)
+            .ok_or("counter model unexpectedly became null")
+    }
+
+    /// Returns a pinned mutable reference to the underlying model.
+    fn inner_mut(&mut self) -> std::pin::Pin<&mut ffi::Counter> {
+        self.inner.pin_mut()
+    }
+}
+
+impl Drop for Counter {
+    fn drop(&mut self) {
+        self.finish();
+    }
 }

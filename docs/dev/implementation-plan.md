@@ -175,7 +175,7 @@ DUT-specific bridge code must remain generated in the consuming crate.
 
 | Milestone | Name | Status |
 |---:|---|---|
-| 0 | Workspace preparation | In progress |
+| 0 | Workspace preparation | Complete |
 | 1 | Handwritten Rust ↔ CXX ↔ Verilator bridge | Not started |
 | 2 | Reusable Verilator build orchestration | Not started |
 | 3 | Verilator metadata extraction | Not started |
@@ -214,25 +214,25 @@ Prepare the workspace for the first real CXX/Verilator integration without desig
 
 - [x] Remove placeholder `add()` functions from all crates.
 - [x] Remove placeholder tests created by the bootstrap template.
-- [ ] Verify every crate has accurate crate-level documentation.
-- [ ] Correct typos in crate documentation and package descriptions.
-- [ ] Review package names versus Rust import names.
-- [ ] Decide whether the facade package remains `vvm-rs` with library name `vvm`.
-- [ ] Review homepage, repository, keywords, and categories.
-- [ ] Confirm the minimum supported Rust version.
-- [ ] Decide whether repeated lint declarations should move to workspace lints.
-- [ ] Ensure empty crates compile without artificial APIs.
+- [x] Verify every crate has accurate crate-level documentation.
+- [x] Correct typos in crate documentation and package descriptions.
+- [x] Review package names versus Rust import names.
+- [x] Decide whether the facade package remains `vvm-rs` with library name `vvm`.
+- [x] Review homepage, repository, keywords, and categories.
+- [x] Confirm the minimum supported Rust version.
+- [x] Decide whether repeated lint declarations should move to workspace lints.
+- [x] Ensure empty crates compile without artificial APIs.
 
 ## Dependencies
 
 Add dependencies only when needed.
 
-- [ ] Add workspace dependency `cxx`.
-- [ ] Add workspace dependency `cxx-build`.
-- [ ] Add workspace dependency `thiserror`.
-- [ ] Add workspace dev-dependency `trybuild`.
-- [ ] Enable required `syn` features only when macro implementation begins.
-- [ ] Avoid serialization dependencies until metadata parsing begins.
+- [x] Add workspace dependency `cxx`.
+- [x] Add workspace dependency `cxx-build`.
+- [x] Add workspace dependency `thiserror`.
+- [x] Add workspace dev-dependency `trybuild`.
+- [x] Enable required `syn` features only when macro implementation begins.
+- [x] Avoid serialization dependencies until metadata parsing begins.
 
 ## Counter example package
 
@@ -252,13 +252,13 @@ examples/counter/
     └── main.rs
 ```
 
-- [ ] Add `examples/counter` as a workspace member.
-- [ ] Create the example package manifest.
-- [ ] Add `cxx` as a normal dependency.
-- [ ] Add `cxx-build` as a build dependency.
-- [ ] Add the first counter RTL module.
-- [ ] Add an initially minimal `build.rs`.
-- [ ] Add an initially minimal Rust executable.
+- [x] Add `examples/counter` as a workspace member.
+- [x] Create the example package manifest.
+- [x] Add `cxx` as a normal dependency.
+- [x] Add `cxx-build` as a build dependency.
+- [x] Add the first counter RTL module.
+- [x] Add an initially minimal `build.rs`.
+- [x] Add an initially minimal Rust executable.
 
 Suggested DUT:
 
@@ -281,17 +281,17 @@ end
 endmodule
 ```
 
-- [ ] Verify the module parses with Verilator independently.
-- [ ] Decide whether HDL lint warnings are fatal in examples.
-- [ ] Document expected reset and counting behavior.
+- [x] Verify the module parses with Verilator independently.
+- [x] Decide whether HDL lint warnings are fatal in examples.
+- [x] Document expected reset and counting behavior.
 
 ## Acceptance criteria
 
-- [ ] `cargo check --workspace` passes.
-- [ ] `cargo test --workspace` passes.
-- [ ] `cargo clippy --workspace --all-targets` passes.
-- [ ] The counter HDL can be linted by Verilator.
-- [ ] No placeholder public APIs remain.
+- [x] `cargo check --workspace` passes.
+- [x] `cargo test --workspace` passes.
+- [x] `cargo clippy --workspace --all-targets` passes.
+- [x] The counter HDL can be linted by Verilator.
+- [x] No placeholder public APIs remain.
 
 ---
 
@@ -1599,4 +1599,3 @@ Use this section for dated notes.
 - **Problems encountered:**
 - **Decisions made:**
 - **Next action:**
-

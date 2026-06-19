@@ -5,6 +5,7 @@ members = [
     "crates/vvm-core",
     "crates/vvm-ffi",
     "crates/vvm-macros",
+    "examples/counter",
 ]
 resolver = "2"
 
@@ -13,11 +14,11 @@ authors                 = ["mrbya <v.toth.svk2@gmail.com>"]
 description             = "Verilator Verification Methodology"
 edition                 = "2024"
 rust-version            = "1.85.0"
-homepage                = "https://gitlab.com/byacrates/vvm-rs.git"
-repository              = "https://gitlab.com/byacrates/vvm-rs.git"
+homepage                = "https://gitlab.com/byacrates/vvm-rs"
+repository              = "https://gitlab.com/byacrates/vvm-rs"
 license                 = "MIT OR Apache-2.0"
-keywords                = ["vvm"]
-categories              = ["command-line-utilities"]
+keywords                = ["verilator", "verification", "hdl", "testbench", "simulation"]
+categories              = ["development-tools::testing"]
 version                 = "0.0.1"
 
 [workspace.dependencies]
@@ -33,7 +34,7 @@ cxx                     = { version = "1" }
 cxx-build               = { version = "1" }
 proc-macro2             = { version = "1" }
 quote                   = { version = "1" }
-syn                     = { version = "2", features = ["full", "extra-traits"] }
+syn                     = { version = "2" }
 thiserror               = { version = "2" }
 
 # Test and dev dependencies
@@ -42,3 +43,57 @@ criterion               = { version = "0.8" }
 pretty_assertions       = { version = "1" }
 assert_cmd              = { version = "2" }
 predicates              = { version = "3" }
+
+[workspace.lints.rust]
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+dbg_macro = "warn"
+unwrap_used = "warn"
+integer_division = "warn"
+large_include_file = "warn"
+map_err_ignore = "warn"
+missing_docs_in_private_items = "warn"
+panic = "warn"
+todo = "warn"
+undocumented_unsafe_blocks = "warn"
+unimplemented = "warn"
+unreachable = "warn"
+float_arithmetic = "warn"
+arithmetic_side_effects = "warn"
+modulo_arithmetic = "warn"
+as_conversions = "warn"
+clone_on_ref_ptr = "warn"
+create_dir = "warn"
+default_union_representation = "warn"
+deref_by_slicing = "warn"
+empty_drop = "warn"
+empty_structs_with_brackets = "warn"
+exit = "warn"
+filetype_is_file = "warn"
+float_cmp_const = "warn"
+if_then_some_else_none = "warn"
+indexing_slicing = "warn"
+let_underscore_must_use = "warn"
+lossy_float_literal = "warn"
+pattern_type_mismatch = "warn"
+string_slice = "warn"
+try_err = "warn"
+wildcard_imports = "deny"
+multiple_inherent_impl = "deny"
+rc_buffer = "deny"
+rc_mutex = "deny"
+rest_pat_in_fully_bound_structs = "deny"
+same_name_method = "deny"
+self_named_module_files = "deny"
+separated_literal_suffix = "deny"
+shadow_unrelated = "deny"
+str_to_string = "deny"
+string_add = "deny"
+implicit_clone = "deny"
+unnecessary_self_imports = "deny"
+unneeded_field_pattern = "deny"
+unseparated_literal_suffix = "deny"
+verbose_file_reads = "deny"

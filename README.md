@@ -26,7 +26,7 @@ TBD
 
 Install using cargo:
 ```bash
-cargo install vvm
+cargo install vvm-rs
 ```
 
 ## Usage

@@ -1,9 +1,9 @@
 # AGENTS
 
 ## Workspace Shape
-- This is a Cargo workspace only at the root; the member crates are `crates/vvm`, `crates/vvm-core`, `crates/vvm-build`, `crates/vvm-ffi`, and `crates/vvm-macros`.
+- This is a Cargo workspace only at the root; the main library crates are `crates/vvm`, `crates/vvm-core`, `crates/vvm-build`, `crates/vvm-ffi`, and `crates/vvm-macros`, plus the Milestone 0 example package at `examples/counter`.
 - `crates/vvm` is the public facade package. Its Cargo package name is `vvm-rs`, but its library name is `vvm`; use `-p vvm-rs` when filtering Cargo commands.
-- Current code is still scaffold-level: each crate only exposes `src/lib.rs` crate attributes/docs, and the only checked-in integration test and benchmark live under `crates/vvm/`.
+- The library crates are still mostly scaffold-level: each crate only exposes crate docs, while the first real build integration lives in `examples/counter`.
 - `docs/dev/reference-projects/vvm` is a git submodule that holds the legacy/reference project, not the active workspace code.
 
 ## Tooling And Commands
@@ -14,12 +14,14 @@
 - Tests: `just test` runs `cargo nextest run --all-features --workspace`.
 - Doc tests: `just doctest`.
 - Full CI-equivalent verification: `just ci`.
+- Workspace `cargo check`, `cargo test`, and clippy now build `examples/counter`, whose `build.rs` runs `verilator --lint-only` and compiles a tiny CXX bridge; those commands require `verilator` and a working C++ toolchain.
 - The interactive pre-push/pre-commit sweep is heavier than CI: `just pre-commit` runs format, strict checks, doctests, and coverage.
 
 ## Focused Verification
 - For one package, prefer Cargo package filters, for example `cargo test -p vvm-rs`.
 - The only checked-in integration test target is `cargo test -p vvm-rs --test integration_tests`.
-- Benchmarks are only defined for `crates/vvm`; use `just benchmark` or `just benchmark-target benches`.
+- The counter example smoke target is `cargo run -p vvm-example-counter`.
+- For HDL-only verification without Cargo, use `verilator --lint-only examples/counter/rtl/counter.sv`.
 
 ## Hooks And Generated Changes
 - `justfile` has `set dotenv-load := true`, so `just` recipes automatically load `.env`.

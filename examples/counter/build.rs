@@ -1,4 +1,4 @@
-//! Build script for the Milestone 0 counter example.
+//! Builds the handwritten CXX bridge and Verilated counter model.
 
 use std::error::Error;
 use std::ffi::{OsStr, OsString};

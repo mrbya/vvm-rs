@@ -1,11 +1,16 @@
-//! Minimal executable that exercises the handwritten CXX bridge scaffold.
+//! Minimal executable exercising the handwritten Verilated counter adapter.
 
-/// Handwritten CXX bridge declarations for the counter example.
-pub mod bridge;
+mod bridge;
 
-fn main() {
-    assert_eq!(bridge::count_width(), 8);
-    assert!(bridge::reset_is_active_low());
+fn main() -> Result<(), &'static str> {
+    let count = bridge::adapter_smoke_test()?;
 
-    println!("counter example scaffold ready");
+    if count != 0 {
+        return Err("counter output was not zero while reset was asserted");
+    }
+
+    println!("Verilated counter adapter constructed successfully");
+    println!("counter output after initial reset evaluation: {count}");
+
+    Ok(())
 }

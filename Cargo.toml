@@ -1,6 +1,5 @@
 [workspace]
 members = [
-    "./",
     "crates/vvm",
     "crates/vvm-build",
     "crates/vvm-core",
@@ -30,6 +29,9 @@ vvm-ffi                 = { path = "crates/vvm-ffi" }
 vvm-macros              = { path = "crates/vvm-macros" }
 # Other workspace deps
 # Prod
+proc-macro2             = { version = "1" }
+quote                   = { version = "1" }
+syn                     = { version = "2" }
 # Dev
 criterion               = { version = "0.8" }
 pretty_assertions       = { version = "1" }

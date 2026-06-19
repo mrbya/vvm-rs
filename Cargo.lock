@@ -623,6 +623,9 @@ name = "vvm-macros"
 version = "0.0.1"
 dependencies = [
  "pretty_assertions",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -633,9 +636,7 @@ dependencies = [
  "criterion",
  "predicates",
  "pretty_assertions",
- "vvm-build",
  "vvm-core",
- "vvm-ffi",
  "vvm-macros",
 ]
 

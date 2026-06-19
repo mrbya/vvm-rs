@@ -12,6 +12,7 @@ categories.workspace    = true
 description             = "VVM - public facade"
 
 [lib]
+name = "vvm"
 bench = false
 
 [features]
@@ -19,9 +20,7 @@ default = []
 full = []
 
 [dependencies]
-vvm-build.workspace = true
 vvm-core.workspace = true
-vvm-ffi.workspace = true
 vvm-macros.workspace = true
 
 [dev-dependencies]

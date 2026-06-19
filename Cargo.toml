@@ -1,0 +1,37 @@
+[workspace]
+members = [
+    "./",
+    "crates/vvm",
+    "crates/vvm-build",
+    "crates/vvm-core",
+    "crates/vvm-ffi",
+    "crates/vvm-macros",
+]
+resolver = "2"
+
+[workspace.package]
+authors                 = ["mrbya <v.toth.svk2@gmail.com>"]
+description             = "Verilator Verification Methodology"
+edition                 = "2024"
+rust-version            = "1.85.0"
+homepage                = "https://gitlab.com/byacrates/vvm-rs.git"
+repository              = "https://gitlab.com/byacrates/vvm-rs.git"
+license                 = "MIT OR Apache-2.0"
+keywords                = ["vvm"]
+categories              = ["command-line-utilities"]
+version                 = "0.0.1"
+
+[workspace.dependencies]
+# vvm crates
+vvm                     = { path = "crates/vvm" }
+vvm-build               = { path = "crates/vvm-build" }
+vvm-core                = { path = "crates/vvm-core" }
+vvm-ffi                 = { path = "crates/vvm-ffi" }
+vvm-macros              = { path = "crates/vvm-macros" }
+# Other workspace deps
+# Prod
+# Dev
+criterion               = { version = "0.8" }
+pretty_assertions       = { version = "1" }
+assert_cmd              = { version = "2" }
+predicates              = { version = "3" }

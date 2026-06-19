@@ -1,0 +1,27 @@
+[package]
+name = "vvm-build"
+version.workspace       = true
+authors.workspace       = true
+edition.workspace       = true
+rust-version.workspace  = true
+homepage.workspace      = true
+repository.workspace    = true
+license.workspace       = true
+keywords.workspace      = true
+categories.workspace    = true
+description             = "VVM - Verilator invocation and bridge generation"
+
+[dependencies]
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+
+[package.metadata.cargo-udeps.ignore]
+normal = [
+    "vvm",
+    "vvm-build",
+    "vvm-core",
+    "vvm-ffi",
+    "vvm-macros",
+]
+development = ["criterion", "pretty_assertions"]

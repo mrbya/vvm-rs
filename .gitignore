@@ -1,0 +1,16 @@
+# IDEs
+/.idea
+/.vs
+/.vscode
+/.nvim
+/.cache
+/.claude
+
+# Cargo artefacts
+/target
+/coverage
+/release
+
+# Docs
+/docs-page
+/public

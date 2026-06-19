@@ -1,5 +1,5 @@
 [package]
-name = "vvm"
+name = "vvm-rs"
 version.workspace       = true
 authors.workspace       = true
 edition.workspace       = true

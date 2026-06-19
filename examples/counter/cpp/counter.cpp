@@ -13,9 +13,11 @@ public:
     Impl()
         : context{std::make_unique<VerilatedContext>()},
           model{std::make_unique<Vcounter>(context.get())} {
-        model->clk(0);
-        model->reset_n(0);
-        model->enable(0);
+        CData low{0};
+
+        model->clk(low);
+        model->reset_n(low);
+        model->enable(low);
     }
 
     std::unique_ptr<VerilatedContext> context;
@@ -46,15 +48,18 @@ void Counter::finish() noexcept {
 }
 
 void Counter::set_clk(const bool value) noexcept {
-    impl_->model->clk(static_cast<std::uint8_t>(value));
+    CData raw_value = static_cast<CData>(value);
+    impl_->model->clk(raw_value);
 }
 
 void Counter::set_reset_n(const bool value) noexcept {
-    impl_->model->reset_n(static_cast<std::uint8_t>(value));
+    CData raw_value = static_cast<CData>(value);
+    impl_->model->reset_n(raw_value);
 }
 
 void Counter::set_enable(const bool value) noexcept {
-    impl_->model->enable(static_cast<std::uint8_t>(value));
+    CData raw_value = static_cast<CData>(value);
+    impl_->model->enable(raw_value);
 }
 
 std::uint8_t Counter::count() const noexcept {

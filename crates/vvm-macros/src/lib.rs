@@ -62,6 +62,3 @@
     clippy::unseparated_literal_suffix,
     clippy::verbose_file_reads
 )]
-
-#[cfg(test)]
-mod tests;

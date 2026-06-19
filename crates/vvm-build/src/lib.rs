@@ -62,12 +62,3 @@
     clippy::unseparated_literal_suffix,
     clippy::verbose_file_reads
 )]
-
-/// Remove this and implement your logic in this lib.
-#[must_use]
-pub fn add(a: i64, b: i64) -> i64 {
-    a.checked_add(b).unwrap_or(a)
-}
-
-#[cfg(test)]
-mod tests;

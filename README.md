@@ -63,6 +63,14 @@ TBD
 
 TBD
 
+---
+
+## Similar projects
+
+Heavily inspired by [UVM](https://www.accellera.org/downloads/standards/uvm) and is a reboot of [VVM](docs/dev/reference-projects/vvm).
+
+---
+
 ### Style
 
 Codebase documented using a consistent rustdoc style described in [rustdoc style guide](docs/rustdoc_style.md).

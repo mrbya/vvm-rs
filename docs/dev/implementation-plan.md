@@ -212,8 +212,8 @@ Prepare the workspace for the first real CXX/Verilator integration without desig
 
 ## Workspace cleanup
 
-- [ ] Remove placeholder `add()` functions from all crates.
-- [ ] Remove placeholder tests created by the bootstrap template.
+- [x] Remove placeholder `add()` functions from all crates.
+- [x] Remove placeholder tests created by the bootstrap template.
 - [ ] Verify every crate has accurate crate-level documentation.
 - [ ] Correct typos in crate documentation and package descriptions.
 - [ ] Review package names versus Rust import names.

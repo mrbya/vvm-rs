@@ -27,16 +27,17 @@ vvm-build               = { path = "crates/vvm-build" }
 vvm-core                = { path = "crates/vvm-core" }
 vvm-ffi                 = { path = "crates/vvm-ffi" }
 vvm-macros              = { path = "crates/vvm-macros" }
-# Other workspace deps
-# Prod
+
+# Runtime and build dependencies
 cxx                     = { version = "1" }
 cxx-build               = { version = "1" }
 proc-macro2             = { version = "1" }
 quote                   = { version = "1" }
 syn                     = { version = "2", features = ["full", "extra-traits"] }
 thiserror               = { version = "2" }
+
+# Test and dev dependencies
 trybuild                = { version = "1" }
-# Dev
 criterion               = { version = "0.8" }
 pretty_assertions       = { version = "1" }
 assert_cmd              = { version = "2" }

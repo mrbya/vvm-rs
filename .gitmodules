@@ -1,0 +1,3 @@
+[submodule "docs/dev/reference-projects/vvm"]
+	path = docs/dev/reference-projects/vvm
+	url = https://gitlab.com/such-hdl-much-wow/vvm.git

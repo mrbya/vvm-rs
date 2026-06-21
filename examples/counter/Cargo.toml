@@ -20,4 +20,4 @@ workspace = true
 cxx.workspace = true
 
 [build-dependencies]
-cxx-build.workspace = true
+vvm-build.workspace = true

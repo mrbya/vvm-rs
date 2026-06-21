@@ -32,9 +32,9 @@ vvm-macros              = { path = "crates/vvm-macros" }
 # Runtime and build dependencies
 cxx                     = { version = "1" }
 cxx-build               = { version = "1" }
-proc-macro2             = { version = "1" }
-quote                   = { version = "1" }
-syn                     = { version = "2" }
+# proc-macro2             = { version = "1" }
+# quote                   = { version = "1" }
+# syn                     = { version = "2" }
 thiserror               = { version = "2" }
 
 # Test and dev dependencies

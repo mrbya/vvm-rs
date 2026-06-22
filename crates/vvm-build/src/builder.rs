@@ -1,9 +1,19 @@
-use std::collections::HashSet;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
-use crate::{BuildError, BuildResult, verilator};
+use crate::error::{BuildError, BuildResult};
+use crate::{cargo, native, paths, verilator};
+
+/// HDL preprocessor definition configuration.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Define {
+    /// Definition name.
+    pub name: String,
+
+    /// Optional definition value.
+    pub value: Option<String>,
+}
 
 /// Configures generation and native compilation of a Verilated DUT.
 #[derive(Debug)]
@@ -17,6 +27,12 @@ pub struct DutBuilder {
     /// HDL sources.
     sources: Vec<PathBuf>,
 
+    /// HDL include directories.
+    hdl_include_dirs: Vec<PathBuf>,
+
+    /// HDL preprocessor definitions.
+    defines: Vec<Define>,
+
     /// Hand-written CXX bridge source.
     bridge: Option<PathBuf>,
 
@@ -28,6 +44,9 @@ pub struct DutBuilder {
 
     /// Additional raw Verilator arguments.
     verilator_arguments: Vec<OsString>,
+
+    /// Explicit Verilator executable override.
+    verilator_executable: Option<OsString>,
 }
 
 impl DutBuilder {
@@ -38,10 +57,13 @@ impl DutBuilder {
             name: name.into(),
             top_module: None,
             sources: Vec::new(),
+            hdl_include_dirs: Vec::new(),
+            defines: Vec::new(),
             bridge: None,
             cpp_sources: Vec::new(),
             cpp_include_dirs: Vec::new(),
             verilator_arguments: Vec::new(),
+            verilator_executable: None,
         }
     }
 
@@ -52,10 +74,60 @@ impl DutBuilder {
         self
     }
 
-    /// Adds a HDL source file.
+    /// Adds an HDL source file.
     #[must_use]
     pub fn source(mut self, source: impl Into<PathBuf>) -> Self {
         self.sources.push(source.into());
+        self
+    }
+
+    /// Adds HDL source files.
+    #[must_use]
+    pub fn sources<I, P>(mut self, sources: I) -> Self
+    where
+        I: IntoIterator<Item = P>,
+        P: Into<PathBuf>,
+    {
+        self.sources.extend(sources.into_iter().map(Into::into));
+        self
+    }
+
+    /// Adds a directory searched for HDL include files.
+    #[must_use]
+    pub fn hdl_include(mut self, include_dir: impl Into<PathBuf>) -> Self {
+        self.hdl_include_dirs.push(include_dir.into());
+        self
+    }
+
+    /// Adds directories searched for HDL include files.
+    #[must_use]
+    pub fn hdl_includes<I, P>(mut self, include_dirs: I) -> Self
+    where
+        I: IntoIterator<Item = P>,
+        P: Into<PathBuf>,
+    {
+        self.hdl_include_dirs
+            .extend(include_dirs.into_iter().map(Into::into));
+        self
+    }
+
+    /// Defines an HDL preprocessor symbol without a value.
+    #[must_use]
+    pub fn define(mut self, name: impl Into<String>) -> Self {
+        self.defines.push(Define {
+            name: name.into(),
+            value: None,
+        });
+        self
+    }
+
+    /// Defines an HDL preprocessor symbol with a value.
+    #[must_use]
+    pub fn define_value(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
+        self.defines.push(Define {
+            name: name.into(),
+            value: Some(value.into()),
+        });
         self
     }
 
@@ -73,10 +145,33 @@ impl DutBuilder {
         self
     }
 
+    /// Adds C++ translation units.
+    #[must_use]
+    pub fn cpp_sources<I, P>(mut self, sources: I) -> Self
+    where
+        I: IntoIterator<Item = P>,
+        P: Into<PathBuf>,
+    {
+        self.cpp_sources.extend(sources.into_iter().map(Into::into));
+        self
+    }
+
     /// Adds a C++ include directory.
     #[must_use]
     pub fn cpp_include(mut self, include_dir: impl Into<PathBuf>) -> Self {
         self.cpp_include_dirs.push(include_dir.into());
+        self
+    }
+
+    /// Adds C++ include directories.
+    #[must_use]
+    pub fn cpp_includes<I, P>(mut self, include_dirs: I) -> Self
+    where
+        I: IntoIterator<Item = P>,
+        P: Into<PathBuf>,
+    {
+        self.cpp_include_dirs
+            .extend(include_dirs.into_iter().map(Into::into));
         self
     }
 
@@ -87,25 +182,41 @@ impl DutBuilder {
         self
     }
 
+    /// Adds raw arguments passed to Verilator.
+    #[must_use]
+    pub fn verilator_args<I, A>(mut self, arguments: I) -> Self
+    where
+        I: IntoIterator<Item = A>,
+        A: Into<OsString>,
+    {
+        self.verilator_arguments
+            .extend(arguments.into_iter().map(Into::into));
+        self
+    }
+
+    /// Overrides the Verilator executable used for this DUT.
+    #[must_use]
+    pub fn verilator_executable(mut self, executable: impl Into<OsString>) -> Self {
+        self.verilator_executable = Some(executable.into());
+        self
+    }
+
     /// Generates the Verilated model and compiles the native bridge.
     ///
     /// # Errors
     ///
-    /// Returns [`BuildError`] if:
-    /// - the configuration is incomplete,
-    /// - Verilator fails,
-    /// - required files are unavailable,
-    /// - filesystem access fails.
+    /// Returns [`BuildError`] if configuration, tool execution, or native compilation fails.
     pub fn build(self) -> BuildResult<()> {
         validate_identifier("DUT name", &self.name)?;
 
         let top_module = self.top_module.ok_or(BuildError::MissingTopModule)?;
-
         validate_identifier("top module", &top_module)?;
 
         if self.sources.is_empty() {
             return Err(BuildError::MissingSources);
         }
+
+        validate_defines(&self.defines)?;
 
         let bridge = self.bridge.ok_or(BuildError::MissingBridge)?;
 
@@ -118,38 +229,60 @@ impl DutBuilder {
 
         create_directory(&verilated_dir)?;
 
-        let sources = resolve_files(&manifest_dir, &self.sources, "HDL source file")?;
-        let bridge = resolve_file(&manifest_dir, &bridge, "CXX bridge source")?;
-        let cpp_sources = resolve_files(&manifest_dir, &self.cpp_sources, "C++ source file")?;
-        let cpp_include_dirs = resolve_directories(
+        let sources = paths::resolve_files(&manifest_dir, &self.sources, "HDL source file")?;
+        let hdl_include_dirs = paths::resolve_directories(
+            &manifest_dir,
+            &self.hdl_include_dirs,
+            "HDL include directory",
+        )?;
+        let bridge = paths::resolve_file(&manifest_dir, &bridge, "CXX bridge source")?;
+        let cpp_sources =
+            paths::resolve_files(&manifest_dir, &self.cpp_sources, "C++ source file")?;
+        let cpp_include_dirs = paths::resolve_directories(
             &manifest_dir,
             &self.cpp_include_dirs,
             "C++ include directory",
         )?;
 
-        ensure_unique_paths(&sources, "HDL source file")?;
-        ensure_unique_paths(std::slice::from_ref(&bridge), "CXX bridge source")?;
-        ensure_unique_paths(&cpp_sources, "C++ source file")?;
-        ensure_unique_paths(&cpp_include_dirs, "C++ include directory")?;
+        paths::ensure_unique_paths(&sources, "HDL source file")?;
+        paths::ensure_unique_paths(&hdl_include_dirs, "HDL include directory")?;
+        paths::ensure_unique_paths(std::slice::from_ref(&bridge), "CXX bridge source")?;
+        paths::ensure_unique_paths(&cpp_sources, "C++ source file")?;
+        paths::ensure_unique_paths(&cpp_include_dirs, "C++ include directory")?;
 
-        emit_rerun_directives(&sources, &bridge, &cpp_sources, &cpp_include_dirs);
-
-        let executable = verilator::executable();
-
-        verilator::generate(
-            &executable,
-            &top_module,
-            &model_prefix,
-            &verilated_dir,
+        cargo::emit_rerun_directives(
             &sources,
-            &self.verilator_arguments,
-        )?;
+            &hdl_include_dirs,
+            &bridge,
+            &cpp_sources,
+            &cpp_include_dirs,
+        );
+
+        let environment_executable = env::var_os("VERILATOR");
+        let executable =
+            verilator::select_executable(self.verilator_executable.clone(), environment_executable);
+
+        let version = verilator::version(&executable)?;
+        verilator::ensure_supported_version(version)?;
 
         let verilator_root = verilator::root(&executable)?;
 
+        let model_command = verilator::ModelCommand {
+            executable: &executable,
+            top_module: &top_module,
+            model_prefix: &model_prefix,
+            output_dir: &verilated_dir,
+            hdl_include_dirs: &hdl_include_dirs,
+            defines: &self.defines,
+            extra_arguments: &self.verilator_arguments,
+            sources: &sources,
+        };
+
+        verilator::generate(&model_command)?;
+
         let generated_sources = verilator::generated_sources(&verilated_dir, &model_prefix)?;
 
-        compile_native_sources(
+        native::compile(
             &self.name,
             &bridge,
             &cpp_sources,
@@ -159,17 +292,42 @@ impl DutBuilder {
             &generated_sources,
         )
     }
+
+    #[cfg(test)]
+    pub(crate) fn sources_slice(&self) -> &[PathBuf] {
+        &self.sources
+    }
+
+    #[cfg(test)]
+    pub(crate) fn hdl_include_dirs_slice(&self) -> &[PathBuf] {
+        &self.hdl_include_dirs
+    }
+
+    #[cfg(test)]
+    pub(crate) fn cpp_sources_slice(&self) -> &[PathBuf] {
+        &self.cpp_sources
+    }
+
+    #[cfg(test)]
+    pub(crate) fn cpp_include_dirs_slice(&self) -> &[PathBuf] {
+        &self.cpp_include_dirs
+    }
+
+    #[cfg(test)]
+    pub(crate) fn verilator_arguments_slice(&self) -> &[OsString] {
+        &self.verilator_arguments
+    }
 }
 
 /// Reads a required Cargo build-script environment path.
-fn required_environment_path(name: &'static str) -> Result<PathBuf, BuildError> {
+fn required_environment_path(name: &'static str) -> BuildResult<PathBuf> {
     env::var_os(name)
         .map(PathBuf::from)
         .ok_or(BuildError::MissingEnvironmentVariable { name })
 }
 
 /// Creates an output directory.
-fn create_directory(path: &Path) -> Result<(), BuildError> {
+fn create_directory(path: &Path) -> BuildResult<()> {
     fs::create_dir_all(path).map_err(|source| BuildError::Io {
         operation: "create output directory",
         path: path.to_path_buf(),
@@ -177,204 +335,10 @@ fn create_directory(path: &Path) -> Result<(), BuildError> {
     })
 }
 
-/// Resolves a user path relative to the consuming package.
-fn resolve_path(manifest_dir: &Path, path: &Path) -> PathBuf {
-    if path.is_absolute() {
-        path.to_path_buf()
-    } else {
-        manifest_dir.join(path)
-    }
-}
-
-/// Resolves and validates a configured file path.
-pub fn resolve_file(manifest_dir: &Path, path: &Path, role: &'static str) -> BuildResult<PathBuf> {
-    let resolved_path = resolve_path(manifest_dir, path);
-
-    if !resolved_path.exists() {
-        return Err(BuildError::MissingConfiguredPath {
-            role,
-            path: resolved_path,
-        });
-    }
-
-    if !resolved_path.is_file() {
-        return Err(BuildError::ConfiguredPathNotFile {
-            role,
-            path: resolved_path,
-        });
-    }
-
-    resolved_path
-        .canonicalize()
-        .map_err(|source| BuildError::Io {
-            operation: "canonicalize configured file path",
-            path: resolved_path,
-            source,
-        })
-}
-
-/// Resolves and validates a configured directory path.
-pub fn resolve_directory(
-    manifest_dir: &Path,
-    path: &Path,
-    role: &'static str,
-) -> BuildResult<PathBuf> {
-    let resolved_path = resolve_path(manifest_dir, path);
-
-    if !resolved_path.exists() {
-        return Err(BuildError::MissingConfiguredPath {
-            role,
-            path: resolved_path,
-        });
-    }
-
-    if !resolved_path.is_dir() {
-        return Err(BuildError::ConfiguredPathNotDirectory {
-            role,
-            path: resolved_path,
-        });
-    }
-
-    resolved_path
-        .canonicalize()
-        .map_err(|source| BuildError::Io {
-            operation: "canonicalize configured directory path",
-            path: resolved_path,
-            source,
-        })
-}
-
-/// Resolves multiple configured file paths.
-fn resolve_files(
-    manifest_dir: &Path,
-    paths: &[PathBuf],
-    role: &'static str,
-) -> BuildResult<Vec<PathBuf>> {
-    paths
-        .iter()
-        .map(|path| resolve_file(manifest_dir, path, role))
-        .collect()
-}
-
-/// Resolves multiple configured directory paths.
-fn resolve_directories(
-    manifest_dir: &Path,
-    paths: &[PathBuf],
-    role: &'static str,
-) -> BuildResult<Vec<PathBuf>> {
-    paths
-        .iter()
-        .map(|path| resolve_directory(manifest_dir, path, role))
-        .collect()
-}
-
-/// Ensures canonical configured paths are unique.
-pub fn ensure_unique_paths(paths: &[PathBuf], role: &'static str) -> BuildResult<()> {
-    let mut seen_paths = HashSet::new();
-
-    for path in paths {
-        if !seen_paths.insert(path.clone()) {
-            return Err(BuildError::DuplicateConfiguredPath {
-                role,
-                path: path.clone(),
-            });
-        }
-    }
-
-    Ok(())
-}
-
-/// Emits Cargo rebuild dependencies.
-fn emit_rerun_directives(
-    sources: &[PathBuf],
-    bridge: &Path,
-    cpp_sources: &[PathBuf],
-    cpp_include_dirs: &[PathBuf],
-) {
-    for path in sources {
-        println!("cargo::rerun-if-changed={}", path.display());
-    }
-
-    println!("cargo::rerun-if-changed={}", bridge.display());
-
-    for path in cpp_sources {
-        println!("cargo::rerun-if-changed={}", path.display());
-    }
-
-    // Watching the include directory also tracks headers below it.
-    for path in cpp_include_dirs {
-        println!("cargo::rerun-if-changed={}", path.display());
-    }
-
-    println!("cargo::rerun-if-env-changed=VERILATOR");
-    println!("cargo::rerun-if-env-changed=VERILATOR_ROOT");
-}
-
-/// Compiles the CXX bridge, adapter, Verilated model, and runtime.
-fn compile_native_sources(
-    name: &str,
-    bridge: &Path,
-    cpp_sources: &[PathBuf],
-    cpp_include_dirs: &[PathBuf],
-    verilated_dir: &Path,
-    verilator_root: &Path,
-    generated_sources: &[PathBuf],
-) -> BuildResult<()> {
-    let verilator_include = verilator_root.join("include");
-    let runtime_source = verilator_include.join("verilated.cpp");
-
-    if !runtime_source.exists() {
-        return Err(BuildError::MissingRuntimeSource {
-            path: runtime_source,
-        });
-    }
-
-    let mut build = cxx_build::bridge(bridge);
-
-    build
-        .include(verilated_dir)
-        .include(&verilator_include)
-        .include(verilator_include.join("vltstd"))
-        .std("c++17");
-
-    for include_dir in cpp_include_dirs {
-        build.include(include_dir);
-    }
-
-    for source in cpp_sources {
-        build.file(source);
-    }
-
-    for source in generated_sources {
-        build.file(source);
-    }
-
-    build.file(runtime_source);
-
-    let thread_runtime = verilator_include.join("verilated_threads.cpp");
-
-    if thread_runtime.exists() {
-        build.file(thread_runtime);
-    }
-
-    #[cfg(unix)]
-    {
-        build.flag_if_supported("-pthread");
-        println!("cargo::rustc-link-lib=pthread");
-    }
-
-    let library_name = format!("vvm_{name}");
-    build.compile(&library_name);
-
-    Ok(())
-}
-
 /// Checks whether a name can be safely used as a C++ identifier.
 ///
 /// # Errors
-/// Returns [`BuildError::InvalidIdentifier`] if:
-/// - identifier starts with a non alphabetic character,
-/// - identifier contains invalid characters (only ASCII alphanumeric + '_' allowed).
+/// Returns [`BuildError::InvalidIdentifier`] if the identifier is empty or not ASCII C/C++-style.
 pub fn validate_identifier(field: &'static str, value: &str) -> BuildResult<()> {
     let mut characters = value.chars();
 
@@ -386,7 +350,6 @@ pub fn validate_identifier(field: &'static str, value: &str) -> BuildResult<()> 
     };
 
     let valid_first = first == '_' || first.is_ascii_alphabetic();
-
     let valid_remaining =
         characters.all(|character| character == '_' || character.is_ascii_alphanumeric());
 
@@ -398,4 +361,43 @@ pub fn validate_identifier(field: &'static str, value: &str) -> BuildResult<()> 
         field,
         value: value.to_owned(),
     })
+}
+
+/// Validates configured HDL definitions.
+pub fn validate_defines(defines: &[Define]) -> BuildResult<()> {
+    let mut seen_names = std::collections::HashSet::new();
+
+    for define in defines {
+        validate_identifier("HDL definition", &define.name)?;
+
+        if !seen_names.insert(define.name.clone()) {
+            return Err(BuildError::DuplicateDefine {
+                name: define.name.clone(),
+            });
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+impl Define {
+    pub(crate) fn new(name: &str, value: Option<&str>) -> Self {
+        Self {
+            name: name.to_owned(),
+            value: value.map(str::to_owned),
+        }
+    }
+}
+
+#[cfg(test)]
+impl DutBuilder {
+    pub(crate) fn defines_slice(&self) -> &[Define] {
+        &self.defines
+    }
+}
+
+#[cfg(test)]
+pub const fn minimum_supported_version() -> crate::verilator::VerilatorVersion {
+    verilator::minimum_supported_version()
 }

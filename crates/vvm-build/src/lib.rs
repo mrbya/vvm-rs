@@ -65,10 +65,16 @@
 
 /// Verilator DUT build configuration.
 pub(crate) mod builder;
+/// Rerun-if directives.
+pub(crate) mod cargo;
 /// Checked external command execution.
 pub(crate) mod command;
 /// Build error definitions.
 pub(crate) mod error;
+/// cxx-build/native source compilation.
+pub(crate) mod native;
+/// Path resolution, validation and deduplication.
+pub(crate) mod paths;
 /// Verilator discovery and model generation.
 pub(crate) mod verilator;
 

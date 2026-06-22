@@ -34,6 +34,13 @@ pub enum BuildError {
         value: String,
     },
 
+    /// The same HDL definition was configured more than once.
+    #[error("HDL definition `{name}` was configured more than once")]
+    DuplicateDefine {
+        /// Duplicate definition name.
+        name: String,
+    },
+
     /// A configured path does not exist.
     #[error("configured {role} `{path}` does not exist")]
     MissingConfiguredPath {
@@ -139,6 +146,23 @@ pub enum BuildError {
         /// UTF-8 conversion error.
         #[source]
         source: FromUtf8Error,
+    },
+
+    /// Verilator returned a version string that could not be parsed.
+    #[error("could not parse Verilator version from `{output}`")]
+    InvalidVerilatorVersion {
+        /// Unparseable command output.
+        output: String,
+    },
+
+    /// The selected Verilator version is unsupported.
+    #[error("Verilator {found} is unsupported; VVM requires at least {minimum}")]
+    UnsupportedVerilatorVersion {
+        /// Detected version.
+        found: String,
+
+        /// Minimum supported version.
+        minimum: String,
     },
 
     /// Verilator returned an empty installation root.

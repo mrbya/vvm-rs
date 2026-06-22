@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::{env, fs};
 
 use crate::error::{BuildError, BuildResult};
-use crate::{cargo, native, paths, verilator};
+use crate::{cargo, codegen, native, paths, verilator};
 
 /// HDL preprocessor definition configuration.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -227,6 +227,7 @@ impl DutBuilder {
         let dut_output_dir = out_dir.join("vvm").join(&self.name);
         let verilated_dir = dut_output_dir.join("verilated");
         let metadata_dir = dut_output_dir.join("metadata");
+        let generated_dir = dut_output_dir.join("generated");
 
         create_directory(&verilated_dir)?;
         create_directory(&metadata_dir)?;
@@ -238,9 +239,9 @@ impl DutBuilder {
             "HDL include directory",
         )?;
         let bridge = paths::resolve_file(&manifest_dir, &bridge, "CXX bridge source")?;
-        let cpp_sources =
+        let mut cpp_sources =
             paths::resolve_files(&manifest_dir, &self.cpp_sources, "C++ source file")?;
-        let cpp_include_dirs = paths::resolve_directories(
+        let mut cpp_include_dirs = paths::resolve_directories(
             &manifest_dir,
             &self.cpp_include_dirs,
             "C++ include directory",
@@ -292,6 +293,11 @@ impl DutBuilder {
 
         let dut_metadata = crate::metadata::normalize(&self.name, &top_module, &raw_metadata)?;
         crate::metadata::validate_supported(&dut_metadata)?;
+
+        let generated_adapter =
+            codegen::generate_cpp_adapter(&dut_metadata, &model_prefix, &generated_dir)?;
+        cpp_sources.push(generated_adapter.source);
+        cpp_include_dirs.push(generated_adapter.include_dir);
 
         let verilator_root = verilator::root(&executable)?;
 

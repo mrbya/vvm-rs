@@ -600,53 +600,53 @@ pub enum PortDirection {
 }
 ```
 
-- [ ] Define normalized metadata types.
-- [ ] Keep raw JSON structures private.
-- [ ] Preserve HDL names and port order.
-- [ ] Validate unique port names.
-- [ ] Represent widths with a non-zero type.
-- [ ] Record signedness.
-- [ ] Record dimensions and aggregate kinds.
-- [ ] Separate parse errors from unsupported-feature errors.
+- [x] Define normalized metadata types.
+- [x] Keep raw JSON structures private.
+- [x] Preserve HDL names and port order.
+- [x] Validate unique port names.
+- [x] Represent widths with a non-zero type.
+- [x] Record signedness.
+- [x] Record dimensions and aggregate kinds.
+- [x] Separate parse errors from unsupported-feature errors.
 
 ## Initially supported
 
-- [ ] One-bit inputs.
-- [ ] One-bit outputs.
-- [ ] Unsigned packed inputs from 2 to 64 bits.
-- [ ] Unsigned packed outputs from 2 to 64 bits.
+- [x] One-bit inputs.
+- [x] One-bit outputs.
+- [x] Unsigned packed inputs from 2 to 64 bits.
+- [x] Unsigned packed outputs from 2 to 64 bits.
 
 ## Initially rejected
 
-- [ ] Inout ports.
-- [ ] Signed ports.
-- [ ] Ports wider than 64 bits.
-- [ ] Unpacked arrays.
-- [ ] Packed structs and unions.
-- [ ] Interfaces.
-- [ ] Real-valued ports.
-- [ ] Unsupported four-state representations.
+- [x] Inout ports.
+- [x] Signed ports.
+- [x] Ports wider than 64 bits.
+- [x] Unpacked arrays.
+- [x] Packed structs and unions.
+- [x] Interfaces.
+- [x] Real-valued ports.
+- [x] Unsupported four-state representations.
 
 Every rejection should name the signal and explain why it is unsupported.
 
 ## Parser fixtures
 
-- [ ] Store representative Verilator JSON fixtures.
-- [ ] Record the generating Verilator version.
-- [ ] Test parsing without requiring Verilator.
-- [ ] Test malformed JSON.
-- [ ] Test missing top-module metadata.
-- [ ] Test unsupported ports.
-- [ ] Test empty modules.
-- [ ] Test deterministic normalized output.
+- [x] Store representative Verilator JSON fixtures.
+- [x] Record the generating Verilator version.
+- [x] Test parsing without requiring Verilator.
+- [x] Test malformed JSON.
+- [x] Test missing top-module metadata.
+- [x] Test unsupported ports.
+- [x] Test empty modules.
+- [x] Test deterministic normalized output.
 
 ## Acceptance criteria
 
-- [ ] Counter metadata contains `clk`, `reset_n`, `enable`, and `count`.
-- [ ] Directions and widths are correct.
-- [ ] Parser tests run without Verilator.
-- [ ] Unsupported constructs fail with precise diagnostics.
-- [ ] The handwritten bridge remains in use for this milestone.
+- [x] Counter metadata contains `clk`, `reset_n`, `enable`, and `count`.
+- [x] Directions and widths are correct.
+- [x] Parser tests run without Verilator.
+- [x] Unsupported constructs fail with precise diagnostics.
+- [x] The handwritten bridge remains in use for this milestone.
 
 ---
 

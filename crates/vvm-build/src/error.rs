@@ -379,4 +379,24 @@ pub enum BuildError {
         /// Current supported maximum.
         maximum: u32,
     },
+
+    /// A metadata name cannot be represented by the initial generator.
+    #[error("cannot generate {role} from `{name}`: {reason}")]
+    UnsupportedCodegenName {
+        /// Role of the problematic name.
+        role: &'static str,
+
+        /// Original metadata name.
+        name: String,
+
+        /// Reason generation is impossible.
+        reason: &'static str,
+    },
+
+    /// Two generated adapter operations would use the same C++ name.
+    #[error("generated C++ member name `{name}` is produced more than once")]
+    GeneratedNameCollision {
+        /// Ambiguous generated name.
+        name: String,
+    },
 }

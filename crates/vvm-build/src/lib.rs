@@ -52,7 +52,6 @@
     clippy::rest_pat_in_fully_bound_structs,
     clippy::same_name_method,
     clippy::self_named_module_files,
-    clippy::separated_literal_suffix,
     clippy::shadow_unrelated,
     clippy::str_to_string,
     clippy::string_add,
@@ -67,6 +66,8 @@
 pub(crate) mod builder;
 /// Rerun-if directives.
 pub(crate) mod cargo;
+/// Adapter and CXX Bridge code generation orchestration.
+pub(crate) mod codegen;
 /// Checked external command execution.
 pub(crate) mod command;
 /// Build error definitions.

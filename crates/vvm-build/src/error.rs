@@ -182,4 +182,24 @@ pub enum BuildError {
         /// Missing runtime source path.
         path: PathBuf,
     },
+
+    /// Verilator did not produce an expected metadata output.
+    #[error("Verilator metadata generation did not produce {role} `{path}`")]
+    MissingMetadataOutput {
+        /// Purpose of the expected output.
+        role: &'static str,
+
+        /// Expected metadata output path.
+        path: PathBuf,
+    },
+
+    /// Verilator metadata output exists but is not a regular file.
+    #[error("Verilator metadata generation produced non-file {role} `{path}`")]
+    MetadataOutputNotFile {
+        /// Purpose of the expected output.
+        role: &'static str,
+
+        /// Invalid metadata output path.
+        path: PathBuf,
+    },
 }

@@ -75,7 +75,7 @@ pub(crate) mod error;
 pub(crate) mod native;
 /// Path resolution, validation and deduplication.
 pub(crate) mod paths;
-/// Verilator discovery and model generation.
+/// Verilator discovery, metadata and model generation.
 pub(crate) mod verilator;
 
 // Re-exports

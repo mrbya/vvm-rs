@@ -210,21 +210,13 @@ pub fn model_command(model: &ModelCommand<'_>) -> Command {
         .arg(model.output_dir)
         .arg("--emit-accessors");
 
-    for include_dir in model.hdl_include_dirs {
-        command.arg(include_argument(include_dir));
-    }
-
-    for define in model.defines {
-        command.arg(define_argument(define));
-    }
-
-    for argument in model.extra_arguments {
-        command.arg(argument);
-    }
-
-    for source in model.sources {
-        command.arg(source);
-    }
+    append_hdl_arguments(
+        &mut command,
+        model.hdl_include_dirs,
+        model.defines,
+        model.extra_arguments,
+        model.sources,
+    );
 
     command
 }
@@ -277,4 +269,174 @@ pub fn generated_sources(output_dir: &Path, model_prefix: &str) -> BuildResult<V
     }
 
     Ok(sources)
+}
+
+/// Inputs needed to construct and/or run  Verilator metadata generation.
+#[derive(Debug)]
+pub struct MetadataCommand<'a> {
+    /// Verilator executable name or path.
+    pub executable: &'a OsStr,
+
+    /// HDL top module name.
+    pub top_module: &'a str,
+
+    /// Main `.tree.json` output path.
+    pub output: &'a Path,
+
+    /// Companion `.tree.meta.json` output path.
+    pub meta_output: &'a Path,
+
+    /// HDL include directories.
+    pub hdl_include_dirs: &'a [PathBuf],
+
+    /// HDL preprocessor definitions.
+    pub defines: &'a [Define],
+
+    /// Additional raw Verilator arguments.
+    pub extra_arguments: &'a [OsString],
+
+    /// HDL source files.
+    pub sources: &'a [PathBuf],
+}
+
+/// Files produced by Verilator metadata generation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MetadataFiles {
+    /// Main AST json file.
+    pub tree: PathBuf,
+    /// Companion metadata json file.
+    pub meta: PathBuf,
+}
+
+/// Builds the Verilator JSON metadata-generation command.
+#[must_use]
+pub fn metadata_command(metadata: &MetadataCommand<'_>) -> Command {
+    let mut command = Command::new(metadata.executable);
+
+    command
+        .arg("--json-only")
+        .arg("--json-only-output")
+        .arg(metadata.output)
+        .arg("--json-only-meta-output")
+        .arg(metadata.meta_output)
+        .arg("--no-json-edit-nums")
+        .arg("--top-module")
+        .arg(metadata.top_module);
+
+    append_hdl_arguments(
+        &mut command,
+        metadata.hdl_include_dirs,
+        metadata.defines,
+        metadata.extra_arguments,
+        metadata.sources,
+    );
+
+    command
+}
+
+/// Invokes Verilator to generate JSON metadata.
+///
+/// # Errors
+///
+/// Returns [`BuildError`] if the command fails or either expected
+/// metadata output is not produced as a regular file.
+pub fn generate_metadata(metadata: &MetadataCommand<'_>) -> BuildResult<MetadataFiles> {
+    remove_stale_metadata_output(metadata.output)?;
+    remove_stale_metadata_output(metadata.meta_output)?;
+
+    let mut command = metadata_command(metadata);
+
+    command::run(&mut command, "verilator metadata generation")?;
+
+    ensure_metadata_output(metadata.output, "AST metadata output")?;
+
+    ensure_metadata_output(metadata.meta_output, "AST file metadata output")?;
+
+    Ok(MetadataFiles {
+        tree: metadata.output.to_path_buf(),
+        meta: metadata.meta_output.to_path_buf(),
+    })
+}
+
+/// Verifies that Verilator produced a regular metadata file.
+pub fn ensure_metadata_output(path: &Path, role: &'static str) -> BuildResult<()> {
+    let metadata = match fs::metadata(path) {
+        Ok(metadata) => metadata,
+        Err(source) if source.kind() == std::io::ErrorKind::NotFound => {
+            return Err(BuildError::MissingMetadataOutput {
+                role,
+                path: path.to_path_buf(),
+            });
+        }
+        Err(source) => {
+            return Err(BuildError::Io {
+                operation: "inspect generated metadata output",
+                path: path.to_path_buf(),
+                source,
+            });
+        }
+    };
+
+    if !metadata.is_file() {
+        return Err(BuildError::MetadataOutputNotFile {
+            role,
+            path: path.to_path_buf(),
+        });
+    }
+
+    Ok(())
+}
+
+/// Removes an existing regular metadata output file.
+fn remove_stale_metadata_output(path: &Path) -> BuildResult<()> {
+    let metadata = match fs::metadata(path) {
+        Ok(metadata) => metadata,
+        Err(source) if source.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(());
+        }
+        Err(source) => {
+            return Err(BuildError::Io {
+                operation: "inspect stale metadata output",
+                path: path.to_path_buf(),
+                source,
+            });
+        }
+    };
+
+    // Leave non-file paths in place. The command or the postcondition
+    // validation will then produce a meaningful failure.
+    if !metadata.is_file() {
+        return Ok(());
+    }
+
+    fs::remove_file(path).map_err(|source| BuildError::Io {
+        operation: "remove stale metadata output",
+        path: path.to_path_buf(),
+        source,
+    })
+}
+
+/// Appends shared HDL elaboration arguments to a Verilator command.
+fn append_hdl_arguments(
+    command: &mut Command,
+    hdl_include_dirs: &[PathBuf],
+    defines: &[Define],
+    extra_arguments: &[OsString],
+    sources: &[PathBuf],
+) {
+    for include_dir in hdl_include_dirs {
+        command.arg(include_argument(include_dir));
+    }
+
+    for define in defines {
+        command.arg(define_argument(define));
+    }
+
+    for argument in extra_arguments {
+        command.arg(argument);
+    }
+
+    for source in sources {
+        command.arg(source);
+    }
 }

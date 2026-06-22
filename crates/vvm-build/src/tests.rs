@@ -10,8 +10,9 @@ use crate::builder::{
 use crate::error::BuildError;
 use crate::paths::{ensure_unique_paths, resolve_directory, resolve_file};
 use crate::verilator::{
-    ModelCommand, VerilatorVersion, define_argument, ensure_supported_version, generated_sources,
-    include_argument, model_command, parse_version, select_executable,
+    MetadataCommand, ModelCommand, VerilatorVersion, define_argument, ensure_metadata_output,
+    ensure_supported_version, generated_sources, include_argument, metadata_command, model_command,
+    parse_version, select_executable,
 };
 
 fn touch(path: &Path) -> std::io::Result<()> {
@@ -570,5 +571,122 @@ fn returns_io_error_for_unreadable_generated_source_directory_input()
         generated_sources(&file_path, "Vcounter"),
         Err(BuildError::Io { .. })
     ));
+    Ok(())
+}
+
+#[test]
+fn constructs_metadata_command_in_expected_order() {
+    let executable = OsStr::new("verilator");
+    let output = Path::new("/tmp/out/counter.tree.json");
+    let meta_output = Path::new("/tmp/out/counter.tree.meta.json");
+
+    let hdl_includes = vec![
+        PathBuf::from("/rtl/include-a"),
+        PathBuf::from("/rtl/include b"),
+    ];
+
+    let defines = vec![
+        Define::new("WIDTH", Some("8")),
+        Define::new("VVM_TEST", None),
+    ];
+
+    let extra_arguments = vec![
+        OsString::from("--Wall"),
+        OsString::from("--language"),
+        OsString::from("1800-2017"),
+    ];
+
+    let sources = vec![
+        PathBuf::from("/rtl/package.sv"),
+        PathBuf::from("/rtl/counter.sv"),
+    ];
+
+    let metadata = MetadataCommand {
+        executable,
+        top_module: "counter",
+        output,
+        meta_output,
+        hdl_include_dirs: &hdl_includes,
+        defines: &defines,
+        extra_arguments: &extra_arguments,
+        sources: &sources,
+    };
+
+    let command = metadata_command(&metadata);
+
+    assert_eq!(command.get_program(), OsStr::new("verilator"));
+
+    let actual = command.get_args().map(OsStr::to_owned).collect::<Vec<_>>();
+
+    let expected = vec![
+        OsString::from("--json-only"),
+        OsString::from("--json-only-output"),
+        output.as_os_str().to_owned(),
+        OsString::from("--json-only-meta-output"),
+        meta_output.as_os_str().to_owned(),
+        OsString::from("--no-json-edit-nums"),
+        OsString::from("--top-module"),
+        OsString::from("counter"),
+        OsString::from("-I/rtl/include-a"),
+        OsString::from("-I/rtl/include b"),
+        OsString::from("-DWIDTH=8"),
+        OsString::from("-DVVM_TEST"),
+        OsString::from("--Wall"),
+        OsString::from("--language"),
+        OsString::from("1800-2017"),
+        OsString::from("/rtl/package.sv"),
+        OsString::from("/rtl/counter.sv"),
+    ];
+
+    assert_eq!(actual, expected);
+}
+
+#[test]
+fn accepts_existing_metadata_output_file() -> Result<(), Box<dyn std::error::Error>> {
+    let directory = tempdir()?;
+    let output = directory.path().join("counter.tree.json");
+
+    touch(&output)?;
+
+    ensure_metadata_output(&output, "AST metadata output")?;
+
+    Ok(())
+}
+
+#[test]
+fn rejects_missing_metadata_output() -> Result<(), Box<dyn std::error::Error>> {
+    let directory = tempdir()?;
+    let output = directory.path().join("missing.tree.json");
+
+    let result = ensure_metadata_output(&output, "AST metadata output");
+
+    assert!(matches!(
+        result,
+        Err(BuildError::MissingMetadataOutput {
+            role: "AST metadata output",
+            ..
+        })
+    ));
+
+    Ok(())
+}
+
+#[test]
+fn rejects_directory_as_metadata_output() -> Result<(), Box<dyn std::error::Error>> {
+    let directory = tempdir()?;
+    let output = directory.path().join("counter.tree.json");
+
+    fs::create_dir_all(&output)?;
+
+    let result = ensure_metadata_output(&output, "AST metadata output");
+
+    assert!(matches!(
+        result,
+        Err(BuildError::MetadataOutputNotFile {
+            role: "AST metadata output",
+            ..
+        })
+    ));
+
     Ok(())
 }

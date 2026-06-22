@@ -226,8 +226,10 @@ impl DutBuilder {
         let model_prefix = format!("V{}", self.name);
         let dut_output_dir = out_dir.join("vvm").join(&self.name);
         let verilated_dir = dut_output_dir.join("verilated");
+        let metadata_dir = dut_output_dir.join("metadata");
 
         create_directory(&verilated_dir)?;
+        create_directory(&metadata_dir)?;
 
         let sources = paths::resolve_files(&manifest_dir, &self.sources, "HDL source file")?;
         let hdl_include_dirs = paths::resolve_directories(
@@ -264,6 +266,23 @@ impl DutBuilder {
 
         let version = verilator::version(&executable)?;
         verilator::ensure_supported_version(version)?;
+
+        let metadata_output = metadata_dir.join(format!("{}.tree.json", self.name));
+
+        let metadata_meta_output = metadata_dir.join(format!("{}.tree.meta.json", self.name));
+
+        let metadata_command = verilator::MetadataCommand {
+            executable: &executable,
+            top_module: &top_module,
+            output: &metadata_output,
+            meta_output: &metadata_meta_output,
+            hdl_include_dirs: &hdl_include_dirs,
+            defines: &self.defines,
+            extra_arguments: &self.verilator_arguments,
+            sources: &sources,
+        };
+
+        verilator::generate_metadata(&metadata_command)?;
 
         let verilator_root = verilator::root(&executable)?;
 

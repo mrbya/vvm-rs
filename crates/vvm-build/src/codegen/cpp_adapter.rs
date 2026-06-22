@@ -136,6 +136,7 @@ fn render_source(metadata: &DutMetadata, names: &DutNames) -> String {
     push_line(&mut output, "");
     push_line(&mut output, "#include <cstdint>");
     push_line(&mut output, "#include <memory>");
+    push_line(&mut output, "#include <type_traits>");
     push_line(&mut output, "");
     push_line(
         &mut output,
@@ -169,10 +170,11 @@ fn render_source(metadata: &DutMetadata, names: &DutNames) -> String {
         push_line(
             &mut output,
             &format!(
-                "            auto raw_value = static_cast<decltype(model->{}())>(0);",
+                "            using RawType = std::decay_t<decltype(model->{}())>;",
                 port_names.accessor
             ),
         );
+        push_line(&mut output, "            RawType raw_value{0};");
         push_line(
             &mut output,
             &format!("            model->{}(raw_value);", port_names.accessor),
@@ -299,9 +301,12 @@ fn render_setter(output: &mut String, port: &Port, method: &str, accessor: &str,
     );
     push_line(
         output,
-        &format!(
-            "    auto raw_value = static_cast<decltype(impl_->model->{accessor}())>({value_expression});"
-        ),
+        &format!("    using RawType = std::decay_t<decltype(impl_->model->{accessor}())>;"),
+    );
+    push_line(output, "");
+    push_line(
+        output,
+        &format!("    RawType raw_value{{static_cast<RawType>({value_expression})}};"),
     );
     push_line(output, &format!("    impl_->model->{accessor}(raw_value);"));
     push_line(output, "}");

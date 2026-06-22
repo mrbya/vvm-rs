@@ -80,8 +80,7 @@ pub fn resolve(metadata: &DutMetadata, model_prefix: &str) -> BuildResult<DutNam
             PortDirection::Input => {
                 format!("set_{}", port.name)
             }
-            PortDirection::Output => port.name.clone(),
-            PortDirection::Inout => port.name.clone(),
+            PortDirection::Output | PortDirection::Inout => port.name.clone(),
         };
 
         validate_cpp_identifier("C++ adapter method", &method)?;
@@ -129,7 +128,7 @@ fn validate_cpp_identifier(role: &'static str, name: &str) -> BuildResult<()> {
     Ok(())
 }
 
-/// Converts an underscore-separated identifier to PascalCase.
+/// Converts an underscore-separated identifier to `PascalCase`.
 fn to_pascal_case(identifier: &str) -> String {
     let mut result = String::new();
     let mut uppercase_next = true;

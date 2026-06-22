@@ -1,0 +1,34 @@
+#pragma once
+
+#include <cstdint>
+#include <memory>
+
+namespace vvm::counter {
+
+class Counter final {
+public:
+    Counter();
+    ~Counter() noexcept;
+
+    Counter(const Counter&) = delete;
+    Counter& operator=(const Counter&) = delete;
+
+    Counter(Counter&&) = delete;
+    Counter& operator=(Counter&&) = delete;
+
+    void eval() noexcept;
+    void finish() noexcept;
+
+    void set_clk(bool value) noexcept;
+    void set_reset_n(bool value) noexcept;
+    void set_enable(bool value) noexcept;
+    [[nodiscard]] std::uint8_t count() const noexcept;
+
+private:
+    class Impl;
+    std::unique_ptr<Impl> impl_;
+};
+
+[[nodiscard]] std::unique_ptr<Counter> create_counter() noexcept;
+
+} // namespace vvm::counter

@@ -54,3 +54,56 @@ pub fn generate_cpp_adapter(
         source,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use tempfile::tempdir;
+
+    use super::generate_cpp_adapter;
+    use crate::metadata::{RawMetadata, normalize};
+    use crate::verilator::VerilatorVersion;
+
+    #[test]
+    fn generates_expected_counter_adapter() -> Result<(), Box<dyn std::error::Error>> {
+        let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+
+        let metadata_fixture = manifest
+            .join("tests")
+            .join("fixtures")
+            .join("verilator")
+            .join("5.048")
+            .join("counter");
+
+        let raw = RawMetadata::from_paths(
+            VerilatorVersion::new(5, 48),
+            &metadata_fixture.join("counter.tree.json"),
+            &metadata_fixture.join("counter.tree.meta.json"),
+        )?;
+
+        let metadata = normalize("counter", "counter", &raw)?;
+
+        let output = tempdir()?;
+
+        let generated = generate_cpp_adapter(&metadata, "Vcounter", output.path())?;
+
+        let expected_directory = manifest
+            .join("tests")
+            .join("fixtures")
+            .join("codegen")
+            .join("counter");
+
+        assert_eq!(
+            std::fs::read_to_string(output.path().join("counter.hpp"))?,
+            std::fs::read_to_string(expected_directory.join("counter.hpp"))?
+        );
+
+        assert_eq!(
+            std::fs::read_to_string(generated.source)?,
+            std::fs::read_to_string(expected_directory.join("counter.cpp"))?
+        );
+
+        Ok(())
+    }
+}

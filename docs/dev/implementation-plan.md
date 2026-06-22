@@ -1,7 +1,7 @@
 # VVM-rs Implementation Plan
 
-> **Project:** VVM-rs — Verilator Verification Methodology in Rust  
-> **Status:** Early bootstrap  
+> **Project:** VVM-rs — Verilator Verification Methodology in Rust
+> **Status:** Early bootstrap
 > **Primary goal:** Build ergonomic, strongly typed Rust testbenches for Verilator-generated HDL models.
 
 This document is the working roadmap for VVM-rs. Check tasks off as they are completed and update the milestone table after each meaningful change.
@@ -685,13 +685,13 @@ vvm-build/src/codegen/
 
 ## Naming rules
 
-- [ ] Convert HDL module names to safe Rust type names.
-- [ ] Convert HDL port names to safe Rust method names.
-- [ ] Preserve original names in metadata.
-- [ ] Handle Rust and C++ keywords.
-- [ ] Reject irreconcilable naming collisions.
-- [ ] Use deterministic generated symbols.
-- [ ] Avoid exposing Verilator naming conventions.
+- [x] Convert HDL module names to safe Rust type names.
+- [x] Convert HDL port names to safe Rust method names.
+- [x] Preserve original names in metadata.
+- [x] Handle Rust and C++ keywords.
+- [x] Reject irreconcilable naming collisions.
+- [x] Use deterministic generated symbols.
+- [x] Avoid exposing Verilator naming conventions.
 
 ## Initial signal mapping
 
@@ -703,59 +703,59 @@ vvm-build/src/codegen/
 | 17–32 | `std::uint32_t` | `u32` |
 | 33–64 | `std::uint64_t` | `u64` |
 
-- [ ] Implement width-to-C++ mapping.
-- [ ] Implement width-to-Rust mapping.
-- [ ] Decide whether narrow input values are masked or rejected.
-- [ ] Document the chosen behavior.
-- [ ] Unit-test all boundary widths.
+- [x] Implement width-to-C++ mapping.
+- [x] Implement width-to-Rust mapping.
+- [x] Decide whether narrow input values are masked or rejected.
+- [x] Document the chosen behavior.
+- [x] Unit-test all boundary widths.
 
 ## Generated C++ adapter
 
-- [ ] Generate a PIMPL-based header.
-- [ ] Generate model/context ownership.
-- [ ] Generate construction.
-- [ ] Generate `eval()` and `finish()`.
-- [ ] Generate destructor finalization.
-- [ ] Generate setters only for inputs.
-- [ ] Generate getters only for outputs.
-- [ ] Use Verilator accessors where practical.
-- [ ] Prevent exceptions from crossing the bridge.
+- [x] Generate a PIMPL-based header.
+- [x] Generate model/context ownership.
+- [x] Generate construction.
+- [x] Generate `eval()` and `finish()`.
+- [x] Generate destructor finalization.
+- [x] Generate setters only for inputs.
+- [x] Generate getters only for outputs.
+- [x] Use Verilator accessors where practical.
+- [x] Prevent exceptions from crossing the bridge.
 
 ## Generated CXX bridge
 
-- [ ] Generate the namespace.
-- [ ] Generate the opaque DUT declaration.
-- [ ] Generate construction and lifecycle methods.
-- [ ] Generate mutable input setters.
-- [ ] Generate immutable output getters.
-- [ ] Include the generated adapter header.
-- [ ] Keep the raw bridge module private.
+- [x] Generate the namespace.
+- [x] Generate the opaque DUT declaration.
+- [x] Generate construction and lifecycle methods.
+- [x] Generate mutable input setters.
+- [x] Generate immutable output getters.
+- [x] Include the generated adapter header.
+- [x] Keep the raw bridge module private.
 
 ## Generated Rust wrapper
 
-- [ ] Generate a public safe DUT type.
-- [ ] Hide `UniquePtr`, `Pin`, and raw FFI details.
-- [ ] Generate `new()`, `eval()`, and `finish()`.
-- [ ] Generate typed input setters.
-- [ ] Generate typed output getters.
-- [ ] Generate rustdoc from metadata.
+- [x] Generate a public safe DUT type.
+- [x] Hide `UniquePtr`, `Pin`, and raw FFI details.
+- [x] Generate `new()`, `eval()`, and `finish()`.
+- [x] Generate typed input setters.
+- [x] Generate typed output getters.
+- [x] Generate rustdoc from metadata.
 - [ ] Add narrow lint allowances for generated code.
 
 ## Build topology spike
 
-- [ ] Write the bridge source under `OUT_DIR`.
-- [ ] Process it with `cxx_build::bridge()`.
-- [ ] Compile the same generated bridge through `include!`.
-- [ ] Make CXX-generated headers visible to the adapter.
-- [ ] Verify incremental rebuild behavior.
-- [ ] Verify deterministic generated source.
+- [x] Write the bridge source under `OUT_DIR`.
+- [x] Process it with `cxx_build::bridge()`.
+- [x] Compile the same generated bridge through `include!`.
+- [x] Make CXX-generated headers visible to the adapter.
+- [x] Verify incremental rebuild behavior.
+- [x] Verify deterministic generated source.
 
 ## Acceptance criteria
 
-- [ ] Counter contains no handwritten C++.
-- [ ] Counter contains no handwritten CXX bridge.
-- [ ] Generated behavior matches the handwritten version.
-- [ ] Generated-code snapshot tests exist.
+- [x] Counter contains no handwritten C++.
+- [x] Counter contains no handwritten CXX bridge.
+- [x] Generated behavior matches the handwritten version.
+- [x] Generated-code snapshot tests exist.
 - [ ] Unsupported ports fail before native compilation.
 
 ---

@@ -203,7 +203,7 @@ pub enum BuildError {
         path: PathBuf,
     },
 
-    /// A generated metadata file cound not be opened or read.
+    /// A generated metadata file could not be opened or read.
     #[error("failed to read {role} `{path}`")]
     MetadataRead {
         /// Metadata document role.

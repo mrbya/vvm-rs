@@ -38,7 +38,7 @@ impl RawMetadata {
     ///
     /// Returns an error if either file cannot be read, contains invalid JSON,
     /// or does not have the expected outer document shape.
-    pub(crate) fn from_paths(
+    pub fn from_paths(
         version: VerilatorVersion,
         tree_path: &Path,
         meta_path: &Path,
@@ -55,17 +55,17 @@ impl RawMetadata {
     }
 
     /// Returns the producing verilator version.
-    pub(crate) const fn version(&self) -> VerilatorVersion {
+    pub const fn version(&self) -> VerilatorVersion {
         self.version
     }
 
     /// Return the main AST document path.
-    pub(crate) fn tree_path(&self) -> &Path {
+    pub fn tree_path(&self) -> &Path {
         &self.tree.path
     }
 
     /// Returns the main AST root.
-    pub(crate) const fn tree_root(&self) -> &Map<String, Value> {
+    pub const fn tree_root(&self) -> &Map<String, Value> {
         &self.tree.root
     }
 
@@ -91,7 +91,7 @@ impl RawMetadata {
 
         // Keep the producing version associated with the documents. It will
         // become relevant if normalization needs version-specific handling.
-        let _ = self.version;
+        let _ = self.version();
 
         Ok(())
     }
@@ -342,10 +342,11 @@ mod tests {
             Some("NETLIST")
         );
 
-        assert!(raw
-            .meta_root()
-            .get("files")
-            .is_some_and(serde_json::Value::is_object));
+        assert!(
+            raw.meta_root()
+                .get("files")
+                .is_some_and(serde_json::Value::is_object)
+        );
 
         Ok(())
     }

@@ -284,11 +284,14 @@ impl DutBuilder {
 
         let metadata_files = verilator::generate_metadata(&metadata_command)?;
 
-        let _raw_metadata = crate::metadata::RawMetadata::from_paths(
+        let raw_metadata = crate::metadata::RawMetadata::from_paths(
             version,
             &metadata_files.tree,
             &metadata_files.meta,
         )?;
+
+        let dut_metadata = crate::metadata::normalize(&self.name, &top_module, &raw_metadata)?;
+        crate::metadata::validate_supported(&dut_metadata)?;
 
         let verilator_root = verilator::root(&executable)?;
 

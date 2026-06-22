@@ -6,4 +6,6 @@ pub mod normalize;
 pub mod raw;
 
 // Re-exports
+pub use model::{BitWidth, DutMetadata, Port, PortDirection};
+pub use normalize::{normalize, validate_supported};
 pub use raw::RawMetadata;

@@ -1,99 +1,75 @@
 //! Manual simulation using the generated Verilated counter wrapper.
 
+use vvm_core::{Drive, Dut, ExactScoreboard, ReferenceModel, Sample, Scoreboard};
+
+use crate::generated::Counter;
+use crate::verification::{CounterObservation, CounterReferenceModel, Result, counter_sequence};
+
 /// Generated DUT wrapper.
 mod generated {
     include!(concat!(env!("OUT_DIR"), "/vvm/counter/generated/dut.rs"));
 }
-
-use generated::{Counter, CounterError, Result};
+/// Counter-specific verification setup.
+mod verification;
 
 fn main() -> Result<()> {
-    let mut counter = Counter::new()?;
-    let mut cycle: u8 = 0;
+    run_simulation()
+}
 
-    counter.set_clk(false)?;
-    counter.set_reset_n(false)?;
-    counter.set_enable(false)?;
-    counter.eval()?;
-    print_count(cycle, "reset low", counter.count()?);
-    expect_count(&counter, 0, "count must stay zero while reset is asserted")?;
+/// Runs the explicit counter verification loop.
+fn run_simulation() -> Result<()> {
+    let mut dut = Counter::new()?;
+    let mut reference_model = CounterReferenceModel::default();
+    let mut scoreboard = ExactScoreboard;
 
-    counter.set_clk(true)?;
-    counter.eval()?;
-    print_count(cycle, "reset rising edge", counter.count()?);
-    expect_count(&counter, 0, "count must stay zero on the reset edge")?;
+    for (cycle, stimulus) in counter_sequence().enumerate() {
+        // 1. Drive clock low.
+        dut.set_clk(false)?;
 
-    counter.set_clk(false)?;
-    counter.set_reset_n(true)?;
-    counter.set_enable(true)?;
-    counter.eval()?;
+        // 2. Drive stimulus.
+        stimulus.drive(&mut dut)?;
 
-    for expected in 1..=3 {
-        cycle = cycle.saturating_add(1);
+        // 3. Evaluate low phase.
+        Dut::evaluate(&mut dut)?;
 
-        counter.set_clk(true)?;
-        counter.eval()?;
-        print_count(cycle, "enabled rising edge", counter.count()?);
-        expect_count(
-            &counter,
-            expected,
-            "count must increment on enabled rising edges",
-        )?;
+        // 4. Drive the active edge.
+        dut.set_clk(true)?;
 
-        counter.set_clk(false)?;
-        counter.eval()?;
-        print_count(cycle, "enabled falling edge", counter.count()?);
-        expect_count(
-            &counter,
-            expected,
-            "count must remain stable between rising edges",
-        )?;
+        // 5. Evaluate active edge.
+        Dut::evaluate(&mut dut)?;
+
+        // 6. Sample post-edge outputs.
+        let observed = CounterObservation::sample(&dut)?;
+
+        // 7. Update the model for the active edge.
+        let expected = reference_model.predict(&stimulus);
+
+        // 8. Compare expected and observed state.
+        scoreboard.check(expected, observed)?;
+
+        println!(
+            "cycle {cycle:02}: stimulus={stimulus:?} expected={}, observed={}",
+            expected.count(),
+            observed.count(),
+        );
     }
 
-    counter.set_enable(false)?;
-    counter.eval()?;
+    Dut::finalize(&mut dut)?;
 
-    cycle = cycle.saturating_add(1);
-    counter.set_clk(true)?;
-    counter.eval()?;
-    print_count(cycle, "disabled rising edge", counter.count()?);
-    expect_count(&counter, 3, "count must not increment while disabled")?;
-
-    counter.set_clk(false)?;
-    counter.eval()?;
-    print_count(cycle, "disabled falling edge", counter.count()?);
-    expect_count(
-        &counter,
-        3,
-        "count must remain stable after a disabled cycle",
-    )?;
-
-    counter.finish()?;
-
-    println!("manual counter simulation completed successfully");
+    println!("manual counter verification completed successfully");
 
     Ok(())
-}
-
-/// Prints the observed count for a given simulation step.
-fn print_count(cycle: u8, phase: &str, count: u8) {
-    println!("cycle {cycle:02} {phase}: count={count}");
-}
-
-/// Checks the observed count against the expected value.
-fn expect_count(counter: &Counter, expected: u8, message: &'static str) -> Result<()> {
-    let actual = counter.count()?;
-
-    if actual == expected {
-        return Ok(());
-    }
-
-    Err(CounterError::Simulation { message })
 }
 
 #[cfg(test)]
 mod tests {
     use super::generated::{Counter, CounterError, Result};
+    use super::run_simulation;
+
+    #[test]
+    fn methodology_loop_verifies_counter() -> crate::verification::Result<()> {
+        run_simulation()
+    }
 
     #[test]
     fn constructs_generated_dut() -> Result<()> {

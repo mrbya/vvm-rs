@@ -411,7 +411,9 @@ name = "vvm-example-counter"
 version = "0.0.1"
 dependencies = [
  "cxx",
+ "thiserror",
  "vvm-build",
+ "vvm-core",
 ]
 
 [[package]]

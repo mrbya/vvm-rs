@@ -23,7 +23,7 @@ struct MockDut {
 impl Dut for MockDut {
     type Error = MockError;
 
-    fn eval(&mut self) -> Result<(), Self::Error> {
+    fn evaluate(&mut self) -> Result<(), Self::Error> {
         if self.finished {
             return Err(MockError::Finished);
         }
@@ -33,7 +33,7 @@ impl Dut for MockDut {
         Ok(())
     }
 
-    fn finish(&mut self) -> Result<(), Self::Error> {
+    fn finalize(&mut self) -> Result<(), Self::Error> {
         self.finished = true;
 
         Ok(())
@@ -97,7 +97,7 @@ fn drives_samples_and_checks_mock_dut() -> Result<(), MockError> {
     let mut scoreboard = ExactScoreboard;
 
     stimulus.drive(&mut dut)?;
-    Dut::eval(&mut dut)?;
+    Dut::evaluate(&mut dut)?;
 
     let observed = MockObservation::sample(&dut)?;
     let expected = model.predict(&stimulus);
@@ -106,9 +106,9 @@ fn drives_samples_and_checks_mock_dut() -> Result<(), MockError> {
         .check(expected, observed)
         .expect("SB check should pass");
 
-    Dut::finish(&mut dut)?;
+    Dut::finalize(&mut dut)?;
 
-    Dut::eval(&mut dut).expect_err("Dut should be finished");
+    Dut::evaluate(&mut dut).expect_err("Dut should be finished");
 
     Ok(())
 }

@@ -17,12 +17,6 @@ pub enum CounterError {
 
     /// The internal native adapter is unexpectedly unavailable.
     AdapterUnavailable,
-
-    /// General simulation error.
-    Simulation {
-        /// Simulation error message
-        message: &'static str,
-    },
 }
 
 impl std::fmt::Display for CounterError {
@@ -34,7 +28,6 @@ impl std::fmt::Display for CounterError {
             Self::ConstructionFailed => "failed to construct the Verilated counter model",
             Self::Finished => "the counter model has already been finished",
             Self::AdapterUnavailable => "the counter native adapter is unexpectedly unavailable",
-            Self::Simulation { message } => message,
         };
 
         formatter.write_str(message)
@@ -195,6 +188,18 @@ impl std::fmt::Debug for Counter {
         formatter.debug_struct("Counter")
             .field("finished", &self.finished)
             .finish_non_exhaustive()
+    }
+}
+
+impl vvm_core::Dut for Counter {
+    type Error = CounterError;
+
+    fn evaluate(&mut self) -> Result<()> {
+        Self::eval(self)
+    }
+
+    fn finalize(&mut self) -> Result<()> {
+        Self::finish(self)
     }
 }
 

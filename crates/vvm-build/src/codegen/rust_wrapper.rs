@@ -66,6 +66,9 @@ pub(super) fn render(metadata: &DutMetadata, names: &DutNames) -> String {
     render_debug(&mut output, names);
     push_line(&mut output, "");
 
+    render_dut_trait(&mut output, names);
+    push_line(&mut output, "");
+
     render_drop(&mut output, names);
 
     output
@@ -94,12 +97,6 @@ fn render_error(output: &mut String, metadata: &DutMetadata, names: &DutNames) {
         "    /// The internal native adapter is unexpectedly unavailable.",
     );
     push_line(output, "    AdapterUnavailable,");
-    push_line(output, "");
-    push_line(output, "    /// General simulation error.");
-    push_line(output, "    Simulation {");
-    push_line(output, "        /// Simulation error message");
-    push_line(output, "        message: &'static str,");
-    push_line(output, "    },");
     push_line(output, "}");
     push_line(output, "");
 
@@ -134,10 +131,6 @@ fn render_error(output: &mut String, metadata: &DutMetadata, names: &DutNames) {
              unavailable\",",
             metadata.name
         ),
-    );
-    push_line(
-        output,
-        "            Self::Simulation { message } => message,",
     );
     push_line(output, "        };");
     push_line(output, "");
@@ -421,6 +414,30 @@ fn render_debug(output: &mut String, names: &DutNames) {
     push_line(output, "            .field(\"finished\", &self.finished)");
     push_line(output, "            .finish_non_exhaustive()");
     push_line(output, "    }");
+    push_line(output, "}");
+}
+
+/// Renders the VVM DUT trait implementation.
+fn render_dut_trait(output: &mut String, names: &DutNames) {
+    push_line(
+        output,
+        &format!("impl vvm_core::Dut for {} {{", names.cpp_type),
+    );
+    push_line(
+        output,
+        &format!("    type Error = {};", names.rust_error_type),
+    );
+    push_line(output, "");
+
+    push_line(output, "    fn evaluate(&mut self) -> Result<()> {");
+    push_line(output, "        Self::eval(self)");
+    push_line(output, "    }");
+    push_line(output, "");
+
+    push_line(output, "    fn finalize(&mut self) -> Result<()> {");
+    push_line(output, "        Self::finish(self)");
+    push_line(output, "    }");
+
     push_line(output, "}");
 }
 

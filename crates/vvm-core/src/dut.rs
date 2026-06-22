@@ -13,7 +13,7 @@ pub trait Dut {
     /// # Errors
     ///
     /// Returns an implementation-defined error when evaluation canot complete.
-    fn eval(&mut self) -> Result<(), Self::Error>;
+    fn evaluate(&mut self) -> Result<(), Self::Error>;
 
     /// Finalizes the DUT.
     ///
@@ -23,5 +23,5 @@ pub trait Dut {
     /// # Errors
     ///
     /// Returns an implementation-defined error when finalization cannot complete.
-    fn finish(&mut self) -> Result<(), Self::Error>;
+    fn finalize(&mut self) -> Result<(), Self::Error>;
 }

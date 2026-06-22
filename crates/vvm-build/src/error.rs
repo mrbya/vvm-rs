@@ -269,4 +269,114 @@ pub enum BuildError {
         /// Expected JSON type.
         expected: &'static str,
     },
+
+    /// The requested top module was not present in Verilator metadata.
+    #[error("top module `{top_module}` was not found in Verilator metadata `{path}`")]
+    MissingTopModuleMetadata {
+        /// Requested HDL top-module name.
+        top_module: String,
+
+        /// Main metadata path.
+        path: PathBuf,
+    },
+
+    /// More than one metadata module matched the requested top module.
+    #[error("multiple module nodes matched top module `{top_module}` in `{path}`")]
+    DuplicateTopModuleMetadata {
+        /// Requested HDL top-module name.
+        top_module: String,
+
+        /// Main metadata path.
+        path: PathBuf,
+    },
+
+    /// An AST address occurred more than once.
+    #[error("metadata address `{address}` occurred more than once in `{path}`")]
+    DuplicateMetadataAddress {
+        /// Duplicate short AST address.
+        address: String,
+
+        /// Main metadata path.
+        path: PathBuf,
+    },
+
+    /// An AST pointer could not be resolved.
+    #[error("port `{port}` references unknown datatype `{reference}` in `{path}`")]
+    UnresolvedPortDataType {
+        /// HDL port name.
+        port: String,
+
+        /// Unresolved `dtypep` value.
+        reference: String,
+
+        /// Main metadata path.
+        path: PathBuf,
+    },
+
+    /// A top-level port name occurred more than once.
+    #[error("top module `{top_module}` contains duplicate port `{port}`")]
+    DuplicatePortName {
+        /// HDL top-module name.
+        top_module: String,
+
+        /// Duplicate HDL port name.
+        port: String,
+    },
+
+    /// A port direction was not recognized.
+    #[error("port `{port}` has unknown Verilator direction `{direction}`")]
+    UnknownPortDirection {
+        /// HDL port name.
+        port: String,
+
+        /// Unrecognized direction.
+        direction: String,
+    },
+
+    /// A packed datatype range could not be interpreted.
+    #[error("port `{port}` has unsupported packed range `{range}`")]
+    InvalidPortRange {
+        /// HDL port name.
+        port: String,
+
+        /// Unparseable range.
+        range: String,
+    },
+
+    /// The referenced datatype kind is not currently supported.
+    #[error("port `{port}` uses unsupported Verilator datatype `{kind}`")]
+    UnsupportedPortDataType {
+        /// HDL port name.
+        port: String,
+
+        /// Verilator AST datatype kind.
+        kind: String,
+    },
+
+    /// Bidirectional ports are not currently supported.
+    #[error("port `{port}` is bidirectional; inout ports are not supported")]
+    UnsupportedInoutPort {
+        /// HDL port name.
+        port: String,
+    },
+
+    /// Signed ports are not currently supported.
+    #[error("port `{port}` is signed; signed ports are not supported")]
+    UnsupportedSignedPort {
+        /// HDL port name.
+        port: String,
+    },
+
+    /// Port width exceeds the current VVM limit.
+    #[error("port `{port}` is {width} bits wide; the current maximum is {maximum}")]
+    UnsupportedPortWidth {
+        /// HDL port name.
+        port: String,
+
+        /// Actual packed width.
+        width: u32,
+
+        /// Current supported maximum.
+        maximum: u32,
+    },
 }

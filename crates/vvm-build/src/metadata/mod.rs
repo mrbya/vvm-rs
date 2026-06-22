@@ -1,4 +1,4 @@
-/// Verilator metadata model definitions.
+/// Stable VVM-owned DUT metadata model definitions.
 pub mod model;
 /// Ingested Verilator json metadata normalization.
 pub mod normalize;

@@ -54,6 +54,21 @@ impl RawMetadata {
         Ok(metadata)
     }
 
+    /// Returns the producing verilator version.
+    pub(crate) const fn version(&self) -> VerilatorVersion {
+        self.version
+    }
+
+    /// Return the main AST document path.
+    pub(crate) fn tree_path(&self) -> &Path {
+        &self.tree.path
+    }
+
+    /// Returns the main AST root.
+    pub(crate) const fn tree_root(&self) -> &Map<String, Value> {
+        &self.tree.root
+    }
+
     /// Validates only enough structure to identify the two documents.
     fn validate_envelope(&self) -> BuildResult<()> {
         let root_type = self.tree.required_string("type")?;
@@ -79,11 +94,6 @@ impl RawMetadata {
         let _ = self.version;
 
         Ok(())
-    }
-
-    #[cfg(test)]
-    const fn tree_root(&self) -> &Map<String, Value> {
-        &self.tree.root
     }
 
     #[cfg(test)]
@@ -234,7 +244,7 @@ mod tests {
             }"#,
         )?;
 
-        let raw = RawMetadata::from_paths(VerilatorVersion::new(5, 40), &tree, &meta)?;
+        let raw = RawMetadata::from_paths(VerilatorVersion::new(5, 48), &tree, &meta)?;
 
         assert!(raw.tree_root().contains_key("futureField"));
         assert!(raw.meta_root().contains_key("files"));
@@ -252,7 +262,7 @@ mod tests {
         write(&meta, "{}")?;
 
         assert!(matches!(
-            RawMetadata::from_paths(VerilatorVersion::new(5, 40), &tree, &meta,),
+            RawMetadata::from_paths(VerilatorVersion::new(5, 48), &tree, &meta,),
             Err(BuildError::InvalidMetadataJson { .. })
         ));
 
@@ -269,7 +279,7 @@ mod tests {
         write(&meta, "{}")?;
 
         assert!(matches!(
-            RawMetadata::from_paths(VerilatorVersion::new(5, 40), &tree, &meta,),
+            RawMetadata::from_paths(VerilatorVersion::new(5, 48), &tree, &meta,),
             Err(BuildError::MetadataRootNotObject { .. })
         ));
 
@@ -286,7 +296,7 @@ mod tests {
         write(&meta, "{}")?;
 
         assert!(matches!(
-            RawMetadata::from_paths(VerilatorVersion::new(5, 40), &tree, &meta,),
+            RawMetadata::from_paths(VerilatorVersion::new(5, 48), &tree, &meta,),
             Err(BuildError::MissingMetadataField { field: "type", .. })
         ));
 
@@ -303,7 +313,7 @@ mod tests {
         write(&meta, "{}")?;
 
         assert!(matches!(
-            RawMetadata::from_paths(VerilatorVersion::new(5, 40), &tree, &meta,),
+            RawMetadata::from_paths(VerilatorVersion::new(5, 48), &tree, &meta,),
             Err(BuildError::InvalidMetadataFieldType { field: "type", .. })
         ));
 
@@ -320,7 +330,7 @@ mod tests {
             .join("counter");
 
         let raw = RawMetadata::from_paths(
-            VerilatorVersion::new(5, 40),
+            VerilatorVersion::new(5, 48),
             &fixture.join("counter.tree.json"),
             &fixture.join("counter.tree.meta.json"),
         )?;
@@ -332,11 +342,10 @@ mod tests {
             Some("NETLIST")
         );
 
-        assert!(
-            raw.meta_root()
-                .get("files")
-                .is_some_and(serde_json::Value::is_object)
-        );
+        assert!(raw
+            .meta_root()
+            .get("files")
+            .is_some_and(serde_json::Value::is_object));
 
         Ok(())
     }

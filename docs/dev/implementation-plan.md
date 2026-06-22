@@ -779,40 +779,40 @@ use generated::Counter;
 
 ## API decisions
 
-- [ ] Decide whether constructors return a shared or DUT-specific error.
-- [ ] Decide whether `eval()` can fail.
-- [ ] Make `finish()` idempotent.
-- [ ] Decide whether output getters use `&self` or `&mut self`.
-- [ ] Decide whether explicit simulation time belongs in the initial API.
-- [ ] Decide whether generated DUTs implement `Debug`.
-- [ ] Decide whether generated DUTs implement an internal lifecycle trait.
+- [x] Decide whether constructors return a shared or DUT-specific error.
+- [x] Decide whether `eval()` can fail.
+- [x] Make `finish()` idempotent.
+- [x] Decide whether output getters use `&self` or `&mut self`.
+- [x] Decide whether explicit simulation time belongs in the initial API.
+- [x] Decide whether generated DUTs implement `Debug`.
+- [x] Decide whether generated DUTs implement an internal lifecycle trait.
 
 ## Lifecycle safety
 
-- [ ] Ensure `final()` runs no more than once.
-- [ ] Ensure dropping an unfinished DUT is safe.
-- [ ] Ensure explicit `finish()` is safe before drop.
-- [ ] Define behavior for `eval()` after finish.
-- [ ] Test construction failure handling.
+- [x] Ensure `final()` runs no more than once.
+- [x] Ensure dropping an unfinished DUT is safe.
+- [x] Ensure explicit `finish()` is safe before drop.
+- [x] Define behavior for `eval()` after finish.
+- [x] Test construction failure handling.
 
 ## Encapsulation
 
 Normal user code must not see:
 
-- [ ] `cxx::UniquePtr`
-- [ ] `Pin<&mut T>`
-- [ ] Raw CXX modules
-- [ ] Verilator headers
-- [ ] Verilator-generated class names
-- [ ] Unsafe blocks
+- [x] `cxx::UniquePtr`
+- [x] `Pin<&mut T>`
+- [x] Raw CXX modules
+- [x] Verilator headers
+- [x] Verilator-generated class names
+- [x] Unsafe blocks
 
 ## Acceptance criteria
 
-- [ ] Counter is controlled entirely through safe Rust.
-- [ ] The wrapper has focused API documentation.
-- [ ] Raw bridge details are private.
-- [ ] Lifecycle tests pass.
-- [ ] The example still uses a manual simulation loop.
+- [x] Counter is controlled entirely through safe Rust.
+- [x] The wrapper has focused API documentation.
+- [x] Raw bridge details are private.
+- [x] Lifecycle tests pass.
+- [x] The example still uses a manual simulation loop.
 
 ---
 
@@ -861,51 +861,51 @@ pub trait Scoreboard<E, O> {
 
 ## `Dut`
 
-- [ ] Decide whether methods return `Result`.
-- [ ] Decide whether the error type is associated.
-- [ ] Decide whether `finish()` belongs in the trait.
-- [ ] Ensure a pure Rust mock can implement it.
-- [ ] Implement it for the generated counter.
-- [ ] Add mock-DUT tests.
+- [x] Decide whether methods return `Result`.
+- [x] Decide whether the error type is associated.
+- [x] Decide whether `finish()` belongs in the trait.
+- [x] Ensure a pure Rust mock can implement it.
+- [x] Implement it for the generated counter.
+- [x] Add mock-DUT tests.
 
 ## `Drive`
 
-- [ ] Keep it synchronous.
-- [ ] Use `&self` for immutable stimulus objects.
-- [ ] Avoid hidden evaluation.
-- [ ] Document that drive only writes DUT inputs.
-- [ ] Handwrite the counter stimulus implementation.
+- [x] Keep it synchronous.
+- [x] Use `&self` for immutable stimulus objects.
+- [x] Avoid hidden evaluation.
+- [x] Document that drive only writes DUT inputs.
+- [x] Handwrite the counter stimulus implementation.
 
 ## `Sample`
 
-- [ ] Keep sampling free of evaluation.
-- [ ] Document that observations represent current state.
-- [ ] Handwrite the counter observation implementation.
-- [ ] Decide whether sampling may fail.
+- [x] Keep sampling free of evaluation.
+- [x] Document that observations represent current state.
+- [x] Handwrite the counter observation implementation.
+- [x] Decide whether sampling may fail.
 
 ## `ReferenceModel`
 
-- [ ] Use an associated expected-output type.
-- [ ] Allow stateful models.
-- [ ] Keep it independent of the DUT type.
-- [ ] Implement a counter reference model.
+- [x] Use an associated expected-output type.
+- [x] Allow stateful models.
+- [x] Keep it independent of the DUT type.
+- [x] Implement a counter reference model.
 
 ## `Scoreboard`
 
-- [ ] Use structured errors.
-- [ ] Allow stateful scoreboards.
-- [ ] Implement exact equality checking.
-- [ ] Retain expected and observed values in failures.
-- [ ] Avoid unnecessary global `Debug` bounds.
+- [x] Use structured errors.
+- [x] Allow stateful scoreboards.
+- [x] Implement exact equality checking.
+- [x] Retain expected and observed values in failures.
+- [x] Avoid unnecessary global `Debug` bounds.
 
 ## Sequences
 
-- [ ] Use `Iterator<Item = Stimulus>`.
-- [ ] Do not create a custom `Sequence` trait yet.
-- [ ] Implement a finite counter stimulus iterator.
-- [ ] Include reset and enable transitions.
-- [ ] Support deterministic iteration.
-- [ ] Add iterator tests.
+- [x] Use `Iterator<Item = Stimulus>`.
+- [x] Do not create a custom `Sequence` trait yet.
+- [x] Implement a finite counter stimulus iterator.
+- [x] Include reset and enable transitions.
+- [x] Support deterministic iteration.
+- [x] Add iterator tests.
 
 ## Explicit cycle semantics
 
@@ -920,21 +920,21 @@ Initial synchronous cycle:
 7. Update the reference model.
 8. Compare expected and observed.
 
-- [ ] Confirm prediction timing relative to the active edge.
-- [ ] Document reset-cycle behavior.
-- [ ] Document combinational settling expectations.
-- [ ] Verify timing with the counter.
-- [ ] Add an intentional failure test.
+- [x] Confirm prediction timing relative to the active edge.
+- [x] Document reset-cycle behavior.
+- [x] Document combinational settling expectations.
+- [x] Verify timing with the counter.
+- [x] Add an intentional failure test.
 
 ## Acceptance criteria
 
-- [ ] `vvm-core` has no CXX or Verilator dependency.
-- [ ] A pure Rust mock DUT test exists.
-- [ ] Counter stimulus implements `Drive` manually.
-- [ ] Counter observation implements `Sample` manually.
-- [ ] Counter reference model works.
-- [ ] Counter scoreboard detects an intentional mismatch.
-- [ ] The example still contains an explicit manual run loop.
+- [x] `vvm-core` has no CXX or Verilator dependency.
+- [x] A pure Rust mock DUT test exists.
+- [x] Counter stimulus implements `Drive` manually.
+- [x] Counter observation implements `Sample` manually.
+- [x] Counter reference model works.
+- [x] Counter scoreboard detects an intentional mismatch.
+- [x] The example still contains an explicit manual run loop.
 
 ---
 

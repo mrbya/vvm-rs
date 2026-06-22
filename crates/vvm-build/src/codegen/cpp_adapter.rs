@@ -126,118 +126,127 @@ fn render_header(metadata: &DutMetadata, names: &DutNames) -> String {
 fn render_source(metadata: &DutMetadata, names: &DutNames) -> String {
     let mut output = String::new();
 
+    render_source_prelude(&mut output, names);
+    render_impl_class(&mut output, metadata, names);
+    render_lifecycle_methods(&mut output, names);
+    render_port_methods(&mut output, metadata, names);
+    render_factory_function(&mut output, names);
+    render_source_epilogue(&mut output, names);
+
+    output
+}
+
+/// Renders the source-file prelude and namespace opening.
+fn render_source_prelude(output: &mut String, names: &DutNames) {
+    push_line(output, &format!("#include \"{}.hpp\"", names.file_stem));
+    push_line(output, "");
+    push_line(output, &format!("#include \"{}.h\"", names.model_type));
+    push_line(output, "#include \"verilated.h\"");
+    push_line(output, "");
+    push_line(output, "#include <cstdint>");
+    push_line(output, "#include <memory>");
+    push_line(output, "#include <type_traits>");
+    push_line(output, "");
+    push_line(output, &format!("namespace vvm::{} {{", names.namespace));
+    push_line(output, "");
+}
+
+/// Renders the PIMPL implementation class.
+fn render_impl_class(output: &mut String, metadata: &DutMetadata, names: &DutNames) {
+    push_line(output, &format!("class {}::Impl final {{", names.cpp_type));
+    push_line(output, "public:");
+    push_line(output, "    Impl()");
     push_line(
-        &mut output,
-        &format!("#include \"{}.hpp\"", names.file_stem),
-    );
-    push_line(&mut output, "");
-    push_line(&mut output, &format!("#include \"{}.h\"", names.model_type));
-    push_line(&mut output, "#include \"verilated.h\"");
-    push_line(&mut output, "");
-    push_line(&mut output, "#include <cstdint>");
-    push_line(&mut output, "#include <memory>");
-    push_line(&mut output, "#include <type_traits>");
-    push_line(&mut output, "");
-    push_line(
-        &mut output,
-        &format!("namespace vvm::{} {{", names.namespace),
-    );
-    push_line(&mut output, "");
-    push_line(
-        &mut output,
-        &format!("class {}::Impl final {{", names.cpp_type),
-    );
-    push_line(&mut output, "public:");
-    push_line(&mut output, "    Impl()");
-    push_line(
-        &mut output,
+        output,
         "        : context{std::make_unique<VerilatedContext>()},",
     );
     push_line(
-        &mut output,
+        output,
         &format!(
             "          model{{std::make_unique<{}>(context.get())}} {{",
             names.model_type
         ),
     );
 
+    render_input_initializers(output, metadata, names);
+
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(output, "    std::unique_ptr<VerilatedContext> context;");
+    push_line(
+        output,
+        &format!("    std::unique_ptr<{}> model;", names.model_type),
+    );
+    push_line(output, "    bool finished{false};");
+    push_line(output, "};");
+    push_line(output, "");
+}
+
+/// Renders input-port zero initialization in the adapter constructor.
+fn render_input_initializers(output: &mut String, metadata: &DutMetadata, names: &DutNames) {
     for (port, port_names) in metadata.ports.iter().zip(&names.ports) {
         if port.direction != PortDirection::Input {
             continue;
         }
 
-        push_line(&mut output, "        {");
+        push_line(output, "        {");
         push_line(
-            &mut output,
+            output,
             &format!(
                 "            using RawType = std::decay_t<decltype(model->{}())>;",
                 port_names.accessor
             ),
         );
-        push_line(&mut output, "            RawType raw_value{0};");
+        push_line(output, "            RawType raw_value{0};");
         push_line(
-            &mut output,
+            output,
             &format!("            model->{}(raw_value);", port_names.accessor),
         );
-        push_line(&mut output, "        }");
+        push_line(output, "        }");
     }
+}
 
-    push_line(&mut output, "    }");
-    push_line(&mut output, "");
+/// Renders constructor, destructor, and simulation lifecycle methods.
+fn render_lifecycle_methods(output: &mut String, names: &DutNames) {
+    push_line(output, &format!("{}::{}()", names.cpp_type, names.cpp_type));
+    push_line(output, "    : impl_{std::make_unique<Impl>()} {}");
+    push_line(output, "");
     push_line(
-        &mut output,
-        "    std::unique_ptr<VerilatedContext> context;",
-    );
-    push_line(
-        &mut output,
-        &format!("    std::unique_ptr<{}> model;", names.model_type),
-    );
-    push_line(&mut output, "    bool finished{false};");
-    push_line(&mut output, "};");
-    push_line(&mut output, "");
-
-    push_line(
-        &mut output,
-        &format!("{}::{}()", names.cpp_type, names.cpp_type),
-    );
-    push_line(&mut output, "    : impl_{std::make_unique<Impl>()} {}");
-    push_line(&mut output, "");
-
-    push_line(
-        &mut output,
+        output,
         &format!("{}::~{}() noexcept {{", names.cpp_type, names.cpp_type),
     );
-    push_line(&mut output, "    finish();");
-    push_line(&mut output, "}");
-    push_line(&mut output, "");
-
+    push_line(output, "    finish();");
+    push_line(output, "}");
+    push_line(output, "");
     push_line(
-        &mut output,
+        output,
         &format!("void {}::eval() noexcept {{", names.cpp_type),
     );
-    push_line(&mut output, "    if (!impl_->finished) {");
-    push_line(&mut output, "        impl_->model->eval();");
-    push_line(&mut output, "    }");
-    push_line(&mut output, "}");
-    push_line(&mut output, "");
-
+    push_line(output, "    if (!impl_->finished) {");
+    push_line(output, "        impl_->model->eval();");
+    push_line(output, "    }");
+    push_line(output, "}");
+    push_line(output, "");
     push_line(
-        &mut output,
+        output,
         &format!("void {}::finish() noexcept {{", names.cpp_type),
     );
-    push_line(&mut output, "    if (impl_->finished) {");
-    push_line(&mut output, "        return;");
-    push_line(&mut output, "    }");
-    push_line(&mut output, "");
-    push_line(&mut output, "    impl_->finished = true;");
-    push_line(&mut output, "    impl_->model->final();");
-    push_line(&mut output, "}");
+    push_line(output, "    if (impl_->finished) {");
+    push_line(output, "        return;");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(output, "    impl_->finished = true;");
+    push_line(output, "    impl_->model->final();");
+    push_line(output, "}");
+}
 
+/// Renders generated per-port setters and getters.
+fn render_port_methods(output: &mut String, metadata: &DutMetadata, names: &DutNames) {
     for (port, port_names) in metadata.ports.iter().zip(&names.ports) {
         match port.direction {
             PortDirection::Input => {
                 render_setter(
-                    &mut output,
+                    output,
                     port,
                     &port_names.method,
                     &port_names.accessor,
@@ -246,7 +255,7 @@ fn render_source(metadata: &DutMetadata, names: &DutNames) -> String {
             }
             PortDirection::Output => {
                 render_getter(
-                    &mut output,
+                    output,
                     port,
                     &port_names.method,
                     &port_names.accessor,
@@ -256,31 +265,33 @@ fn render_source(metadata: &DutMetadata, names: &DutNames) -> String {
             PortDirection::Inout => {}
         }
     }
+}
 
-    push_line(&mut output, "");
+/// Renders the adapter factory function.
+fn render_factory_function(output: &mut String, names: &DutNames) {
+    push_line(output, "");
     push_line(
-        &mut output,
+        output,
         &format!(
             "std::unique_ptr<{}> {}() noexcept {{",
             names.cpp_type, names.factory
         ),
     );
-    push_line(&mut output, "    try {");
+    push_line(output, "    try {");
     push_line(
-        &mut output,
+        output,
         &format!("        return std::make_unique<{}>();", names.cpp_type),
     );
-    push_line(&mut output, "    } catch (...) {");
-    push_line(&mut output, "        return nullptr;");
-    push_line(&mut output, "    }");
-    push_line(&mut output, "}");
-    push_line(&mut output, "");
-    push_line(
-        &mut output,
-        &format!("}} // namespace vvm::{}", names.namespace),
-    );
+    push_line(output, "    } catch (...) {");
+    push_line(output, "        return nullptr;");
+    push_line(output, "    }");
+    push_line(output, "}");
+    push_line(output, "");
+}
 
-    output
+/// Renders the namespace closing line.
+fn render_source_epilogue(output: &mut String, names: &DutNames) {
+    push_line(output, &format!("}} // namespace vvm::{}", names.namespace));
 }
 
 /// Renders one generated input setter.

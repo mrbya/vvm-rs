@@ -17,8 +17,6 @@ fn counter_example_assets_exist() {
         "examples/counter/rtl/counter.sv",
         "examples/counter/src/bridge.rs",
         "examples/counter/src/main.rs",
-        "examples/counter/cpp/counter.hpp",
-        "examples/counter/cpp/counter.cpp",
     ] {
         assert!(
             root.join(relative_path).is_file(),

@@ -14,33 +14,20 @@ pub fn executable() -> OsString {
     env::var_os("VERILATOR").unwrap_or_else(|| OsString::from(DEFAULT_EXECUTABLE))
 }
 
-/// Invokes Verilator to generate a C++ model.
-///
-/// # Arguments
-/// - `executable`: Verilator executable name,
-/// - `top-module`: DUT top module,
-/// - `model_prefix`: verilated top module prefix,
-/// - `output_dir`: Verilator-generated source directory,
-/// - `sources`: discovered Verilator-generated C++ translation units,
-/// - `extra_arguments`: extra args passed to verilator executable.
-///
-/// # Returns
-/// Ok(()) on successfull model generation.
-///
-/// # Errors
-/// Returns [`BuildError`] if the underlying verilator command fails.
-pub fn generate(
+/// Builds the Verilator model-generation command.
+#[must_use]
+pub fn model_command(
     executable: &OsStr,
     top_module: &str,
     model_prefix: &str,
     output_dir: &Path,
     sources: &[PathBuf],
     extra_arguments: &[OsString],
-) -> BuildResult<()> {
+) -> Command {
     let mut command = Command::new(executable);
 
     command
-        .arg("-cc")
+        .arg("--cc")
         .arg("--top-module")
         .arg(top_module)
         .arg("--prefix")
@@ -56,6 +43,41 @@ pub fn generate(
     for source in sources {
         command.arg(source);
     }
+
+    command
+}
+
+/// Invokes Verilator to generate a C++ model.
+///
+/// # Arguments
+/// - `executable`: Verilator executable name,
+/// - `top_module`: DUT top module,
+/// - `model_prefix`: verilated top module prefix,
+/// - `output_dir`: Verilator-generated source directory,
+/// - `sources`: HDL source files,
+/// - `extra_arguments`: extra args passed to verilator executable.
+///
+/// # Returns
+/// `Ok(())` on successful model generation.
+///
+/// # Errors
+/// Returns [`BuildError`] if the underlying verilator command fails.
+pub fn generate(
+    executable: &OsStr,
+    top_module: &str,
+    model_prefix: &str,
+    output_dir: &Path,
+    sources: &[PathBuf],
+    extra_arguments: &[OsString],
+) -> BuildResult<()> {
+    let mut command = model_command(
+        executable,
+        top_module,
+        model_prefix,
+        output_dir,
+        sources,
+        extra_arguments,
+    );
 
     command::run(&mut command, "verilator model generation")?;
 
@@ -91,23 +113,23 @@ pub fn root(executable: &OsStr) -> BuildResult<PathBuf> {
     let root = stdout.trim();
 
     if root.is_empty() {
-        return Err(BuildError::EptyVerilatorRoot);
+        return Err(BuildError::EmptyVerilatorRoot);
     }
 
     Ok(PathBuf::from(root))
 }
 
-/// Finds Verilator-generated C++ translation units
+/// Finds Verilator-generated C++ translation units.
 ///
 /// # Arguments
-/// - `output-dir`: Verilator-generated source directory,
+/// - `output_dir`: Verilator-generated source directory,
 /// - `model_prefix`: Verilated top module prefix.
 ///
 /// # Returns
 /// Vector of verilator-generated C++ translation unit paths.
 ///
 /// # Errors
-/// Returns [`BuildError`] if any of the underlying IO operations failed or no Verilator-generated
+/// Returns [`BuildError`] if any of the underlying I/O operations failed or no Verilator-generated
 /// sources found.
 pub fn generated_sources(output_dir: &Path, model_prefix: &str) -> BuildResult<Vec<PathBuf>> {
     let read_dir = fs::read_dir(output_dir).map_err(|source| BuildError::Io {

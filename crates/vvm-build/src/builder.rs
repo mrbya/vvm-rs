@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::{env, fs};
@@ -117,10 +118,19 @@ impl DutBuilder {
 
         create_directory(&verilated_dir)?;
 
-        let sources = resolve_paths(&manifest_dir, &self.sources);
-        let bridge = resolve_path(&manifest_dir, &bridge);
-        let cpp_sources = resolve_paths(&manifest_dir, &self.cpp_sources);
-        let cpp_include_dirs = resolve_paths(&manifest_dir, &self.cpp_include_dirs);
+        let sources = resolve_files(&manifest_dir, &self.sources, "HDL source file")?;
+        let bridge = resolve_file(&manifest_dir, &bridge, "CXX bridge source")?;
+        let cpp_sources = resolve_files(&manifest_dir, &self.cpp_sources, "C++ source file")?;
+        let cpp_include_dirs = resolve_directories(
+            &manifest_dir,
+            &self.cpp_include_dirs,
+            "C++ include directory",
+        )?;
+
+        ensure_unique_paths(&sources, "HDL source file")?;
+        ensure_unique_paths(std::slice::from_ref(&bridge), "CXX bridge source")?;
+        ensure_unique_paths(&cpp_sources, "C++ source file")?;
+        ensure_unique_paths(&cpp_include_dirs, "C++ include directory")?;
 
         emit_rerun_directives(&sources, &bridge, &cpp_sources, &cpp_include_dirs);
 
@@ -176,12 +186,102 @@ fn resolve_path(manifest_dir: &Path, path: &Path) -> PathBuf {
     }
 }
 
-/// Resolves multiple paths relative to the consuming package.
-fn resolve_paths(manifest_dir: &Path, paths: &[PathBuf]) -> Vec<PathBuf> {
+/// Resolves and validates a configured file path.
+pub fn resolve_file(manifest_dir: &Path, path: &Path, role: &'static str) -> BuildResult<PathBuf> {
+    let resolved_path = resolve_path(manifest_dir, path);
+
+    if !resolved_path.exists() {
+        return Err(BuildError::MissingConfiguredPath {
+            role,
+            path: resolved_path,
+        });
+    }
+
+    if !resolved_path.is_file() {
+        return Err(BuildError::ConfiguredPathNotFile {
+            role,
+            path: resolved_path,
+        });
+    }
+
+    resolved_path
+        .canonicalize()
+        .map_err(|source| BuildError::Io {
+            operation: "canonicalize configured file path",
+            path: resolved_path,
+            source,
+        })
+}
+
+/// Resolves and validates a configured directory path.
+pub fn resolve_directory(
+    manifest_dir: &Path,
+    path: &Path,
+    role: &'static str,
+) -> BuildResult<PathBuf> {
+    let resolved_path = resolve_path(manifest_dir, path);
+
+    if !resolved_path.exists() {
+        return Err(BuildError::MissingConfiguredPath {
+            role,
+            path: resolved_path,
+        });
+    }
+
+    if !resolved_path.is_dir() {
+        return Err(BuildError::ConfiguredPathNotDirectory {
+            role,
+            path: resolved_path,
+        });
+    }
+
+    resolved_path
+        .canonicalize()
+        .map_err(|source| BuildError::Io {
+            operation: "canonicalize configured directory path",
+            path: resolved_path,
+            source,
+        })
+}
+
+/// Resolves multiple configured file paths.
+fn resolve_files(
+    manifest_dir: &Path,
+    paths: &[PathBuf],
+    role: &'static str,
+) -> BuildResult<Vec<PathBuf>> {
     paths
         .iter()
-        .map(|path| resolve_path(manifest_dir, path))
+        .map(|path| resolve_file(manifest_dir, path, role))
         .collect()
+}
+
+/// Resolves multiple configured directory paths.
+fn resolve_directories(
+    manifest_dir: &Path,
+    paths: &[PathBuf],
+    role: &'static str,
+) -> BuildResult<Vec<PathBuf>> {
+    paths
+        .iter()
+        .map(|path| resolve_directory(manifest_dir, path, role))
+        .collect()
+}
+
+/// Ensures canonical configured paths are unique.
+pub fn ensure_unique_paths(paths: &[PathBuf], role: &'static str) -> BuildResult<()> {
+    let mut seen_paths = HashSet::new();
+
+    for path in paths {
+        if !seen_paths.insert(path.clone()) {
+            return Err(BuildError::DuplicateConfiguredPath {
+                role,
+                path: path.clone(),
+            });
+        }
+    }
+
+    Ok(())
 }
 
 /// Emits Cargo rebuild dependencies.
@@ -274,7 +374,7 @@ fn compile_native_sources(
 /// # Errors
 /// Returns [`BuildError::InvalidIdentifier`] if:
 /// - identifier starts with a non alphabetic character,
-/// - identifier contains invalid characters (only aphanumeric + '_' allowed).
+/// - identifier contains invalid characters (only ASCII alphanumeric + '_' allowed).
 pub fn validate_identifier(field: &'static str, value: &str) -> BuildResult<()> {
     let mut characters = value.chars();
 
@@ -285,7 +385,7 @@ pub fn validate_identifier(field: &'static str, value: &str) -> BuildResult<()> 
         });
     };
 
-    let valid_first = first == '_' || first.is_alphabetic();
+    let valid_first = first == '_' || first.is_ascii_alphabetic();
 
     let valid_remaining =
         characters.all(|character| character == '_' || character.is_ascii_alphanumeric());

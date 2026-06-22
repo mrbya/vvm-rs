@@ -73,10 +73,8 @@ pub(crate) mod error;
 pub(crate) mod verilator;
 
 // Re-exports
-pub use builder::{DutBuilder, validate_identifier};
-pub use command::run;
+pub use builder::DutBuilder;
 pub use error::{BuildError, BuildResult};
-pub use verilator::{executable, generate, generated_sources, root};
 
 // Tests
 #[cfg(test)]

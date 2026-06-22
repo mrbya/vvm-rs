@@ -8,7 +8,7 @@ use thiserror::Error;
 /// Result alias used by `vvm-build`.
 pub type BuildResult<T> = std::result::Result<T, BuildError>;
 
-/// An error encoutered while generating or compilig a Verilated DUT.
+/// An error encountered while generating or compiling a Verilated DUT.
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum BuildError {
@@ -32,6 +32,46 @@ pub enum BuildError {
 
         /// Invalid value.
         value: String,
+    },
+
+    /// A configured path does not exist.
+    #[error("configured {role} `{path}` does not exist")]
+    MissingConfiguredPath {
+        /// Role of the configured path.
+        role: &'static str,
+
+        /// Missing path.
+        path: PathBuf,
+    },
+
+    /// A configured path is expected to be a file but is not.
+    #[error("configured {role} `{path}` is not a file")]
+    ConfiguredPathNotFile {
+        /// Role of the configured path.
+        role: &'static str,
+
+        /// Non-file path.
+        path: PathBuf,
+    },
+
+    /// A configured path is expected to be a directory but is not.
+    #[error("configured {role} `{path}` is not a directory")]
+    ConfiguredPathNotDirectory {
+        /// Role of the configured path.
+        role: &'static str,
+
+        /// Non-directory path.
+        path: PathBuf,
+    },
+
+    /// A configured path was added multiple times.
+    #[error("configured {role} `{path}` was added more than once")]
+    DuplicateConfiguredPath {
+        /// Role of the configured path.
+        role: &'static str,
+
+        /// Duplicated path.
+        path: PathBuf,
     },
 
     /// A required Cargo build env variable is absent.
@@ -103,7 +143,7 @@ pub enum BuildError {
 
     /// Verilator returned an empty installation root.
     #[error("Verilator returned an empty VERILATOR_ROOT")]
-    EptyVerilatorRoot,
+    EmptyVerilatorRoot,
 
     /// Verilator generated no model translation units.
     #[error("Verilator generated no C++ sources under `{path}`")]

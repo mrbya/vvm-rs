@@ -1,11 +1,14 @@
 use super::names::DutNames;
 use super::types::SignalType;
+use crate::codegen::GENERATED_NOTICE;
 use crate::metadata::{DutMetadata, Port, PortDirection};
 
 /// Renders the safe Rust wrapper for one DUT.
 pub(super) fn render(metadata: &DutMetadata, names: &DutNames) -> String {
     let mut output = String::new();
 
+    push_line(&mut output, GENERATED_NOTICE);
+    push_line(&mut output, "");
     push_line(&mut output, "include!(concat!(");
     push_line(&mut output, "    env!(\"OUT_DIR\"),");
     push_line(

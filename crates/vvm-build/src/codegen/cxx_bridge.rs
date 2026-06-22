@@ -1,11 +1,14 @@
 use super::names::DutNames;
 use super::types::SignalType;
+use crate::codegen::GENERATED_NOTICE;
 use crate::metadata::{DutMetadata, PortDirection};
 
 /// Renders the raw CXX bridge for one DUT.
 pub(super) fn render(metadata: &DutMetadata, names: &DutNames) -> String {
     let mut output = String::new();
 
+    push_line(&mut output, GENERATED_NOTICE);
+    push_line(&mut output, "");
     push_line(
         &mut output,
         &format!("#[cxx::bridge(namespace = \"vvm::{}\")]", names.namespace),

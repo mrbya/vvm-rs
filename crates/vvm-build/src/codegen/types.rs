@@ -15,14 +15,14 @@ pub enum SignalType {
     /// Unsigned signal represented by 32 bits.
     U32,
 
-    /// Usnigned signal represented by 64 bits.
+    /// Unsigned signal represented by 64 bits.
     U64,
 }
 
 impl SignalType {
     /// Selects the public type for a normalized packed width.
-    pub const fn from_width(widh: BitWidth) -> Self {
-        match widh.get() {
+    pub const fn from_width(width: BitWidth) -> Self {
+        match width.get() {
             1 => Self::Bool,
             2..=8 => Self::U8,
             9..=16 => Self::U16,

@@ -1,7 +1,6 @@
-//! C++ adapter source generation.
-
 use super::names::DutNames;
 use super::types::SignalType;
+use crate::codegen::GENERATED_NOTICE;
 use crate::metadata::{DutMetadata, Port, PortDirection};
 
 /// Complete generated C++ adapter text.
@@ -26,6 +25,8 @@ pub(super) fn render(metadata: &DutMetadata, names: &DutNames) -> CppAdapterText
 fn render_header(metadata: &DutMetadata, names: &DutNames) -> String {
     let mut output = String::new();
 
+    push_line(&mut output, GENERATED_NOTICE);
+    push_line(&mut output, "");
     push_line(&mut output, "#pragma once");
     push_line(&mut output, "");
     push_line(&mut output, "#include <cstdint>");
@@ -138,6 +139,8 @@ fn render_source(metadata: &DutMetadata, names: &DutNames) -> String {
 
 /// Renders the source-file prelude and namespace opening.
 fn render_source_prelude(output: &mut String, names: &DutNames) {
+    push_line(output, GENERATED_NOTICE);
+    push_line(output, "");
     push_line(output, &format!("#include \"{}.hpp\"", names.file_stem));
     push_line(output, "");
     push_line(output, &format!("#include \"{}.h\"", names.model_type));

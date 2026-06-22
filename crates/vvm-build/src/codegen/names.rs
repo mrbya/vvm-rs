@@ -326,3 +326,155 @@ fn is_rust_keyword(identifier: &str) -> bool {
             | "yield"
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use std::num::NonZeroU32;
+
+    use super::resolve;
+    use crate::BuildError;
+    use crate::metadata::{BitWidth, DutMetadata, Port, PortDirection};
+
+    fn port(name: &str, direction: PortDirection) -> Port {
+        Port {
+            name: name.to_owned(),
+            direction,
+            width: BitWidth::new(NonZeroU32::MIN),
+            signed: false,
+        }
+    }
+
+    fn metadata(name: &str, ports: Vec<Port>) -> DutMetadata {
+        DutMetadata {
+            name: name.to_owned(),
+            top_module: name.to_owned(),
+            ports,
+        }
+    }
+
+    #[test]
+    fn resolves_counter_names() -> Result<(), BuildError> {
+        let metadata = metadata(
+            "counter",
+            vec![
+                port("clk", PortDirection::Input),
+                port("count", PortDirection::Output),
+            ],
+        );
+
+        let names = resolve(&metadata, "Vcounter")?;
+
+        assert_eq!(names.file_stem, "counter");
+        assert_eq!(names.namespace, "counter");
+        assert_eq!(names.cpp_type, "Counter");
+        assert_eq!(names.factory, "create_counter");
+        assert_eq!(names.model_type, "Vcounter");
+
+        assert_eq!(
+            names.ports.first().map(|port| port.method.as_str()),
+            Some("set_clk")
+        );
+
+        assert_eq!(
+            names.ports.get(1).map(|port| port.method.as_str()),
+            Some("count")
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn converts_snake_case_dut_name_to_pascal_case() -> Result<(), BuildError> {
+        let metadata = metadata("pulse_counter", Vec::new());
+
+        let names = resolve(&metadata, "Vpulse_counter")?;
+
+        assert_eq!(names.cpp_type, "PulseCounter");
+        assert_eq!(names.factory, "create_pulse_counter");
+
+        Ok(())
+    }
+
+    #[test]
+    fn accepts_keyword_port_when_generated_method_is_safe() -> Result<(), BuildError> {
+        let metadata = metadata("dut", vec![port("match", PortDirection::Input)]);
+
+        let names = resolve(&metadata, "Vdut")?;
+
+        assert_eq!(
+            names.ports.first().map(|port| port.method.as_str()),
+            Some("set_match")
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_rust_keyword_output_method() {
+        let metadata = metadata("dut", vec![port("match", PortDirection::Output)]);
+
+        assert!(matches!(
+            resolve(&metadata, "Vdut"),
+            Err(BuildError::UnsupportedCodegenName {
+                role: "Rust DUT method",
+                name,
+                ..
+            }) if name == "match"
+        ));
+    }
+
+    #[test]
+    fn rejects_cpp_keyword_accessor() {
+        let metadata = metadata("dut", vec![port("class", PortDirection::Input)]);
+
+        assert!(matches!(
+            resolve(&metadata, "Vdut"),
+            Err(BuildError::UnsupportedCodegenName {
+                role: "HDL port accessor",
+                name,
+                ..
+            }) if name == "class"
+        ));
+    }
+
+    #[test]
+    fn rejects_transformed_method_collision() {
+        let metadata = metadata(
+            "dut",
+            vec![
+                port("value", PortDirection::Input),
+                port("set_value", PortDirection::Output),
+            ],
+        );
+
+        assert!(matches!(
+            resolve(&metadata, "Vdut"),
+            Err(BuildError::GeneratedNameCollision { name })
+                if name == "set_value"
+        ));
+    }
+
+    #[test]
+    fn rejects_lifecycle_method_collision() {
+        let metadata = metadata("dut", vec![port("eval", PortDirection::Output)]);
+
+        assert!(matches!(
+            resolve(&metadata, "Vdut"),
+            Err(BuildError::GeneratedNameCollision { name })
+                if name == "eval"
+        ));
+    }
+
+    #[test]
+    fn rejects_reserved_cpp_identifier_form() {
+        let metadata = metadata("_dut", Vec::new());
+
+        assert!(matches!(
+            resolve(&metadata, "V_dut"),
+            Err(BuildError::UnsupportedCodegenName {
+                name,
+                ..
+            }) if name == "_dut"
+        ));
+    }
+}

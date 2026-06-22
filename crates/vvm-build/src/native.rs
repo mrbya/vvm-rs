@@ -24,11 +24,33 @@ pub fn compile(
 
     let mut build = cxx_build::bridge(bridge);
 
+    let verilator_vltstd = verilator_include.join("vltstd");
+
     build
-        .include(verilated_dir)
-        .include(&verilator_include)
-        .include(verilator_include.join("vltstd"))
+        .flag_if_supported("-Wno-sign-compare")
+        .flag_if_supported("-Wno-unused-variable")
         .std("c++17");
+
+    let compiler = build.get_compiler();
+
+    if compiler.is_like_msvc() {
+        build
+            .flag("/external:I")
+            .flag(verilated_dir)
+            .flag("/external:I")
+            .flag(&verilator_include)
+            .flag("/external:I")
+            .flag(&verilator_vltstd)
+            .flag("/external:W0");
+    } else {
+        build
+            .flag("-isystem")
+            .flag(verilated_dir)
+            .flag("-isystem")
+            .flag(&verilator_include)
+            .flag("-isystem")
+            .flag(&verilator_vltstd);
+    }
 
     for include_dir in cpp_include_dirs {
         build.include(include_dir);

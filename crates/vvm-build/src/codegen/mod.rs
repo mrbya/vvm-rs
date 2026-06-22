@@ -158,15 +158,21 @@ mod tests {
             &generated.cpp_header,
             &expected_directory.join("counter.hpp"),
         )?;
-
         assert_generated_snapshot(
             &generated.cpp_source,
             &expected_directory.join("counter.cpp"),
         )?;
-
         assert_generated_snapshot(&generated.cxx_bridge, &expected_directory.join("bridge.rs"))?;
-
         assert_generated_snapshot(&generated.rust_wrapper, &expected_directory.join("dut.rs"))?;
+
+        let wrapper = std::fs::read_to_string(&generated.rust_wrapper)?;
+
+        assert!(!wrapper.contains(".pin_mut()"));
+        assert!(!wrapper.contains("unsafe"));
+        assert!(!wrapper.contains("Vcounter"));
+        assert!(wrapper.contains("pub enum CounterError"));
+        assert!(wrapper.contains("impl Drop for Counter"));
+        assert!(wrapper.contains("impl std::fmt::Debug for Counter"));
 
         Ok(())
     }

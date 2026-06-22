@@ -18,6 +18,9 @@ pub struct DutNames {
     /// Generated C++ adapter class.
     pub cpp_type: String,
 
+    /// Generated Rust error type.
+    pub rust_error_type: String,
+
     /// Generated C++ factory function.
     pub factory: String,
 
@@ -62,6 +65,9 @@ pub fn resolve(metadata: &DutMetadata, model_prefix: &str) -> BuildResult<DutNam
     validate_cpp_identifier("C++ adapter type", &cpp_type)?;
     validate_rust_identifier("Rust DUT type", &cpp_type)?;
 
+    let rust_error_type = format!("{cpp_type}Error");
+    validate_rust_identifier("Rust DUT error type", &rust_error_type)?;
+
     let factory = format!("create_{}", metadata.name);
     validate_cpp_identifier("C++ factory", &factory)?;
     validate_rust_identifier("Rust CXX factory", &factory)?;
@@ -102,6 +108,7 @@ pub fn resolve(metadata: &DutMetadata, model_prefix: &str) -> BuildResult<DutNam
         file_stem: metadata.name.clone(),
         namespace: metadata.name.clone(),
         cpp_type,
+        rust_error_type,
         factory,
         model_type: model_prefix.to_owned(),
         ports,

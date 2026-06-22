@@ -5,29 +5,73 @@ include!(concat!(
     "/vvm/counter/generated/bridge.rs"
 ));
 
+/// Error returned by generated DUT operations.
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CounterError {
+    /// The native Verilated model could not be constructed.
+    ConstructionFailed,
+
+    /// The operation requires a DUT that has not been finished.
+    Finished,
+
+    /// The internal native adapter is unexpectedly unavailable.
+    AdapterUnavailable,
+
+    /// General simulation error.
+    Simulation {
+        /// Simulation error message
+        message: &'static str,
+    },
+}
+
+impl std::fmt::Display for CounterError {
+    fn fmt(
+        &self,
+        formatter: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
+        let message = match *self {
+            Self::ConstructionFailed => "failed to construct the Verilated counter model",
+            Self::Finished => "the counter model has already been finished",
+            Self::AdapterUnavailable => "the counter native adapter is unexpectedly unavailable",
+            Self::Simulation { message } => message,
+        };
+
+        formatter.write_str(message)
+    }
+}
+
+impl std::error::Error for CounterError {}
+
 /// Result type returned by generated DUT operations.
-pub type Result<T> = std::result::Result<T, &'static str>;
+pub type Result<T> = std::result::Result<T, CounterError>;
 
 /// Safe Rust wrapper for the `counter` Verilated DUT.
 pub struct Counter {
     /// Opaque ownership of the generated C++ adapter.
     inner: cxx::UniquePtr<ffi::Counter>,
 
-    /// Tracks whether finalisation has already been forwarded.
+    /// Tracks whether finalisation has already completed.
     finished: bool,
 }
 
+#[allow(dead_code)]
 impl Counter {
     /// Constructs the Verilated DUT.
     ///
     /// # Errors
     ///
-    /// Returns an error when the generated C++ adapter cannot be constructed.
+    /// Returns an error when the native adapter cannot be constructed.
     pub fn new() -> Result<Self> {
         let inner = ffi::create_counter();
 
+        Self::from_inner(inner)
+    }
+
+    /// Constructs Verilated DUT from an internal [`cxx::UniquePtr`].
+    fn from_inner(inner: cxx::UniquePtr<ffi::Counter>) -> Result<Self> {
         if inner.is_null() {
-            return Err("failed to construct the Verilated counter model");
+            return Err(CounterError::ConstructionFailed);
         }
 
         Ok(Self {
@@ -36,56 +80,134 @@ impl Counter {
         })
     }
 
+    /// Returns whether the DUT has been finalised.
+    #[must_use]
+    pub const fn is_finished(&self) -> bool {
+        self.finished
+    }
+
     /// Evaluates the current DUT state.
-    pub fn eval(&mut self) {
-        self.inner_mut().eval();
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the DUT has already been finished.
+    pub fn eval(&mut self) -> Result<()> {
+        self.ensure_running()?;
+        self.inner_mut()?.eval();
+
+        Ok(())
     }
 
     /// Finalises the DUT exactly once.
-    pub fn finish(&mut self) {
+    ///
+    /// Calling this method repeatedly is safe.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the native adapter is unexpectedly unavailable.
+    pub fn finish(&mut self) -> Result<()> {
         if self.finished {
-            return;
+            return Ok(());
         }
 
-        self.inner_mut().finish();
+        self.inner_mut()?.finish();
         self.finished = true;
+
+        Ok(())
     }
 
     /// Drives the `clk` DUT input.
-    pub fn set_clk(&mut self, value: bool) {
-        self.inner_mut().set_clk(value);
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the DUT has already been finished.
+    pub fn set_clk(&mut self, value: bool) -> Result<()> {
+        self.ensure_running()?;
+        self.inner_mut()?.set_clk(value);
+
+        Ok(())
     }
 
     /// Drives the `reset_n` DUT input.
-    pub fn set_reset_n(&mut self, value: bool) {
-        self.inner_mut().set_reset_n(value);
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the DUT has already been finished.
+    pub fn set_reset_n(&mut self, value: bool) -> Result<()> {
+        self.ensure_running()?;
+        self.inner_mut()?.set_reset_n(value);
+
+        Ok(())
     }
 
     /// Drives the `enable` DUT input.
-    pub fn set_enable(&mut self, value: bool) {
-        self.inner_mut().set_enable(value);
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the DUT has already been finished.
+    pub fn set_enable(&mut self, value: bool) -> Result<()> {
+        self.ensure_running()?;
+        self.inner_mut()?.set_enable(value);
+
+        Ok(())
     }
 
     /// Samples the `count` DUT output.
     ///
     /// # Errors
     ///
-    /// Returns an error if the internal C++ adapter pointer is unexpectedly null.
+    /// Returns an error if the DUT has already been finished.
     pub fn count(&self) -> Result<u8> {
-        self.inner
-            .as_ref()
-            .map(ffi::Counter::count)
-            .ok_or("counter model unexpectedly became null")
+        self.ensure_running()?;
+
+        Ok(self.inner_ref()?.count())
     }
 
-    /// Returns a pinned mutable reference to the generated C++ adapter.
-    fn inner_mut(&mut self) -> std::pin::Pin<&mut ffi::Counter> {
-        self.inner.pin_mut()
+    /// Ensures that operations may still access the DUT.
+    const fn ensure_running(&self) -> Result<()> {
+        if self.finished {
+            return Err(CounterError::Finished);
+        }
+
+        Ok(())
+    }
+
+    /// Returns an immutable reference to the native adapter.
+    fn inner_ref(&self) -> Result<&ffi::Counter> {
+        self.inner.as_ref().ok_or(
+            CounterError::AdapterUnavailable,
+        )
+    }
+
+    /// Returns a pinned mutable reference to the native adapter.
+    fn inner_mut(&mut self) -> Result<std::pin::Pin<&mut ffi::Counter>> {
+        self.inner.as_mut().ok_or(
+            CounterError::AdapterUnavailable,
+        )
+    }
+}
+
+impl std::fmt::Debug for Counter {
+    fn fmt(
+        &self,
+        formatter: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
+        formatter.debug_struct("Counter")
+            .field("finished", &self.finished)
+            .finish_non_exhaustive()
     }
 }
 
 impl Drop for Counter {
     fn drop(&mut self) {
-        self.finish();
+        if self.finished {
+            return;
+        }
+
+        if let Some(inner) = self.inner.as_mut() {
+            inner.finish();
+        }
+
+        self.finished = true;
     }
 }

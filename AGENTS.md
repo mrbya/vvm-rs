@@ -33,3 +33,8 @@
 ## Style Constraints
 - Workspace `rust-version` is `1.85.0` and edition is `2024`.
 - `rustfmt.toml` enforces `imports_granularity = "Module"` and `group_imports = "StdExternalCrate"`; do not treat import ordering as default rustfmt behavior.
+
+## Rustdoc And Lints
+- The workspace crates enable strict `missing_docs` and `clippy::missing_docs_in_private_items` and other crate-level lints.
+- Do not add new `#[allow(...)]` attributes just to silence clippy; fix the warning unless an existing local test pattern clearly applies.
+- When adding or rewriting docs, match `docs/dev/rustdoc_style.md`.

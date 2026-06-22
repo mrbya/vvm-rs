@@ -4,19 +4,27 @@ use std::path::{Path, PathBuf};
 
 use tempfile::tempdir;
 
-use crate::builder::{ensure_unique_paths, resolve_directory, resolve_file, validate_identifier};
+use crate::builder::{
+    Define, DutBuilder, minimum_supported_version, validate_defines, validate_identifier,
+};
 use crate::error::BuildError;
-use crate::verilator::{generated_sources, model_command};
+use crate::paths::{ensure_unique_paths, resolve_directory, resolve_file};
+use crate::verilator::{
+    ModelCommand, VerilatorVersion, define_argument, ensure_supported_version, generated_sources,
+    include_argument, model_command, parse_version, select_executable,
+};
 
 fn touch(path: &Path) -> std::io::Result<()> {
     fs::write(path, b"")
 }
 
 #[test]
-fn accepts_valid_ascii_identifiers() {
+fn accepts_valid_ascii_identifiers() -> Result<(), BuildError> {
     for identifier in ["counter", "_counter", "counter_2"] {
-        validate_identifier("identifier", identifier).expect("validation should pass");
+        validate_identifier("identifier", identifier)?;
     }
+
+    Ok(())
 }
 
 #[test]
@@ -86,15 +94,14 @@ fn accepts_existing_file() -> Result<(), Box<dyn std::error::Error>> {
     let source_path = directory.path().join("counter.sv");
     touch(&source_path)?;
 
-    resolve_file(directory.path(), Path::new("counter.sv"), "HDL source file")
-        .expect("validation should pass");
+    let _resolved = resolve_file(directory.path(), Path::new("counter.sv"), "HDL source file")?;
+
     Ok(())
 }
 
 #[test]
 fn rejects_missing_file() -> Result<(), Box<dyn std::error::Error>> {
     let directory = tempdir()?;
-
     let result = resolve_file(directory.path(), Path::new("missing.sv"), "HDL source file");
 
     assert!(matches!(
@@ -185,20 +192,237 @@ fn detects_duplicate_canonical_paths() -> Result<(), Box<dyn std::error::Error>>
 }
 
 #[test]
+fn explicit_executable_override_beats_environment_value() {
+    let selected = select_executable(
+        Some(OsString::from("/opt/verilator/bin/verilator")),
+        Some(OsString::from("verilator-from-env")),
+    );
+
+    assert_eq!(selected, OsString::from("/opt/verilator/bin/verilator"));
+}
+
+#[test]
+fn environment_executable_beats_default() {
+    let selected = select_executable(None, Some(OsString::from("verilator-5.040")));
+
+    assert_eq!(selected, OsString::from("verilator-5.040"));
+}
+
+#[test]
+fn default_executable_is_verilator() {
+    let selected = select_executable(None, None);
+
+    assert_eq!(selected, OsString::from("verilator"));
+}
+
+#[test]
+fn hdl_include_argument_is_single_os_string() -> Result<(), Box<dyn std::error::Error>> {
+    let directory = tempdir()?;
+    let include_dir = directory.path().join("rtl include");
+    fs::create_dir_all(&include_dir)?;
+
+    let argument = include_argument(&include_dir);
+    let expected = {
+        let mut value = OsString::from("-I");
+        value.push(include_dir.as_os_str());
+        value
+    };
+
+    assert_eq!(argument, expected);
+    Ok(())
+}
+
+#[test]
+fn hdl_include_directories_preserve_order() {
+    let builder = DutBuilder::new("counter")
+        .hdl_include("rtl/include-a")
+        .hdl_includes(["rtl/include-b", "rtl/include-c"]);
+
+    let actual: Vec<&Path> = builder
+        .hdl_include_dirs_slice()
+        .iter()
+        .map(PathBuf::as_path)
+        .collect();
+    let expected = vec![
+        Path::new("rtl/include-a"),
+        Path::new("rtl/include-b"),
+        Path::new("rtl/include-c"),
+    ];
+
+    assert_eq!(actual, expected);
+}
+
+#[test]
+fn valid_define_without_value_is_preserved() {
+    let builder = DutBuilder::new("counter").define("VVM_EXAMPLE");
+
+    assert_eq!(builder.defines_slice(), &[Define::new("VVM_EXAMPLE", None)]);
+}
+
+#[test]
+fn valid_define_with_value_is_preserved() {
+    let builder = DutBuilder::new("counter").define_value("COUNTER_WIDTH", "8");
+
+    assert_eq!(
+        builder.defines_slice(),
+        &[Define::new("COUNTER_WIDTH", Some("8"))]
+    );
+}
+
+#[test]
+fn empty_define_value_is_preserved() {
+    let define = Define::new("NAME", Some(""));
+
+    assert_eq!(define_argument(&define), OsString::from("-DNAME="));
+}
+
+#[test]
+fn invalid_define_name_is_rejected_by_identifier_validation() {
+    assert!(matches!(
+        validate_identifier("HDL definition", "counter-name"),
+        Err(BuildError::InvalidIdentifier { .. })
+    ));
+}
+
+#[test]
+fn non_ascii_define_name_is_rejected_by_identifier_validation() {
+    assert!(matches!(
+        validate_identifier("HDL definition", "čounter"),
+        Err(BuildError::InvalidIdentifier { .. })
+    ));
+}
+
+#[test]
+fn duplicate_define_name_without_values_is_rejected() {
+    let defines = [Define::new("NAME", None), Define::new("NAME", None)];
+
+    assert!(matches!(
+        validate_defines(&defines),
+        Err(BuildError::DuplicateDefine { name }) if name == "NAME"
+    ));
+}
+
+#[test]
+fn duplicate_define_name_with_identical_values_is_rejected() {
+    let defines = [
+        Define::new("NAME", Some("1")),
+        Define::new("NAME", Some("1")),
+    ];
+
+    assert!(matches!(
+        validate_defines(&defines),
+        Err(BuildError::DuplicateDefine { name }) if name == "NAME"
+    ));
+}
+
+#[test]
+fn duplicate_define_name_with_different_values_is_rejected() {
+    let defines = [
+        Define::new("NAME", Some("1")),
+        Define::new("NAME", Some("2")),
+    ];
+
+    assert!(matches!(
+        validate_defines(&defines),
+        Err(BuildError::DuplicateDefine { name }) if name == "NAME"
+    ));
+}
+
+#[test]
+fn define_arguments_preserve_order() {
+    let defines = [
+        Define::new("FIRST", None),
+        Define::new("SECOND", Some("2")),
+        Define::new("THIRD", Some("")),
+    ];
+
+    let actual: Vec<OsString> = defines.iter().map(define_argument).collect();
+    let expected = vec![
+        OsString::from("-DFIRST"),
+        OsString::from("-DSECOND=2"),
+        OsString::from("-DTHIRD="),
+    ];
+
+    assert_eq!(actual, expected);
+}
+
+#[test]
+fn parses_supported_verilator_versions() -> Result<(), Box<dyn std::error::Error>> {
+    let cases = [
+        ("Verilator 5.000", VerilatorVersion::new(5, 0)),
+        ("Verilator 5.040 2025-01-01", VerilatorVersion::new(5, 40)),
+        ("Verilator 5.041 devel", VerilatorVersion::new(5, 41)),
+        ("Verilator 6.000", VerilatorVersion::new(6, 0)),
+    ];
+
+    for (output, expected) in cases {
+        assert_eq!(parse_version(output)?, expected);
+    }
+
+    Ok(())
+}
+
+#[test]
+fn rejects_malformed_verilator_versions() {
+    for output in [
+        "Verilator",
+        "unknown tool 5.040",
+        "Verilator version-five",
+        "Verilator 5",
+        "Verilator 5.x",
+    ] {
+        assert!(matches!(
+            parse_version(output),
+            Err(BuildError::InvalidVerilatorVersion { .. })
+        ));
+    }
+}
+
+#[test]
+fn verilator_version_ordering_matches_expectations() {
+    assert!(VerilatorVersion::new(5, 40) > VerilatorVersion::new(5, 39));
+    assert!(VerilatorVersion::new(5, 40) > VerilatorVersion::new(5, 0));
+    assert!(VerilatorVersion::new(6, 0) > VerilatorVersion::new(5, 999));
+    assert_eq!(VerilatorVersion::new(5, 0), minimum_supported_version());
+    assert!(VerilatorVersion::new(4, 999) < minimum_supported_version());
+}
+
+#[test]
+fn rejects_versions_below_minimum_supported_version() {
+    assert!(matches!(
+        ensure_supported_version(VerilatorVersion::new(4, 999)),
+        Err(BuildError::UnsupportedVerilatorVersion { .. })
+    ));
+}
+
+#[test]
+fn accepts_minimum_supported_version() -> Result<(), BuildError> {
+    ensure_supported_version(minimum_supported_version())?;
+    Ok(())
+}
+
+#[test]
 fn constructs_verilator_model_command_in_expected_order() {
     let executable = OsStr::new("verilator");
     let output_dir = Path::new("/tmp/out");
+    let hdl_includes = vec![
+        PathBuf::from("rtl/include a"),
+        PathBuf::from("rtl/include-b"),
+    ];
+    let defines = vec![Define::new("ENABLE", None), Define::new("WIDTH", Some("8"))];
+    let raw_arguments = vec![OsString::from("--Wall"), OsString::from("--trace")];
     let sources = vec![PathBuf::from("rtl/a.sv"), PathBuf::from("rtl/b.sv")];
-    let extra_arguments = vec![OsString::from("--timing"), OsString::from("-Wall")];
 
-    let command = model_command(
+    let command = model_command(&ModelCommand {
         executable,
-        "counter",
-        "Vcounter",
+        top_module: "counter",
+        model_prefix: "Vcounter",
         output_dir,
-        &sources,
-        &extra_arguments,
-    );
+        hdl_include_dirs: &hdl_includes,
+        defines: &defines,
+        extra_arguments: &raw_arguments,
+        sources: &sources,
+    });
 
     assert_eq!(command.get_program(), executable);
 
@@ -212,8 +436,12 @@ fn constructs_verilator_model_command_in_expected_order() {
         OsString::from("--Mdir"),
         output_dir.as_os_str().to_os_string(),
         OsString::from("--emit-accessors"),
-        OsString::from("--timing"),
-        OsString::from("-Wall"),
+        include_argument(Path::new("rtl/include a")),
+        include_argument(Path::new("rtl/include-b")),
+        define_argument(&Define::new("ENABLE", None)),
+        define_argument(&Define::new("WIDTH", Some("8"))),
+        OsString::from("--Wall"),
+        OsString::from("--trace"),
         PathBuf::from("rtl/a.sv").into_os_string(),
         PathBuf::from("rtl/b.sv").into_os_string(),
     ];
@@ -222,18 +450,80 @@ fn constructs_verilator_model_command_in_expected_order() {
 }
 
 #[test]
+fn singular_and_plural_source_methods_append_in_order() {
+    let builder = DutBuilder::new("counter")
+        .source("a.sv")
+        .sources(["b.sv", "c.sv"]);
+
+    let actual: Vec<&Path> = builder
+        .sources_slice()
+        .iter()
+        .map(PathBuf::as_path)
+        .collect();
+    let expected = vec![Path::new("a.sv"), Path::new("b.sv"), Path::new("c.sv")];
+
+    assert_eq!(actual, expected);
+}
+
+#[test]
+fn singular_and_plural_cpp_source_methods_append_in_order() {
+    let builder = DutBuilder::new("counter")
+        .cpp_source("a.cpp")
+        .cpp_sources(["b.cpp", "c.cpp"]);
+
+    let actual: Vec<&Path> = builder
+        .cpp_sources_slice()
+        .iter()
+        .map(PathBuf::as_path)
+        .collect();
+    let expected = vec![Path::new("a.cpp"), Path::new("b.cpp"), Path::new("c.cpp")];
+
+    assert_eq!(actual, expected);
+}
+
+#[test]
+fn singular_and_plural_cpp_include_methods_append_in_order() {
+    let builder = DutBuilder::new("counter")
+        .cpp_include("cpp/a")
+        .cpp_includes(["cpp/b", "cpp/c"]);
+
+    let actual: Vec<&Path> = builder
+        .cpp_include_dirs_slice()
+        .iter()
+        .map(PathBuf::as_path)
+        .collect();
+    let expected = vec![Path::new("cpp/a"), Path::new("cpp/b"), Path::new("cpp/c")];
+
+    assert_eq!(actual, expected);
+}
+
+#[test]
+fn singular_and_plural_verilator_arg_methods_append_in_order() {
+    let builder = DutBuilder::new("counter")
+        .verilator_arg("--Wall")
+        .verilator_args(["--trace", "--timing"]);
+
+    let actual = builder.verilator_arguments_slice();
+    let expected = [
+        OsString::from("--Wall"),
+        OsString::from("--trace"),
+        OsString::from("--timing"),
+    ];
+
+    assert_eq!(actual, expected);
+}
+
+#[test]
 fn discovered_generated_sources_are_sorted_and_filtered() -> Result<(), Box<dyn std::error::Error>>
 {
     let directory = tempdir()?;
-    let files = [
+    for file_name in [
         "Vcounter__Syms.cpp",
         "Vcounter.cpp",
         "Vcounter__ALL.cpp",
         "Vcounter.h",
         "README.txt",
-    ];
-
-    for file_name in files {
+    ] {
         touch(&directory.path().join(file_name))?;
     }
 
@@ -252,9 +542,10 @@ fn returns_error_when_generated_sources_are_missing() -> Result<(), Box<dyn std:
     let directory = tempdir()?;
     touch(&directory.path().join("Vcounter.h"))?;
 
-    let result = generated_sources(directory.path(), "Vcounter");
-
-    assert!(matches!(result, Err(BuildError::NoGeneratedSources { .. })));
+    assert!(matches!(
+        generated_sources(directory.path(), "Vcounter"),
+        Err(BuildError::NoGeneratedSources { .. })
+    ));
     Ok(())
 }
 
@@ -262,9 +553,10 @@ fn returns_error_when_generated_sources_are_missing() -> Result<(), Box<dyn std:
 fn returns_io_error_for_nonexistent_generated_source_directory() {
     let directory = Path::new("/definitely/nonexistent/vvm-build-test-directory");
 
-    let result = generated_sources(directory, "Vcounter");
-
-    assert!(matches!(result, Err(BuildError::Io { .. })));
+    assert!(matches!(
+        generated_sources(directory, "Vcounter"),
+        Err(BuildError::Io { .. })
+    ));
 }
 
 #[test]
@@ -274,8 +566,9 @@ fn returns_io_error_for_unreadable_generated_source_directory_input()
     let file_path = directory.path().join("not-a-directory");
     touch(&file_path)?;
 
-    let result = generated_sources(&file_path, "Vcounter");
-
-    assert!(matches!(result, Err(BuildError::Io { .. })));
+    assert!(matches!(
+        generated_sources(&file_path, "Vcounter"),
+        Err(BuildError::Io { .. })
+    ));
     Ok(())
 }

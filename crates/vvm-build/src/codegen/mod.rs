@@ -4,6 +4,8 @@ pub mod cpp_adapter;
 pub mod cxx_bridge;
 /// Deterministic generated C++ naming.
 pub mod names;
+/// Safe Rust DUT wrapper generation.
+pub mod rust_wrapper;
 /// Generated signal type selection.
 pub mod types;
 /// Deterministic generated-file writing.
@@ -26,6 +28,9 @@ pub struct GeneratedArtifacts {
 
     /// Generated raw CXX bridge.
     pub(crate) cxx_bridge: PathBuf,
+
+    /// Safe Rust DUT wrapper generation.
+    pub(crate) rust_wrapper: PathBuf,
 }
 
 /// Generates the C++ adapter for one normalized DUT.
@@ -42,6 +47,7 @@ pub fn generate(
     let names = names::resolve(metadata, model_prefix)?;
     let adapter = cpp_adapter::render(metadata, &names);
     let bridge = cxx_bridge::render(metadata, &names);
+    let wrapper = rust_wrapper::render(metadata, &names);
 
     fs::create_dir_all(output_dir).map_err(|source| BuildError::Io {
         operation: "create generated source directory",
@@ -50,19 +56,20 @@ pub fn generate(
     })?;
 
     let header = output_dir.join(format!("{}.hpp", names.file_stem));
-
     let cpp_source = output_dir.join(format!("{}.cpp", names.file_stem));
-
     let cxx_bridge = output_dir.join("bridge.rs");
+    let rust_wrapper = output_dir.join("dut.rs");
 
     writer::write_if_changed(&header, &adapter.header)?;
     writer::write_if_changed(&cpp_source, &adapter.source)?;
     writer::write_if_changed(&cxx_bridge, &bridge)?;
+    writer::write_if_changed(&rust_wrapper, &wrapper)?;
 
     Ok(GeneratedArtifacts {
         include_dir: output_dir.to_path_buf(),
         cpp_source,
         cxx_bridge,
+        rust_wrapper,
     })
 }
 
@@ -118,6 +125,11 @@ mod tests {
         assert_eq!(
             std::fs::read_to_string(generated.cxx_bridge)?,
             std::fs::read_to_string(expected_directory.join("bridge.rs"))?
+        );
+
+        assert_eq!(
+            std::fs::read_to_string(generated.rust_wrapper)?,
+            std::fs::read_to_string(expected_directory.join("dut.rs"))?
         );
 
         Ok(())

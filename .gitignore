@@ -6,10 +6,11 @@
 /.cache
 /.claude
 
-# Cargo artefacts
+# Build artifacts
 /target
 /coverage
 /release
+*.log
 
 # Docs
 /docs-page

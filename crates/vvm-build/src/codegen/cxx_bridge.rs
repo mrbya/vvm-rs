@@ -1,5 +1,3 @@
-//! Raw CXX bridge source generation.
-
 use super::names::DutNames;
 use super::types::SignalType;
 use crate::metadata::{DutMetadata, PortDirection};

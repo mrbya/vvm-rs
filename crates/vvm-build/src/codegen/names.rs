@@ -60,9 +60,11 @@ pub fn resolve(metadata: &DutMetadata, model_prefix: &str) -> BuildResult<DutNam
     }
 
     validate_cpp_identifier("C++ adapter type", &cpp_type)?;
+    validate_rust_identifier("Rust DUT type", &cpp_type)?;
 
     let factory = format!("create_{}", metadata.name);
     validate_cpp_identifier("C++ factory", &factory)?;
+    validate_rust_identifier("Rust CXX factory", &factory)?;
 
     let mut used_members = HashSet::from([
         "eval".to_owned(),
@@ -84,6 +86,7 @@ pub fn resolve(metadata: &DutMetadata, model_prefix: &str) -> BuildResult<DutNam
         };
 
         validate_cpp_identifier("C++ adapter method", &method)?;
+        validate_rust_identifier("Rust DUT method", &method)?;
 
         if !used_members.insert(method.clone()) {
             return Err(BuildError::GeneratedNameCollision { name: method });
@@ -246,5 +249,80 @@ fn is_cpp_keyword(identifier: &str) -> bool {
             | "while"
             | "xor"
             | "xor_eq"
+    )
+}
+
+/// Verifies that a name is safe for direct Rust emission.
+fn validate_rust_identifier(role: &'static str, name: &str) -> BuildResult<()> {
+    validate_identifier(role, name)?;
+
+    if is_rust_keyword(name) {
+        return Err(BuildError::UnsupportedCodegenName {
+            role,
+            name: name.to_owned(),
+            reason: "the name is a Rust keyword",
+        });
+    }
+
+    Ok(())
+}
+
+/// Returns whether an identifier is a Rust keyword or reserved word.
+fn is_rust_keyword(identifier: &str) -> bool {
+    matches!(
+        identifier,
+        "Self"
+            | "abstract"
+            | "as"
+            | "async"
+            | "await"
+            | "become"
+            | "box"
+            | "break"
+            | "const"
+            | "continue"
+            | "crate"
+            | "do"
+            | "dyn"
+            | "else"
+            | "enum"
+            | "extern"
+            | "false"
+            | "final"
+            | "fn"
+            | "for"
+            | "gen"
+            | "if"
+            | "impl"
+            | "in"
+            | "let"
+            | "loop"
+            | "macro"
+            | "match"
+            | "mod"
+            | "move"
+            | "mut"
+            | "override"
+            | "priv"
+            | "pub"
+            | "ref"
+            | "return"
+            | "self"
+            | "static"
+            | "struct"
+            | "super"
+            | "trait"
+            | "true"
+            | "try"
+            | "type"
+            | "typeof"
+            | "union"
+            | "unsafe"
+            | "unsized"
+            | "use"
+            | "virtual"
+            | "where"
+            | "while"
+            | "yield"
     )
 }

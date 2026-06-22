@@ -1,23 +1,26 @@
-//! Handwritten safe wrapper around the generated counter bridge.
+include!(concat!(
+    env!("OUT_DIR"),
+    "/vvm/counter/generated/bridge.rs"
+));
 
-use cxx::UniquePtr;
-
-include!(concat!(env!("OUT_DIR"), "/vvm/counter/generated/bridge.rs"));
-
-/// Local result type for the handwritten counter wrapper.
+/// Result type returned by generated DUT operations.
 pub type Result<T> = std::result::Result<T, &'static str>;
 
-/// Safe local wrapper around the handwritten CXX bridge.
+/// Safe Rust wrapper for the `counter` Verilated DUT.
 pub struct Counter {
-    /// Opaque ownership of the handwritten C++ adapter.
-    inner: UniquePtr<ffi::Counter>,
+    /// Opaque ownership of the generated C++ adapter.
+    inner: cxx::UniquePtr<ffi::Counter>,
 
-    /// Tracks whether `finish()` has already been forwarded to C++.
+    /// Tracks whether finalisation has already been forwarded.
     finished: bool,
 }
 
 impl Counter {
-    /// Constructs a Verilated counter model.
+    /// Constructs the Verilated DUT.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the generated C++ adapter cannot be constructed.
     pub fn new() -> Result<Self> {
         let inner = ffi::create_counter();
 
@@ -31,12 +34,12 @@ impl Counter {
         })
     }
 
-    /// Evaluates the current model state.
+    /// Evaluates the current DUT state.
     pub fn eval(&mut self) {
         self.inner_mut().eval();
     }
 
-    /// Finalises the model exactly once.
+    /// Finalises the DUT exactly once.
     pub fn finish(&mut self) {
         if self.finished {
             return;
@@ -46,22 +49,26 @@ impl Counter {
         self.finished = true;
     }
 
-    /// Drives the clock input.
+    /// Drives the `clk` DUT input.
     pub fn set_clk(&mut self, value: bool) {
         self.inner_mut().set_clk(value);
     }
 
-    /// Drives the active-low reset input.
+    /// Drives the `reset_n` DUT input.
     pub fn set_reset_n(&mut self, value: bool) {
         self.inner_mut().set_reset_n(value);
     }
 
-    /// Drives the enable input.
+    /// Drives the `enable` DUT input.
     pub fn set_enable(&mut self, value: bool) {
         self.inner_mut().set_enable(value);
     }
 
-    /// Samples the counter output.
+    /// Samples the `count` DUT output.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the internal C++ adapter pointer is unexpectedly null.
     pub fn count(&self) -> Result<u8> {
         self.inner
             .as_ref()
@@ -69,7 +76,7 @@ impl Counter {
             .ok_or("counter model unexpectedly became null")
     }
 
-    /// Returns a pinned mutable reference to the underlying model.
+    /// Returns a pinned mutable reference to the generated C++ adapter.
     fn inner_mut(&mut self) -> std::pin::Pin<&mut ffi::Counter> {
         self.inner.pin_mut()
     }

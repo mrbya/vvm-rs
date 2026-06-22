@@ -1,8 +1,11 @@
-//! Manual simulation for the generated Verilated counter bridge.
+//! Manual simulation using the generated Verilated counter wrapper.
 
-mod bridge;
+/// Generated DUT wrapper.
+mod generated {
+    include!(concat!(env!("OUT_DIR"), "/vvm/counter/generated/dut.rs"));
+}
 
-use bridge::{Counter, Result};
+use generated::{Counter, Result};
 
 fn main() -> Result<()> {
     let mut counter = Counter::new()?;

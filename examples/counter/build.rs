@@ -7,6 +7,5 @@ fn main() -> BuildResult<()> {
     DutBuilder::new("counter")
         .top_module("counter")
         .source("rtl/counter.sv")
-        .bridge("src/bridge.rs")
         .build()
 }

@@ -2,7 +2,8 @@ use std::path::{Path, PathBuf};
 
 use crate::{BuildError, BuildResult};
 
-/// Compiles the CXX bridge, handwritten adapter sources, Verilated model, and runtime.
+/// Compiles the generated CXX bridge, generated and configured adapter
+/// sources, Verilated model, and Verilator runtime.
 pub fn compile(
     name: &str,
     bridge: &Path,

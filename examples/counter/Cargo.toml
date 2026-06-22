@@ -11,7 +11,7 @@ keywords.workspace = true
 categories.workspace = true
 publish = false
 build = "build.rs"
-description = "Minimal counter example for the first VVM integration slice"
+description = "Minimal VVM generated DUT integration example"
 
 [lints]
 workspace = true

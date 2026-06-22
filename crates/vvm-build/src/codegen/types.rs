@@ -42,6 +42,17 @@ impl SignalType {
         }
     }
 
+    /// Returns the generated Rust type used by CXX.
+    pub const fn rust_type(self) -> &'static str {
+        match self {
+            Self::Bool => "bool",
+            Self::U8 => "u8",
+            Self::U16 => "u16",
+            Self::U32 => "u32",
+            Self::U64 => "u64",
+        }
+    }
+
     /// Returns a C++ expression representing the packed-width mask.
     ///
     /// No mask is returned when the HDL width fills the complete public type.
@@ -100,6 +111,21 @@ mod tests {
         }
 
         Ok(())
+    }
+
+    #[test]
+    fn select_rust_types() {
+        let cases = [
+            (SignalType::Bool, "bool"),
+            (SignalType::U8, "u8"),
+            (SignalType::U16, "u16"),
+            (SignalType::U32, "u32"),
+            (SignalType::U64, "u64"),
+        ];
+
+        for (signal, expected) in cases {
+            assert_eq!(SignalType::rust_type(signal), expected);
+        }
     }
 
     #[test]

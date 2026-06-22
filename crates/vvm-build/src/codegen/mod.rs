@@ -1,5 +1,7 @@
 /// C++ adapter source generation.
 pub mod cpp_adapter;
+/// Raw CXX bridge source generation.
+pub mod cxx_bridge;
 /// Deterministic generated C++ naming.
 pub mod names;
 /// Generated signal type selection.
@@ -13,14 +15,17 @@ use std::path::{Path, PathBuf};
 use crate::metadata::DutMetadata;
 use crate::{BuildError, BuildResult};
 
-/// Generated C++ adapter artifacts needed by native compilation.
+/// Generated DUT integration artifacts
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct GeneratedCppAdapter {
+pub struct GeneratedArtifacts {
     /// Directory containing the generated public header.
     pub(crate) include_dir: PathBuf,
 
     /// Generated C++ implementation source.
-    pub(crate) source: PathBuf,
+    pub(crate) cpp_source: PathBuf,
+
+    /// Generated raw CXX bridge.
+    pub(crate) cxx_bridge: PathBuf,
 }
 
 /// Generates the C++ adapter for one normalized DUT.
@@ -29,13 +34,14 @@ pub struct GeneratedCppAdapter {
 ///
 /// Returns an error when generated names are invalid or output files cannot
 /// be created.
-pub fn generate_cpp_adapter(
+pub fn generate(
     metadata: &DutMetadata,
     model_prefix: &str,
     output_dir: &Path,
-) -> BuildResult<GeneratedCppAdapter> {
+) -> BuildResult<GeneratedArtifacts> {
     let names = names::resolve(metadata, model_prefix)?;
-    let text = cpp_adapter::render(metadata, &names);
+    let adapter = cpp_adapter::render(metadata, &names);
+    let bridge = cxx_bridge::render(metadata, &names);
 
     fs::create_dir_all(output_dir).map_err(|source| BuildError::Io {
         operation: "create generated source directory",
@@ -44,14 +50,19 @@ pub fn generate_cpp_adapter(
     })?;
 
     let header = output_dir.join(format!("{}.hpp", names.file_stem));
-    let source = output_dir.join(format!("{}.cpp", names.file_stem));
 
-    writer::write_if_changed(&header, &text.header)?;
-    writer::write_if_changed(&source, &text.source)?;
+    let cpp_source = output_dir.join(format!("{}.cpp", names.file_stem));
 
-    Ok(GeneratedCppAdapter {
+    let cxx_bridge = output_dir.join("bridge.rs");
+
+    writer::write_if_changed(&header, &adapter.header)?;
+    writer::write_if_changed(&cpp_source, &adapter.source)?;
+    writer::write_if_changed(&cxx_bridge, &bridge)?;
+
+    Ok(GeneratedArtifacts {
         include_dir: output_dir.to_path_buf(),
-        source,
+        cpp_source,
+        cxx_bridge,
     })
 }
 
@@ -61,7 +72,7 @@ mod tests {
 
     use tempfile::tempdir;
 
-    use super::generate_cpp_adapter;
+    use super::generate;
     use crate::metadata::{RawMetadata, normalize};
     use crate::verilator::VerilatorVersion;
 
@@ -86,7 +97,7 @@ mod tests {
 
         let output = tempdir()?;
 
-        let generated = generate_cpp_adapter(&metadata, "Vcounter", output.path())?;
+        let generated = generate(&metadata, "Vcounter", output.path())?;
 
         let expected_directory = manifest
             .join("tests")
@@ -100,8 +111,13 @@ mod tests {
         );
 
         assert_eq!(
-            std::fs::read_to_string(generated.source)?,
+            std::fs::read_to_string(generated.cpp_source)?,
             std::fs::read_to_string(expected_directory.join("counter.cpp"))?
+        );
+
+        assert_eq!(
+            std::fs::read_to_string(generated.cxx_bridge)?,
+            std::fs::read_to_string(expected_directory.join("bridge.rs"))?
         );
 
         Ok(())

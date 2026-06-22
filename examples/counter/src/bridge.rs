@@ -1,41 +1,11 @@
-//! Handwritten CXX bridge for the Verilated counter adapter.
+//! Handwritten safe wrapper around the generated counter bridge.
 
 use cxx::UniquePtr;
 
+include!(concat!(env!("OUT_DIR"), "/vvm/counter/generated/bridge.rs"));
+
 /// Local result type for the handwritten counter wrapper.
 pub type Result<T> = std::result::Result<T, &'static str>;
-
-#[cxx::bridge(namespace = "vvm::counter")]
-/// Raw FFI bindings for the handwritten counter adapter.
-mod ffi {
-    unsafe extern "C++" {
-        include!("counter.hpp");
-
-        /// Opaque Verilated counter adapter.
-        type Counter;
-
-        /// Constructs a counter model.
-        fn create_counter() -> UniquePtr<Counter>;
-
-        /// Evaluates the counter model.
-        fn eval(self: Pin<&mut Counter>);
-
-        /// Finalises the counter model.
-        fn finish(self: Pin<&mut Counter>);
-
-        /// Drives the clock input.
-        fn set_clk(self: Pin<&mut Counter>, value: bool);
-
-        /// Drives the active-low reset input.
-        fn set_reset_n(self: Pin<&mut Counter>, value: bool);
-
-        /// Drives the enable input.
-        fn set_enable(self: Pin<&mut Counter>, value: bool);
-
-        /// Samples the counter output.
-        fn count(self: &Counter) -> u8;
-    }
-}
 
 /// Safe local wrapper around the handwritten CXX bridge.
 pub struct Counter {

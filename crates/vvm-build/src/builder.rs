@@ -33,9 +33,6 @@ pub struct DutBuilder {
     /// HDL preprocessor definitions.
     defines: Vec<Define>,
 
-    /// Hand-written CXX bridge source.
-    bridge: Option<PathBuf>,
-
     /// Additional C++ translation units.
     cpp_sources: Vec<PathBuf>,
 
@@ -59,7 +56,6 @@ impl DutBuilder {
             sources: Vec::new(),
             hdl_include_dirs: Vec::new(),
             defines: Vec::new(),
-            bridge: None,
             cpp_sources: Vec::new(),
             cpp_include_dirs: Vec::new(),
             verilator_arguments: Vec::new(),
@@ -128,13 +124,6 @@ impl DutBuilder {
             name: name.into(),
             value: Some(value.into()),
         });
-        self
-    }
-
-    /// Sets the Rust source containing the CXX bridge declaration.
-    #[must_use]
-    pub fn bridge(mut self, bridge: impl Into<PathBuf>) -> Self {
-        self.bridge = Some(bridge.into());
         self
     }
 
@@ -218,8 +207,6 @@ impl DutBuilder {
 
         validate_defines(&self.defines)?;
 
-        let bridge = self.bridge.ok_or(BuildError::MissingBridge)?;
-
         let manifest_dir = required_environment_path("CARGO_MANIFEST_DIR")?;
         let out_dir = required_environment_path("OUT_DIR")?;
 
@@ -238,7 +225,6 @@ impl DutBuilder {
             &self.hdl_include_dirs,
             "HDL include directory",
         )?;
-        let bridge = paths::resolve_file(&manifest_dir, &bridge, "CXX bridge source")?;
         let mut cpp_sources =
             paths::resolve_files(&manifest_dir, &self.cpp_sources, "C++ source file")?;
         let mut cpp_include_dirs = paths::resolve_directories(
@@ -249,17 +235,10 @@ impl DutBuilder {
 
         paths::ensure_unique_paths(&sources, "HDL source file")?;
         paths::ensure_unique_paths(&hdl_include_dirs, "HDL include directory")?;
-        paths::ensure_unique_paths(std::slice::from_ref(&bridge), "CXX bridge source")?;
         paths::ensure_unique_paths(&cpp_sources, "C++ source file")?;
         paths::ensure_unique_paths(&cpp_include_dirs, "C++ include directory")?;
 
-        cargo::emit_rerun_directives(
-            &sources,
-            &hdl_include_dirs,
-            &bridge,
-            &cpp_sources,
-            &cpp_include_dirs,
-        );
+        cargo::emit_rerun_directives(&sources, &hdl_include_dirs, &cpp_sources, &cpp_include_dirs);
 
         let environment_executable = env::var_os("VERILATOR");
         let executable =
@@ -294,10 +273,9 @@ impl DutBuilder {
         let dut_metadata = crate::metadata::normalize(&self.name, &top_module, &raw_metadata)?;
         crate::metadata::validate_supported(&dut_metadata)?;
 
-        let generated_adapter =
-            codegen::generate_cpp_adapter(&dut_metadata, &model_prefix, &generated_dir)?;
-        cpp_sources.push(generated_adapter.source);
-        cpp_include_dirs.push(generated_adapter.include_dir);
+        let generated = codegen::generate(&dut_metadata, &model_prefix, &generated_dir)?;
+        cpp_sources.push(generated.cpp_source);
+        cpp_include_dirs.push(generated.include_dir.clone());
 
         let verilator_root = verilator::root(&executable)?;
 
@@ -318,7 +296,7 @@ impl DutBuilder {
 
         native::compile(
             &self.name,
-            &bridge,
+            &generated.cxx_bridge,
             &cpp_sources,
             &cpp_include_dirs,
             &verilated_dir,

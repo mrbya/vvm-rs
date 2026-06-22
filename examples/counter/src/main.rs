@@ -1,4 +1,4 @@
-//! Manual simulation for the handwritten Verilated counter bridge.
+//! Manual simulation for the generated Verilated counter bridge.
 
 mod bridge;
 

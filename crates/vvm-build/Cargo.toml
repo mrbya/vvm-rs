@@ -14,6 +14,7 @@ description             = "VVM build-time Verilator and bridge support"
 [dependencies]
 cxx-build.workspace = true
 thiserror.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

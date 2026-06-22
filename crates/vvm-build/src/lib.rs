@@ -71,6 +71,8 @@ pub(crate) mod cargo;
 pub(crate) mod command;
 /// Build error definitions.
 pub(crate) mod error;
+/// Verilator metadata ingestion and normalization.
+pub(crate) mod metadata;
 /// cxx-build/native source compilation.
 pub(crate) mod native;
 /// Path resolution, validation and deduplication.

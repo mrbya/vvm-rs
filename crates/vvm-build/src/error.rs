@@ -202,4 +202,71 @@ pub enum BuildError {
         /// Invalid metadata output path.
         path: PathBuf,
     },
+
+    /// A generated metadata file cound not be opened or read.
+    #[error("failed to read {role} `{path}`")]
+    MetadataRead {
+        /// Metadata document role.
+        role: &'static str,
+
+        /// Metadata file path.
+        path: PathBuf,
+
+        /// Underlying I/O error.
+        #[source]
+        source: io::Error,
+    },
+
+    /// A generated metadata file does not contain valid JSON.
+    #[error("{role} `{path}` does not contain valid JSON")]
+    InvalidMetadataJson {
+        /// Metadata document role.
+        role: &'static str,
+
+        /// Metadata file path.
+        path: PathBuf,
+
+        /// JSON parser error, including line and column.
+        #[source]
+        source: serde_json::Error,
+    },
+
+    /// A metadata document root is not a JSON object.
+    #[error("{role} `{path}` must contain a JSON object at its root")]
+    MetadataRootNotObject {
+        /// Metadata document role.
+        role: &'static str,
+
+        /// Metadata file path.
+        path: PathBuf,
+    },
+
+    /// A required metadata field is missing.
+    #[error("{role} `{path}` is missing required field `{field}`")]
+    MissingMetadataField {
+        /// Metadata document role.
+        role: &'static str,
+
+        /// Metadata file path.
+        path: PathBuf,
+
+        /// Missing field name.
+        field: &'static str,
+    },
+
+    /// A metadata field has an unexpected JSON type.
+    #[error("{role} `{path}` field `{field}` must be {expected}")]
+    InvalidMetadataFieldType {
+        /// Metadata document role.
+        role: &'static str,
+
+        /// Metadata file path.
+        path: PathBuf,
+
+        /// Invalid field name.
+        field: &'static str,
+
+        /// Expected JSON type.
+        expected: &'static str,
+    },
 }

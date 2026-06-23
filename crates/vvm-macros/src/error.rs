@@ -7,9 +7,9 @@ use syn::{Data, DeriveInput, Error, Fields, FieldsNamed, Ident, Result};
 /// Returns an error when applied to an enum, union, tuple struct, or unit
 /// struct.
 pub fn named_fields<'a>(input: &'a DeriveInput, derive_name: &str) -> Result<&'a FieldsNamed> {
-    match &input.data {
-        Data::Struct(data) => match &data.fields {
-            Fields::Named(fields) => Ok(fields),
+    match input.data {
+        Data::Struct(ref data) => match data.fields {
+            Fields::Named(ref fields) => Ok(fields),
             Fields::Unnamed(_) | Fields::Unit => Err(Error::new_spanned(
                 &input.ident,
                 format!("`{derive_name}` can only be derived for a struct with named fields"),

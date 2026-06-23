@@ -62,23 +62,35 @@
     clippy::verbose_file_reads
 )]
 
+/// Synchronous clock-driving abstraction.
+pub(crate) mod clock;
 /// Stimulus driving abstraction.
 pub(crate) mod drive;
 /// DUT lifecycle abstraction.
 pub(crate) mod dut;
+/// Bounded check-failure policy.
+pub(crate) mod failure_policy;
 /// Reference model abstraction.
 pub(crate) mod reference_model;
+/// Testbench outcome and diagnostic types.
+pub(crate) mod result;
 /// DUT observation abstraction.
 pub(crate) mod sample;
 /// Scoreboard abstraction and exact-equality implementation.
 pub(crate) mod scoreboard;
+/// Reusable synchronous testbench runner.
+pub(crate) mod testbench;
 
 // Re-exports
+pub use clock::Clock;
 pub use drive::Drive;
 pub use dut::Dut;
+pub use failure_policy::{FailurePolicy, InvalidFailureLimit};
 pub use reference_model::ReferenceModel;
+pub use result::{CheckFailure, SimulationError, SimulationStage, TestResult};
 pub use sample::Sample;
 pub use scoreboard::{ExactScoreboard, Mismatch, Scoreboard};
+pub use testbench::{Testbench, Unconfigured};
 
 // Unit tests.
 #[cfg(test)]

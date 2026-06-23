@@ -40,6 +40,20 @@ impl Dut for MockDut {
     }
 }
 
+/// Clock driver for the combinational mock DUT.
+#[derive(Debug, Default)]
+struct MockClock;
+
+impl crate::Clock<MockDut> for MockClock {
+    fn drive_inactive(&mut self, _dut: &mut MockDut) -> Result<(), MockError> {
+        Ok(())
+    }
+
+    fn drive_active(&mut self, _dut: &mut MockDut) -> Result<(), MockError> {
+        Ok(())
+    }
+}
+
 /// Input value for the mock DUT.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct MockStimulus {
@@ -121,4 +135,73 @@ fn exact_scoreboard_retains_mismatched_values() {
 
     assert_eq!(result.expected(), &4);
     assert_eq!(result.observed(), &7);
+}
+
+#[test]
+fn runner_executes_pure_rust_mock() {
+    let sequence = [
+        MockStimulus { value: 4 },
+        MockStimulus { value: 8 },
+        MockStimulus { value: 15 },
+        MockStimulus { value: 16 },
+        MockStimulus { value: 23 },
+        MockStimulus { value: 42 },
+    ];
+
+    let result = crate::Testbench::new(MockDut::default())
+        .with_sequence(sequence)
+        .with_reference_model(MockReferenceModel)
+        .with_scoreboard(ExactScoreboard)
+        .with_clock(MockClock)
+        .run::<MockObservation>();
+
+    assert!(result.passed());
+    assert_eq!(result.cycles(), 6);
+    assert_eq!(result.checks(), 6);
+    assert_eq!(result.failure_count(), 0);
+    assert!(result.simulation_error().is_none());
+    assert!(result.finalization_error().is_none());
+}
+
+/// Reference model that intentionally predicts the wrong value.
+struct IncorrectReferenceModel;
+
+impl ReferenceModel<MockStimulus> for IncorrectReferenceModel {
+    type Expected = MockObservation;
+
+    fn predict(&mut self, stimulus: &MockStimulus) -> Self::Expected {
+        MockObservation {
+            value: stimulus.value.wrapping_add(1),
+        }
+    }
+}
+
+#[test]
+fn runner_collects_only_configured_failure_count() -> Result<(), crate::InvalidFailureLimit> {
+    let result = crate::Testbench::new(MockDut::default())
+        .with_sequence([
+            MockStimulus { value: 1 },
+            MockStimulus { value: 2 },
+            MockStimulus { value: 3 },
+            MockStimulus { value: 4 },
+        ])
+        .with_reference_model(IncorrectReferenceModel)
+        .with_scoreboard(ExactScoreboard)
+        .with_clock(MockClock)
+        .with_failure_policy(crate::FailurePolicy::collect_up_to(2)?)
+        .run::<MockObservation>();
+
+    assert!(!result.passed());
+    assert_eq!(result.cycles(), 2);
+    assert_eq!(result.checks(), 2);
+    assert_eq!(result.failure_count(), 2);
+    assert!(result.stopped_by_failure_policy());
+
+    let failures = result.failures();
+
+    assert_eq!(failures.first().map(crate::CheckFailure::cycle), Some(0));
+
+    assert_eq!(failures.get(1).map(crate::CheckFailure::cycle), Some(1));
+
+    Ok(())
 }

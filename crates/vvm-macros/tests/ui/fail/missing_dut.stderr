@@ -1,0 +1,5 @@
+error: missing `#[vvm(dut = path)]` attribute
+ --> tests/ui/fail/missing_dut.rs:2:8
+  |
+2 | struct Stimulus {
+  |        ^^^^^^^^

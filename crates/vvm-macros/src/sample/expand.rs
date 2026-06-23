@@ -55,7 +55,7 @@ pub(super) fn expand(input: Input) -> TokenStream {
 
 #[cfg(test)]
 mod tests {
-    use syn::{DeriveInput, parse_quote};
+    use syn::{parse_quote, DeriveInput};
 
     use super::expand;
     use crate::sample::input::Input;
@@ -65,7 +65,7 @@ mod tests {
         let input: DeriveInput = parse_quote! {
             #[derive(Sample)]
             #[vvm(dut = crate::Counter)]
-            struct Stimulus {
+            struct Observation {
                 #[vvm(port)]
                 data_out: bool,
 

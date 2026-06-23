@@ -15,21 +15,22 @@ impl vvm_core::Dut for MockDut {
 }
 
 impl MockDut {
-    fn set_enable(&mut self, _value: bool) -> Result<(), Infallible> {
-        Ok(())
+    fn data_out(&mut self) -> Result<u8, Infallible> {
+        Ok(0)
     }
 
-    fn set_reset_n(&mut self, _value: bool) -> Result<(), Infallible> {
-        Ok(())
+    fn en_out(&mut self) -> Result<bool, Infallible> {
+        Ok(false)
     }
 }
 
-#[derive(vvm_macros::Drive)]
-#[vvm(dut = MockDut)]
-struct Stimulus {
+#[derive(vvm_macros::Sample)]
+#[vvm(dut = crate::Counter)]
+struct Observation {
     #[vvm(port)]
-    enable: bool,
-    reset: bool,
+    data_out: u8,
+
+    en_out: bool,
 }
 
 fn main() {}

@@ -1,0 +1,11 @@
+error[E0599]: no method named `set_count` found for mutable reference `&mut MockDut` in the current scope
+  --> tests/ui/fail/direction.rs:7:5
+   |
+ 7 |     count: u8,
+   |     ^^^^^
+   |
+help: there is a method `count` with a similar name, but with different arguments
+  --> tests/ui/fail/direction.rs:25:5
+   |
+25 |     fn count(&self) -> Result<u8, Infallible> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

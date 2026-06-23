@@ -958,29 +958,29 @@ pub struct Testbench<D, S, R, B, C> {
 
 ## Builder API
 
-- [ ] Add `Testbench::new`.
-- [ ] Require a DUT at construction.
-- [ ] Add sequence configuration.
-- [ ] Add reference-model configuration.
-- [ ] Add scoreboard configuration.
-- [ ] Add clock-driving configuration.
-- [ ] Use type-state only if it improves errors materially.
-- [ ] Avoid boxed trait objects initially.
-- [ ] Preserve concrete generic types.
+- [x] Add `Testbench::new`.
+- [x] Require a DUT at construction.
+- [x] Add sequence configuration.
+- [x] Add reference-model configuration.
+- [x] Add scoreboard configuration.
+- [x] Add clock-driving configuration.
+- [x] Use type-state only if it improves errors materially.
+- [x] Avoid boxed trait objects initially.
+- [x] Preserve concrete generic types.
 
 ## Run loop
 
-- [ ] Iterate over stimuli.
-- [ ] Drive each stimulus.
-- [ ] Perform the defined clock sequence.
-- [ ] Evaluate at documented points.
-- [ ] Sample outputs.
-- [ ] Obtain expected outputs.
-- [ ] Invoke the scoreboard.
-- [ ] Track cycles and successful checks.
-- [ ] Track failures.
-- [ ] Stop or continue according to configuration.
-- [ ] Always finish the DUT.
+- [x] Iterate over stimuli.
+- [x] Drive each stimulus.
+- [x] Perform the defined clock sequence.
+- [x] Evaluate at documented points.
+- [x] Sample outputs.
+- [x] Obtain expected outputs.
+- [x] Invoke the scoreboard.
+- [x] Track cycles and successful checks.
+- [x] Track failures.
+- [x] Stop or continue according to configuration.
+- [x] Always finish the DUT.
 
 ## Results
 
@@ -994,28 +994,28 @@ pub struct TestResult<F> {
 }
 ```
 
-- [ ] Preserve cycle numbers.
-- [ ] Preserve expected and observed values.
-- [ ] Optionally preserve stimuli.
-- [ ] Add compact and detailed reporting.
-- [ ] Define example process-exit behavior.
+- [x] Preserve cycle numbers.
+- [x] Preserve expected and observed values.
+- [x] Optionally preserve stimuli.
+- [x] Add compact and detailed reporting.
+- [x] Define example process-exit behavior.
 
 ## Failure policy
 
-- [ ] Support stop-on-first-failure.
-- [ ] Support collecting multiple failures.
-- [ ] Allow a maximum failure count.
-- [ ] Prevent unbounded diagnostic storage.
-- [ ] Distinguish simulation errors from check failures.
-- [ ] Ensure finalization after errors.
+- [x] Support stop-on-first-failure.
+- [x] Support collecting multiple failures.
+- [x] Allow a maximum failure count.
+- [x] Prevent unbounded diagnostic storage.
+- [x] Distinguish simulation errors from check failures.
+- [x] Ensure finalization after errors.
 
 ## Acceptance criteria
 
-- [ ] Counter contains no handwritten simulation loop.
-- [ ] Successful checks are reported.
-- [ ] Intentional failures include cycle-aware diagnostics.
-- [ ] The runner is tested with a pure Rust mock DUT.
-- [ ] No procedural macros are used yet.
+- [x] Counter contains no handwritten simulation loop.
+- [x] Successful checks are reported.
+- [x] Intentional failures include cycle-aware diagnostics.
+- [x] The runner is tested with a pure Rust mock DUT.
+- [x] No procedural macros are used yet.
 
 ---
 

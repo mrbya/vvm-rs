@@ -3,6 +3,9 @@ use crate::{
     SimulationError, SimulationStage, TestResult,
 };
 
+/// Result type produced by a synchronous testbench run.
+type RunResult<S, R, B, O, D> = TestResult<S, <B as Scoreboard<R, O>>::Error, <D as Dut>::Error>;
+
 /// Marker for an unconfigured testbench component.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Unconfigured;
@@ -129,7 +132,7 @@ where
     /// the configured [`FailurePolicy`]. The DUT is always offered one explicit
     /// finalization call before this method returns.
     #[must_use]
-    pub fn run<O>(self) -> TestResult<S::Item, <B as Scoreboard<R::Expected, O>>::Error, D::Error>
+    pub fn run<O>(self) -> RunResult<S::Item, R::Expected, B, O, D>
     where
         O: Sample<D>,
         B: Scoreboard<R::Expected, O>,

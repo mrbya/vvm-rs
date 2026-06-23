@@ -18,18 +18,7 @@ impl PortAttribute {
             |name| (name.value(), name.span()),
         );
 
-        let method_name = format!("{prefix}{port_name}");
-
-        let mut method = syn::parse_str::<Ident>(&method_name).map_err(|_parse_error| {
-            Error::new(
-                span,
-                format!("port name `{port_name}` does not produce a valid Rust method identifier"),
-            )
-        })?;
-
-        method.set_span(span);
-
-        Ok(method)
+        port_method_ident(&port_name, span, prefix)
     }
 }
 
@@ -109,4 +98,25 @@ pub fn parse_port_attribute(attributes: &[Attribute]) -> Result<Option<PortAttri
     }
 
     Ok(port)
+}
+
+/// Creates a Rust method identifier from an HDL port name.
+///
+/// # Errors
+///
+/// Returns an error when the port name and prefix do not form a valid Rust
+/// identifier.
+pub fn port_method_ident(port_name: &str, span: Span, prefix: &str) -> Result<Ident> {
+    let method_name = format!("{prefix}{port_name}");
+
+    let mut method = syn::parse_str::<Ident>(&method_name).map_err(|_parse_error| {
+        Error::new(
+            span,
+            format!("port name `{port_name}` does not produce a valid Rust method identifier"),
+        )
+    })?;
+
+    method.set_span(span);
+
+    Ok(method)
 }

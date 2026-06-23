@@ -1,16 +1,16 @@
 use proc_macro2::TokenStream;
 use syn::{DeriveInput, Result};
 
-/// `Sample` implementation expansion.
+/// `Clock` implementation expansion.
 mod expand;
-/// Parses `Sample` input.
+/// Parses `Clock` derive input.
 mod input;
 
-/// Parses and expands `Sample` trait derive.
+/// Parses and expands `Clock` trait derive.
 ///
 /// # Errors
 ///
-/// Returns an error for invalid derive input.
+/// Returns an error for invalid derive input or clock configuration.
 pub fn derive(input: DeriveInput) -> Result<TokenStream> {
     Ok(expand::expand(input::Input::parse(input)?))
 }

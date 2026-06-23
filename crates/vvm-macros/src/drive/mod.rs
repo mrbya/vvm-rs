@@ -6,7 +6,7 @@ mod expand;
 /// Parsed `Drive` derive input.
 mod input;
 
-/// Parses and expands `Drive`.
+/// Parses and expands `Drive` trait derive.
 ///
 /// # Errors
 ///

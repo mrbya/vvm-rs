@@ -1,10 +1,12 @@
 //! Procedural macros for VVM.
 
 use proc_macro::TokenStream;
-use syn::{DeriveInput, parse_macro_input};
+use syn::{parse_macro_input, DeriveInput};
 
 /// Shared VVM helper-attribute parsing.
 mod attrs;
+/// Clock trait derives.
+mod clock;
 /// Drive trait derives.
 mod drive;
 /// Common derive-input diagnostics.
@@ -35,6 +37,25 @@ pub fn derive_sample(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
     sample::derive(input)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+/// Derives [`vvm_core::Clock`] for a unit clock-driver type.
+///
+/// The target DUT and clock port are configured with:
+///
+/// ```no_run
+/// #[vvm(dut = path, clock = "port")]
+/// ```
+///
+/// Rising-edge behavior is the default. A falling-edge clock may be selected
+/// with `edge = "falling"`.
+#[proc_macro_derive(Clock, attributes(vvm))]
+pub fn derive_clock(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+
+    clock::derive(input)
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }

@@ -120,7 +120,7 @@ pub fn counter_sequence() -> impl ExactSizeIterator<Item = CounterStimulus> {
 mod tests {
     use vvm_core::{ExactScoreboard, ReferenceModel, Scoreboard};
 
-    use super::{CounterClock, CounterObservation, CounterReferenceModel, counter_sequence};
+    use super::{counter_sequence, CounterClock, CounterObservation, CounterReferenceModel};
     use crate::generated::{Counter, Result};
 
     impl CounterObservation {

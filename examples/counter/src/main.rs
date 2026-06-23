@@ -1,158 +1,80 @@
-//! Manual simulation using the generated Verilated counter wrapper.
+//! Counter verification using the synchronous VVM runner.
 
-use vvm_core::{Drive, Dut, ExactScoreboard, ReferenceModel, Sample, Scoreboard};
+use vvm_core::{ExactScoreboard, Testbench};
 
 use crate::generated::Counter;
-use crate::verification::{CounterObservation, CounterReferenceModel, Result, counter_sequence};
+use crate::verification::{
+    CounterClock, CounterObservation, CounterReferenceModel, CounterTestResult, Error, Result,
+    counter_sequence,
+};
 
 /// Generated DUT wrapper.
 mod generated {
     include!(concat!(env!("OUT_DIR"), "/vvm/counter/generated/dut.rs"));
 }
+
 /// Counter-specific verification setup.
 mod verification;
 
 fn main() -> Result<()> {
-    run_simulation()
-}
+    let result = run_simulation()?;
 
-/// Runs the explicit counter verification loop.
-fn run_simulation() -> Result<()> {
-    let mut dut = Counter::new()?;
-    let mut reference_model = CounterReferenceModel::default();
-    let mut scoreboard = ExactScoreboard;
+    print_result(&result);
 
-    for (cycle, stimulus) in counter_sequence().enumerate() {
-        // 1. Drive clock low.
-        dut.set_clk(false)?;
+    if result.passed() {
+        println!("counter verification completed successfully");
 
-        // 2. Drive stimulus.
-        stimulus.drive(&mut dut)?;
-
-        // 3. Evaluate low phase.
-        Dut::evaluate(&mut dut)?;
-
-        // 4. Drive the active edge.
-        dut.set_clk(true)?;
-
-        // 5. Evaluate active edge.
-        Dut::evaluate(&mut dut)?;
-
-        // 6. Sample post-edge outputs.
-        let observed = CounterObservation::sample(&dut)?;
-
-        // 7. Update the model for the active edge.
-        let expected = reference_model.predict(&stimulus);
-
-        // 8. Compare expected and observed state.
-        scoreboard.check(expected, observed)?;
-
-        println!(
-            "cycle {cycle:02}: stimulus={stimulus:?} expected={}, observed={}",
-            expected.count(),
-            observed.count(),
-        );
+        return Ok(());
     }
 
-    Dut::finalize(&mut dut)?;
+    Err(Error::TestFailed)
+}
 
-    println!("manual counter verification completed successfully");
+/// Runs the counter testbench.
+fn run_simulation() -> Result<CounterTestResult> {
+    let dut = Counter::new()?;
 
-    Ok(())
+    let result = Testbench::new(dut)
+        .with_sequence(counter_sequence())
+        .with_reference_model(CounterReferenceModel::default())
+        .with_scoreboard(ExactScoreboard)
+        .with_clock(CounterClock)
+        .run::<CounterObservation>();
+
+    Ok(result)
+}
+
+/// Prints compact and detailed verification results.
+fn print_result(result: &CounterTestResult) {
+    println!("{result}");
+
+    for failure in result.failures() {
+        eprintln!("check failure: {failure}");
+    }
+
+    if let Some(error) = result.simulation_error() {
+        eprintln!("simulation error: {error}");
+    }
+
+    if let Some(error) = result.finalization_error() {
+        eprintln!("finalization error: {error}");
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::generated::{Counter, CounterError, Result};
-    use super::run_simulation;
+    use super::{Result, run_simulation};
 
     #[test]
-    fn methodology_loop_verifies_counter() -> crate::verification::Result<()> {
-        run_simulation()
-    }
+    fn runner_verifies_counter() -> Result<()> {
+        let result = run_simulation()?;
 
-    #[test]
-    fn constructs_generated_dut() -> Result<()> {
-        let counter = Counter::new()?;
-
-        assert!(!counter.is_finished());
-
-        Ok(())
-    }
-
-    #[test]
-    fn finish_is_idempotent() -> Result<()> {
-        let mut counter = Counter::new()?;
-
-        counter.finish()?;
-        counter.finish()?;
-
-        assert!(counter.is_finished());
-
-        Ok(())
-    }
-
-    #[test]
-    fn rejects_evaluation_after_finish() -> Result<()> {
-        let mut counter = Counter::new()?;
-
-        counter.finish()?;
-
-        assert_eq!(counter.eval(), Err(CounterError::Finished));
-
-        Ok(())
-    }
-
-    #[test]
-    fn rejects_input_drive_after_finish() -> Result<()> {
-        let mut counter = Counter::new()?;
-
-        counter.finish()?;
-
-        assert_eq!(counter.set_enable(true), Err(CounterError::Finished));
-
-        Ok(())
-    }
-
-    #[test]
-    fn rejects_output_sampling_after_finish() -> Result<()> {
-        let mut counter = Counter::new()?;
-
-        counter.finish()?;
-
-        assert_eq!(counter.count(), Err(CounterError::Finished));
-
-        Ok(())
-    }
-
-    #[test]
-    fn dropping_unfinished_dut_is_safe() -> Result<()> {
-        let counter = Counter::new()?;
-
-        drop(counter);
-
-        Ok(())
-    }
-
-    #[test]
-    fn dropping_explicitly_finished_dut_is_safe() -> Result<()> {
-        let mut counter = Counter::new()?;
-
-        counter.finish()?;
-        drop(counter);
-
-        Ok(())
-    }
-
-    #[test]
-    fn debug_output_hides_native_details() -> Result<()> {
-        let counter = Counter::new()?;
-        let debug = format!("{counter:?}");
-
-        assert!(debug.contains("Counter"));
-        assert!(debug.contains("finished"));
-        assert!(!debug.contains("UniquePtr"));
-        assert!(!debug.contains("Vcounter"));
+        assert!(result.passed());
+        assert_eq!(result.cycles(), 7);
+        assert_eq!(result.checks(), 7);
+        assert_eq!(result.failure_count(), 0);
+        assert!(result.simulation_error().is_none());
+        assert!(result.finalization_error().is_none());
 
         Ok(())
     }

@@ -1,5 +1,5 @@
 use thiserror::Error;
-use vvm_core::{Drive, Mismatch, ReferenceModel, Sample};
+use vvm_core::{Clock, Drive, Mismatch, ReferenceModel, Sample, TestResult};
 
 use crate::generated::{Counter, CounterError};
 
@@ -11,8 +11,8 @@ pub enum Error {
     Dut(#[from] CounterError),
 
     /// Expected and observed counter value differed.
-    #[error(transparent)]
-    Scoreboard(#[from] CounterMismatch),
+    #[error("counter verification failed")]
+    TestFailed,
 }
 
 /// Counter simulation result.
@@ -20,6 +20,29 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 /// Counter scoreboard mismatch.
 pub type CounterMismatch = Mismatch<CounterObservation, CounterObservation>;
+
+/// Complete result of one counter verification run.
+pub type CounterTestResult = TestResult<CounterStimulus, CounterMismatch, CounterError>;
+
+/// Clock driver for the generated dounter DUT.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct CounterClock;
+
+impl Clock<Counter> for CounterClock {
+    fn drive_inactive(
+        &mut self,
+        dut: &mut Counter,
+    ) -> std::prelude::v1::Result<(), <Counter as vvm_core::Dut>::Error> {
+        dut.set_clk(false)
+    }
+
+    fn drive_active(
+        &mut self,
+        dut: &mut Counter,
+    ) -> std::prelude::v1::Result<(), <Counter as vvm_core::Dut>::Error> {
+        dut.set_clk(true)
+    }
+}
 
 /// Inputs applied during one counter cycle.
 ///
@@ -62,6 +85,7 @@ pub struct CounterObservation {
 impl CounterObservation {
     /// Returns the sampled counter value.
     #[must_use]
+    #[cfg(test)]
     pub const fn count(self) -> u8 {
         self.count
     }

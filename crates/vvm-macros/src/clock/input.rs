@@ -20,10 +20,7 @@ impl Edge {
             "falling" => Ok(Self::Falling),
             other => Err(Error::new(
                 value.span(),
-                format!(
-                    "unsupported clock edge `{other}`; \
-                     expected `rising` or `falling`"
-                ),
+                format!("unsupported clock edge `{other}`; expected `rising` or `falling`"),
             )),
         }
     }
@@ -59,6 +56,11 @@ pub(super) struct Input {
 }
 
 impl Input {
+    /// Parses a complete derive input.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for unsupported data shapes or invalid VVM metadata.
     pub(super) fn parse(input: DeriveInput) -> Result<Self> {
         ensure_unit_struct(&input)?;
 
@@ -117,10 +119,8 @@ impl Input {
                     return Ok(());
                 }
 
-                Err(meta.error(
-                    "unsupported `vvm` clock option; \
-                     expected `dut`, `clock`, or `edge`",
-                ))
+                Err(meta
+                    .error("unsupported `vvm` clock option; expected `dut`, `clock`, or `edge`"))
             })?;
         }
 
@@ -147,8 +147,8 @@ impl Input {
 
 /// Verifies that `Clock` is derived for a unit struct.
 fn ensure_unit_struct(input: &DeriveInput) -> Result<()> {
-    match &input.data {
-        Data::Struct(data) if matches!(data.fields, Fields::Unit) => Ok(()),
+    match input.data {
+        Data::Struct(ref data) if matches!(data.fields, Fields::Unit) => Ok(()),
 
         Data::Struct(_) | Data::Enum(_) | Data::Union(_) => Err(Error::new_spanned(
             &input.ident,

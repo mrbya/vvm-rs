@@ -55,7 +55,7 @@ pub(super) fn expand(input: Input) -> TokenStream {
 
 #[cfg(test)]
 mod tests {
-    use syn::{parse_quote, DeriveInput};
+    use syn::{DeriveInput, parse_quote};
 
     use super::expand;
     use crate::sample::input::Input;

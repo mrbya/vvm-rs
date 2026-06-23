@@ -1,0 +1,5 @@
+error: missing `dut` option in `#[vvm(...)]`
+ --> tests/ui/fail/clock_missing_dut.rs:3:8
+  |
+3 | struct MockClock;
+  |        ^^^^^^^^^

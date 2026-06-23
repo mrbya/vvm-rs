@@ -34,4 +34,4 @@ normal = [
     "vvm-ffi",
     "vvm-macros",
 ]
-development = ["criterion"]
+development = ["criterion", "vvm-core"]

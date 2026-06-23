@@ -1,0 +1,5 @@
+error: `Clock` can only be derived for a unit struct
+ --> tests/ui/fail/clock_named_struct.rs:6:8
+  |
+6 | struct MockClock {
+  |        ^^^^^^^^^

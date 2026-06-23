@@ -82,15 +82,6 @@ pub struct CounterObservation {
     count: u8,
 }
 
-impl CounterObservation {
-    /// Returns the sampled counter value.
-    #[must_use]
-    #[cfg(test)]
-    pub const fn count(self) -> u8 {
-        self.count
-    }
-}
-
 impl Sample<Counter> for CounterObservation {
     fn sample(dut: &Counter) -> std::prelude::v1::Result<Self, <Counter as vvm_core::Dut>::Error> {
         Ok(Self {
@@ -141,7 +132,34 @@ pub fn counter_sequence() -> impl ExactSizeIterator<Item = CounterStimulus> {
 mod tests {
     use vvm_core::{ExactScoreboard, ReferenceModel, Scoreboard};
 
-    use super::{CounterObservation, CounterReferenceModel, counter_sequence};
+    use super::{CounterClock, CounterObservation, CounterReferenceModel, counter_sequence};
+    use crate::generated::{Counter, Result};
+
+    impl CounterObservation {
+        /// Creates one counter observation.
+        #[must_use]
+        pub const fn new(count: u8) -> Self {
+            Self { count }
+        }
+
+        /// Returns the sampled counter value.
+        #[must_use]
+        pub const fn count(self) -> u8 {
+            self.count
+        }
+    }
+
+    /// Deliberately incorrect counter model.
+    #[derive(Debug, Default)]
+    struct IncorrectCounterModel;
+
+    impl vvm_core::ReferenceModel<crate::verification::CounterStimulus> for IncorrectCounterModel {
+        type Expected = crate::verification::CounterObservation;
+
+        fn predict(&mut self, _stimulus: &crate::verification::CounterStimulus) -> Self::Expected {
+            crate::verification::CounterObservation::new(255)
+        }
+    }
 
     #[test]
     fn reference_model_matches_expected_sequence() {
@@ -161,5 +179,27 @@ mod tests {
         let mut scoreboard = ExactScoreboard;
 
         assert!(scoreboard.check(expected, observed).is_err());
+    }
+
+    #[test]
+    fn runner_reports_cycle_aware_mismatch() -> Result<()> {
+        let dut = Counter::new()?;
+
+        let result = vvm_core::Testbench::new(dut)
+            .with_sequence(counter_sequence())
+            .with_reference_model(IncorrectCounterModel)
+            .with_scoreboard(vvm_core::ExactScoreboard)
+            .with_clock(CounterClock)
+            .run::<CounterObservation>();
+
+        assert!(!result.passed());
+        assert_eq!(result.failure_count(), 1);
+        assert!(result.stopped_by_failure_policy());
+
+        let failure = result.failures().first();
+
+        assert_eq!(failure.map(vvm_core::CheckFailure::cycle), Some(0));
+
+        Ok(())
     }
 }

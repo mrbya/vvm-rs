@@ -1,5 +1,6 @@
 use thiserror::Error;
-use vvm_core::{Clock, Drive, Mismatch, ReferenceModel, Sample, TestResult};
+use vvm_core::{Clock, Mismatch, ReferenceModel, TestResult};
+use vvm_macros::{Drive, Sample};
 
 use crate::generated::{Counter, CounterError};
 
@@ -48,12 +49,15 @@ impl Clock<Counter> for CounterClock {
 ///
 /// Clock control is intentionally excluded because the explicit simulation
 /// loop owns active-edge timing.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Drive)]
+#[vvm(dut = crate::generated::Counter)]
 pub struct CounterStimulus {
     /// Active-low reset input.
+    #[vvm(port)]
     reset_n: bool,
 
     /// Counter enable input.
+    #[vvm(port)]
     enable: bool,
 }
 
@@ -65,29 +69,13 @@ impl CounterStimulus {
     }
 }
 
-impl Drive<Counter> for CounterStimulus {
-    fn drive(
-        &self,
-        dut: &mut Counter,
-    ) -> std::prelude::v1::Result<(), <Counter as vvm_core::Dut>::Error> {
-        dut.set_reset_n(self.reset_n)?;
-        dut.set_enable(self.enable)
-    }
-}
-
 /// Counter output sampled after an active edge.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Sample)]
+#[vvm(dut = crate::generated::Counter)]
 pub struct CounterObservation {
     /// Sampled counter value.
+    #[vvm(port)]
     count: u8,
-}
-
-impl Sample<Counter> for CounterObservation {
-    fn sample(dut: &Counter) -> std::prelude::v1::Result<Self, <Counter as vvm_core::Dut>::Error> {
-        Ok(Self {
-            count: dut.count()?,
-        })
-    }
 }
 
 /// Stateful behavioral model of the counter.

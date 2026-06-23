@@ -20,6 +20,7 @@ workspace = true
 cxx.workspace = true
 thiserror.workspace = true
 vvm-core.workspace = true
+vvm-macros.workspace = true
 
 [build-dependencies]
 vvm-build.workspace = true

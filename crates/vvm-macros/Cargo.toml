@@ -22,6 +22,10 @@ proc-macro2.workspace = true
 quote.workspace = true
 syn.workspace = true
 
+[dev-dependencies]
+trybuild.workspace = true
+vvm-core.workspace = true
+
 [package.metadata.cargo-udeps.ignore]
 normal = [
     "vvm",

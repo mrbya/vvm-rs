@@ -53,3 +53,35 @@ pub(super) fn expand(input: Input) -> TokenStream {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use syn::{DeriveInput, parse_quote};
+
+    use super::expand;
+    use crate::drive::input::Input;
+
+    #[test]
+    fn expands_mapped_setters() -> Result<(), Box<dyn std::error::Error>> {
+        let input: DeriveInput = parse_quote! {
+            #[derive(Drive)]
+            #[vvm(dut = crate::Counter)]
+            struct Stimulus {
+                #[vvm(port)]
+                enable: bool,
+
+                #[vvm(port = "reset_n")]
+                reset: bool,
+            }
+        };
+
+        let tokens = expand(Input::parse(input)?).to_string();
+
+        assert!(tokens.contains("set_enable"));
+        assert!(tokens.contains("set_reset_n"));
+        assert!(tokens.contains("vvm_core"));
+        assert!(tokens.contains("Drive"));
+
+        Ok(())
+    }
+}

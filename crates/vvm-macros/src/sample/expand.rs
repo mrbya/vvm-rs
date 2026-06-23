@@ -17,10 +17,9 @@ pub(super) fn expand(input: Input) -> TokenStream {
         fields,
     } = input;
 
-    generics
-        .make_where_clause()
-        .predicates
-        .push(parse_quote!(#dut ::vvm_core::Dut));
+    generics.make_where_clause().predicates.push(parse_quote!(
+        #dut: ::vvm_core::Dut
+    ));
 
     let (impl_generics, type_generics, where_clause) = generics.split_for_impl();
 
@@ -51,5 +50,37 @@ pub(super) fn expand(input: Input) -> TokenStream {
                 })
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use syn::{DeriveInput, parse_quote};
+
+    use super::expand;
+    use crate::sample::input::Input;
+
+    #[test]
+    fn expands_mapped_setters() -> Result<(), Box<dyn std::error::Error>> {
+        let input: DeriveInput = parse_quote! {
+            #[derive(Sample)]
+            #[vvm(dut = crate::Counter)]
+            struct Stimulus {
+                #[vvm(port)]
+                data_out: bool,
+
+                #[vvm(port)]
+                en_out: bool,
+            }
+        };
+
+        let tokens = expand(Input::parse(input)?).to_string();
+
+        assert!(tokens.contains("data_out"));
+        assert!(tokens.contains("en_out"));
+        assert!(tokens.contains("vvm_core"));
+        assert!(tokens.contains("Sample"));
+
+        Ok(())
     }
 }

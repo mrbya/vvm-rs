@@ -1,9 +1,7 @@
 use syn::{DeriveInput, Generics, Ident, Path, Result};
 
-use crate::{
-    attrs::{parse_dut_path, parse_port_attribute},
-    error::{named_fields, unmapped_sample_field},
-};
+use crate::attrs::{parse_dut_path, parse_port_attribute};
+use crate::error::{named_fields, unmapped_sample_field};
 
 /// Parsed `Sample` implementation input.
 pub(super) struct Input {
@@ -39,7 +37,7 @@ impl Input {
     pub(super) fn parse(input: DeriveInput) -> Result<Self> {
         let dut = parse_dut_path(&input.attrs, input.ident.span())?;
 
-        let named_fields = named_fields(&input, "sample")?;
+        let named_fields = named_fields(&input, "Sample")?;
 
         let mut fields = Vec::new();
 

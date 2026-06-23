@@ -1,5 +1,6 @@
 use proc_macro2::Span;
-use syn::{ext::IdentExt, Attribute, Error, Ident, LitStr, Path, Result, Token};
+use syn::ext::IdentExt;
+use syn::{Attribute, Error, Ident, LitStr, Path, Result, Token};
 
 /// Parsed `#[vvm(port...)]` field mapping
 pub struct PortAttribute {

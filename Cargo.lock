@@ -493,10 +493,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "vvm-ffi"
-version = "0.0.1"
-
-[[package]]
 name = "vvm-macros"
 version = "0.0.1"
 dependencies = [

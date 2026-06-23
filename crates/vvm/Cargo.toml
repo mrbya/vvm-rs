@@ -26,6 +26,5 @@ full = []
 normal = [
     "vvm-build",
     "vvm-core",
-    "vvm-ffi",
     "vvm-macros",
 ]

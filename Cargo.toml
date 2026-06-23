@@ -3,7 +3,6 @@ members = [
     "crates/vvm",
     "crates/vvm-build",
     "crates/vvm-core",
-    "crates/vvm-ffi",
     "crates/vvm-macros",
     "examples/counter",
 ]
@@ -26,7 +25,6 @@ version                 = "0.0.1"
 vvm-rs                  = { path = "crates/vvm" }
 vvm-build               = { path = "crates/vvm-build" }
 vvm-core                = { path = "crates/vvm-core" }
-vvm-ffi                 = { path = "crates/vvm-ffi" }
 vvm-macros              = { path = "crates/vvm-macros" }
 
 # Runtime and build dependencies

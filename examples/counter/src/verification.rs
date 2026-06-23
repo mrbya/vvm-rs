@@ -1,8 +1,8 @@
 use thiserror::Error;
-use vvm_core::{Clock, Mismatch, ReferenceModel, TestResult};
-use vvm_macros::{Drive, Sample};
+use vvm_core::{Mismatch, ReferenceModel, TestResult};
+use vvm_macros::{Clock, Drive, Sample};
 
-use crate::generated::{Counter, CounterError};
+use crate::generated::CounterError;
 
 /// Counter simulation error.
 #[derive(Debug, Error)]
@@ -26,24 +26,12 @@ pub type CounterMismatch = Mismatch<CounterObservation, CounterObservation>;
 pub type CounterTestResult = TestResult<CounterStimulus, CounterMismatch, CounterError>;
 
 /// Clock driver for the generated dounter DUT.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, Clock)]
+#[vvm(
+    dut = crate::generated::Counter,
+    clock = "clk"
+)]
 pub struct CounterClock;
-
-impl Clock<Counter> for CounterClock {
-    fn drive_inactive(
-        &mut self,
-        dut: &mut Counter,
-    ) -> std::prelude::v1::Result<(), <Counter as vvm_core::Dut>::Error> {
-        dut.set_clk(false)
-    }
-
-    fn drive_active(
-        &mut self,
-        dut: &mut Counter,
-    ) -> std::prelude::v1::Result<(), <Counter as vvm_core::Dut>::Error> {
-        dut.set_clk(true)
-    }
-}
 
 /// Inputs applied during one counter cycle.
 ///
@@ -120,7 +108,7 @@ pub fn counter_sequence() -> impl ExactSizeIterator<Item = CounterStimulus> {
 mod tests {
     use vvm_core::{ExactScoreboard, ReferenceModel, Scoreboard};
 
-    use super::{counter_sequence, CounterClock, CounterObservation, CounterReferenceModel};
+    use super::{CounterClock, CounterObservation, CounterReferenceModel, counter_sequence};
     use crate::generated::{Counter, Result};
 
     impl CounterObservation {

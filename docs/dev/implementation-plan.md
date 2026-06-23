@@ -1074,37 +1074,37 @@ vvm-macros/src/
 
 ## Shared attribute parsing
 
-- [ ] Parse `#[vvm(dut = path)]`.
-- [ ] Parse `#[vvm(port)]`.
-- [ ] Parse `#[vvm(port = "hdl_name")]`.
-- [ ] Reject duplicate DUT attributes.
-- [ ] Reject duplicate port attributes.
-- [ ] Reject unknown options.
-- [ ] Preserve useful spans.
-- [ ] Avoid panics for malformed input.
+- [x] Parse `#[vvm(dut = path)]`.
+- [x] Parse `#[vvm(port)]`.
+- [x] Parse `#[vvm(port = "hdl_name")]`.
+- [x] Reject duplicate DUT attributes.
+- [x] Reject duplicate port attributes.
+- [x] Reject unknown options.
+- [x] Preserve useful spans.
+- [x] Avoid panics for malformed input.
 
 ## `Drive` derive
 
-- [ ] Accept named-field structs.
-- [ ] Reject tuple structs and enums.
-- [ ] Require a DUT path.
-- [ ] Generate one setter call per mapped field.
-- [ ] Use field names by default.
-- [ ] Support explicit HDL names.
-- [ ] Preserve generics and where clauses.
-- [ ] Use hygienic VVM trait paths.
-- [ ] Produce readable expanded code.
+- [x] Accept named-field structs.
+- [x] Reject tuple structs and enums.
+- [x] Require a DUT path.
+- [x] Generate one setter call per mapped field.
+- [x] Use field names by default.
+- [x] Support explicit HDL names.
+- [x] Preserve generics and where clauses.
+- [x] Use hygienic VVM trait paths.
+- [x] Produce readable expanded code.
 
 ## `Sample` derive
 
-- [ ] Accept named-field structs.
-- [ ] Reject tuple structs and enums.
-- [ ] Require a DUT path.
-- [ ] Generate one getter call per mapped field.
-- [ ] Construct observations with named fields.
-- [ ] Support explicit HDL names.
-- [ ] Preserve generics and where clauses.
-- [ ] Produce readable expanded code.
+- [x] Accept named-field structs.
+- [x] Reject tuple structs and enums.
+- [x] Require a DUT path.
+- [x] Generate one getter call per mapped field.
+- [x] Construct observations with named fields.
+- [x] Support explicit HDL names.
+- [x] Preserve generics and where clauses.
+- [x] Produce readable expanded code.
 
 ## Direction and type checking
 
@@ -1114,41 +1114,41 @@ Rely initially on generated DUT method availability:
 - Sampling an input calls a nonexistent getter.
 - Incompatible field types fail ordinary Rust type checking.
 
-- [ ] Confirm resulting diagnostics are understandable.
-- [ ] Add custom macro diagnostics only where they help.
-- [ ] Avoid duplicating DUT metadata in macro input initially.
+- [x] Confirm resulting diagnostics are understandable.
+- [x] Add custom macro diagnostics only where they help.
+- [x] Avoid duplicating DUT metadata in macro input initially.
 
 ## `trybuild` tests
 
 Pass cases:
 
-- [ ] Basic `Drive`.
-- [ ] Basic `Sample`.
-- [ ] Explicit port rename.
-- [ ] Generic input where valid.
-- [ ] Coexistence with unrelated derives.
+- [x] Basic `Drive`.
+- [x] Basic `Sample`.
+- [x] Explicit port rename.
+- [x] Generic input where valid.
+- [x] Coexistence with unrelated derives.
 
 Fail cases:
 
-- [ ] Missing DUT attribute.
-- [ ] Enum derives `Drive`.
-- [ ] Tuple struct derives `Sample`.
-- [ ] Unknown `vvm` option.
-- [ ] Duplicate port metadata.
-- [ ] Invalid port syntax.
-- [ ] Driving an output.
-- [ ] Sampling an input.
-- [ ] Incompatible field type.
-- [ ] Missing setter or getter.
+- [x] Missing DUT attribute.
+- [x] Enum derives `Drive`.
+- [x] Tuple struct derives `Sample`.
+- [x] Unknown `vvm` option.
+- [x] Duplicate port metadata.
+- [x] Invalid port syntax.
+- [x] Driving an output.
+- [x] Sampling an input.
+- [x] Incompatible field type.
+- [x] Missing setter or getter.
 
 ## Acceptance criteria
 
-- [ ] Handwritten counter `Drive` implementation is removed.
-- [ ] Handwritten counter `Sample` implementation is removed.
-- [ ] Runtime behavior is unchanged.
-- [ ] Compile-fail tests verify diagnostics.
-- [ ] Macro entry points remain thin.
-- [ ] Macro internals are tested through `proc_macro2`.
+- [x] Handwritten counter `Drive` implementation is removed.
+- [x] Handwritten counter `Sample` implementation is removed.
+- [x] Runtime behavior is unchanged.
+- [x] Compile-fail tests verify diagnostics.
+- [x] Macro entry points remain thin.
+- [x] Macro internals are tested through `proc_macro2`.
 
 ---
 

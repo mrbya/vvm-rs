@@ -1,3 +1,5 @@
+extern crate vvm_core as vvm;
+
 use std::convert::Infallible;
 
 #[derive(vvm_macros::Clock)]
@@ -11,7 +13,7 @@ struct MockDut {
     clk: bool,
 }
 
-impl vvm_core::Dut for MockDut {
+impl vvm::Dut for MockDut {
     type Error = Infallible;
 
     fn evaluate(&mut self) -> Result<(), Self::Error> {
@@ -34,11 +36,11 @@ fn main() -> Result<(), Infallible> {
     let mut clock = MockClock;
     let mut dut = MockDut { clk: true };
 
-    vvm_core::Clock::drive_inactive(&mut clock, &mut dut)?;
+    vvm::Clock::drive_inactive(&mut clock, &mut dut)?;
 
     assert!(!dut.clk);
 
-    vvm_core::Clock::drive_active(&mut clock, &mut dut)?;
+    vvm::Clock::drive_active(&mut clock, &mut dut)?;
 
     assert!(dut.clk);
 

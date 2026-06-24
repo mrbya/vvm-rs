@@ -18,7 +18,7 @@ pub(super) fn expand(input: Input) -> TokenStream {
     } = input;
 
     generics.make_where_clause().predicates.push(parse_quote!(
-        #dut: ::vvm_core::Dut
+        #dut: ::vvm::Dut
     ));
 
     let (impl_generics, type_generics, where_clause) = generics.split_for_impl();
@@ -35,7 +35,7 @@ pub(super) fn expand(input: Input) -> TokenStream {
 
     quote! {
         impl #impl_generics
-            ::vvm_core::Sample<#dut>
+            ::vvm::Sample<#dut>
             for #ident #type_generics
             #where_clause
         {
@@ -43,7 +43,7 @@ pub(super) fn expand(input: Input) -> TokenStream {
                 __vvm_dut: &#dut,
             ) -> ::core::result::Result<
                 Self,
-                <#dut as ::vvm_core::Dut>::Error,
+                <#dut as ::vvm::Dut>::Error,
             > {
                 ::core::result::Result::Ok(Self {
                     #(#field_initializers)*
@@ -78,7 +78,7 @@ mod tests {
 
         assert!(tokens.contains("data_out"));
         assert!(tokens.contains("en_out"));
-        assert!(tokens.contains("vvm_core"));
+        assert!(tokens.contains("vvm :: Sample"));
         assert!(tokens.contains("Sample"));
 
         Ok(())

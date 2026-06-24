@@ -161,7 +161,10 @@ fn render_struct(output: &mut String, metadata: &DutMetadata, names: &DutNames) 
     );
     push_line(
         output,
-        &format!("    inner: cxx::UniquePtr<ffi::{}>,", names.cpp_type),
+        &format!(
+            "    inner: ::vvm::__private::cxx::UniquePtr<ffi::{}>,",
+            names.cpp_type
+        ),
     );
     push_line(output, "");
     push_line(
@@ -194,12 +197,13 @@ fn render_constructor(output: &mut String, _metadata: &DutMetadata, names: &DutN
 
     push_line(
         output,
-        "    /// Constructs Verilated DUT from an internal [`cxx::UniquePtr`].",
+        "    /// Constructs Verilated DUT from an internal [`::vvm::__private::cxx::UniquePtr`].",
     );
     push_line(
         output,
         &format!(
-            "    fn from_inner(inner: cxx::UniquePtr<ffi::{}>) -> Result<Self> {{",
+            "    fn from_inner(inner: ::vvm::__private::cxx::UniquePtr<ffi::{}>) -> Result<Self> \
+             {{",
             names.cpp_type
         ),
     );
@@ -421,7 +425,7 @@ fn render_debug(output: &mut String, names: &DutNames) {
 fn render_dut_trait(output: &mut String, names: &DutNames) {
     push_line(
         output,
-        &format!("impl vvm_core::Dut for {} {{", names.cpp_type),
+        &format!("impl ::vvm::Dut for {} {{", names.cpp_type),
     );
     push_line(
         output,

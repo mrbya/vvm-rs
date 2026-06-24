@@ -9,7 +9,7 @@ repository.workspace    = true
 license.workspace       = true
 keywords.workspace      = true
 categories.workspace    = true
-description             = "VVM public facade"
+description             = "Verilator Verification Methodology for Rust"
 
 [lib]
 name = "vvm"
@@ -18,13 +18,7 @@ bench = false
 [lints]
 workspace = true
 
-[features]
-default = []
-full = []
-
-[package.metadata.cargo-udeps.ignore]
-normal = [
-    "vvm-build",
-    "vvm-core",
-    "vvm-macros",
-]
+[dependencies]
+vvm-core.workspace = true
+vvm-macros.workspace = true
+cxx.workspace = true

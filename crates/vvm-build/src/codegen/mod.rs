@@ -171,7 +171,7 @@ mod tests {
         assert!(!wrapper.contains("unsafe"));
         assert!(!wrapper.contains("Vcounter"));
         assert!(wrapper.contains("pub enum CounterError"));
-        assert!(wrapper.contains("impl vvm_core::Dut for Counter"));
+        assert!(wrapper.contains("impl ::vvm::Dut for Counter"));
         assert!(wrapper.contains("impl Drop for Counter"));
         assert!(wrapper.contains("impl std::fmt::Debug for Counter"));
 

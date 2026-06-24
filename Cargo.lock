@@ -485,11 +485,9 @@ version = "0.0.1"
 name = "vvm-example-counter"
 version = "0.0.1"
 dependencies = [
- "cxx",
  "thiserror",
  "vvm-build",
- "vvm-core",
- "vvm-macros",
+ "vvm-rs",
 ]
 
 [[package]]
@@ -506,6 +504,11 @@ dependencies = [
 [[package]]
 name = "vvm-rs"
 version = "0.0.1"
+dependencies = [
+ "cxx",
+ "vvm-core",
+ "vvm-macros",
+]
 
 [[package]]
 name = "winapi-util"

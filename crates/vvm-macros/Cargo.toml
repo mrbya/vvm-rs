@@ -31,7 +31,6 @@ normal = [
     "vvm",
     "vvm-build",
     "vvm-core",
-    "vvm-ffi",
     "vvm-macros",
 ]
 development = ["criterion", "vvm-core"]

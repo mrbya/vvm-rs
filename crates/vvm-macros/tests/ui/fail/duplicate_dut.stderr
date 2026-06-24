@@ -1,5 +1,5 @@
 error: duplicate `dut` option
-  --> tests/ui/fail/duplicate_dut.rs:29:7
+  --> tests/ui/fail/duplicate_dut.rs:31:7
    |
-29 | #[vvm(dut = MockDut)]
+31 | #[vvm(dut = MockDut)]
    |       ^^^

@@ -1,3 +1,5 @@
+extern crate vvm_core as vvm;
+
 use std::convert::Infallible;
 
 #[derive(vvm_macros::Drive)]
@@ -9,7 +11,7 @@ struct Stimulus {
 
 struct MockDut;
 
-impl vvm_core::Dut for MockDut {
+impl vvm::Dut for MockDut {
     type Error = Infallible;
 
     fn evaluate(&mut self) -> Result<(), Self::Error> {

@@ -16,7 +16,7 @@ pub(super) fn expand(input: Input) -> TokenStream {
     } = input;
 
     generics.make_where_clause().predicates.push(parse_quote!(
-        #dut: ::vvm_core::Dut
+        #dut: ::vvm::Dut
     ));
 
     let (impl_generics, type_generics, where_clause) = generics.split_for_impl();
@@ -33,7 +33,7 @@ pub(super) fn expand(input: Input) -> TokenStream {
 
     quote! {
         impl #impl_generics
-            ::vvm_core::Clock<#dut>
+            ::vvm::Clock<#dut>
             for #ident #type_generics
             #where_clause
         {
@@ -42,7 +42,7 @@ pub(super) fn expand(input: Input) -> TokenStream {
                 __vvm_dut: &mut #dut,
             ) -> ::core::result::Result<
                 (),
-                <#dut as ::vvm_core::Dut>::Error,
+                <#dut as ::vvm::Dut>::Error,
             > {
                 #drive_inactive
             }
@@ -52,7 +52,7 @@ pub(super) fn expand(input: Input) -> TokenStream {
                 __vvm_dut: &mut #dut,
             ) -> ::core::result::Result<
                 (),
-                <#dut as ::vvm_core::Dut>::Error,
+                <#dut as ::vvm::Dut>::Error,
             > {
                 #drive_active
             }
@@ -80,7 +80,7 @@ mod tests {
 
         let tokens = expand(Input::parse(input)?).to_string();
 
-        assert!(tokens.contains("vvm_core"));
+        assert!(tokens.contains("vvm :: Clock"));
         assert!(tokens.contains("Clock"));
         assert!(tokens.contains("set_clk"));
         assert!(tokens.contains("drive_inactive"));

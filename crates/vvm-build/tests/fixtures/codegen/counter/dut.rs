@@ -42,7 +42,7 @@ pub type Result<T> = std::result::Result<T, CounterError>;
 /// Safe Rust wrapper for the `counter` Verilated DUT.
 pub struct Counter {
     /// Opaque ownership of the generated C++ adapter.
-    inner: cxx::UniquePtr<ffi::Counter>,
+    inner: ::vvm::__private::cxx::UniquePtr<ffi::Counter>,
 
     /// Tracks whether finalisation has already completed.
     finished: bool,
@@ -61,8 +61,8 @@ impl Counter {
         Self::from_inner(inner)
     }
 
-    /// Constructs Verilated DUT from an internal [`cxx::UniquePtr`].
-    fn from_inner(inner: cxx::UniquePtr<ffi::Counter>) -> Result<Self> {
+    /// Constructs Verilated DUT from an internal [`::vvm::__private::cxx::UniquePtr`].
+    fn from_inner(inner: ::vvm::__private::cxx::UniquePtr<ffi::Counter>) -> Result<Self> {
         if inner.is_null() {
             return Err(CounterError::ConstructionFailed);
         }
@@ -191,7 +191,7 @@ impl std::fmt::Debug for Counter {
     }
 }
 
-impl vvm_core::Dut for Counter {
+impl ::vvm::Dut for Counter {
     type Error = CounterError;
 
     fn evaluate(&mut self) -> Result<()> {

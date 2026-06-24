@@ -1,9 +1,10 @@
 # AGENTS
 
 ## Workspace Shape
-- This is a Cargo workspace only at the root; the main library crates are `crates/vvm`, `crates/vvm-core`, `crates/vvm-build`, `crates/vvm-ffi`, and `crates/vvm-macros`, plus the Milestone 0 example package at `examples/counter`.
-- `crates/vvm` is the public facade package. Its Cargo package name is `vvm-rs`, but its library name is `vvm`; use `-p vvm-rs` when filtering Cargo commands.
-- The library crates are still mostly scaffold-level: each crate only exposes crate docs, while the first real build integration lives in `examples/counter`.
+- This is a Cargo workspace only at the root; the main library crates are `crates/vvm`, `crates/vvm-core`, `crates/vvm-build`, and `crates/vvm-macros`, plus the example package at `examples/counter`.
+- `crates/vvm` is the public runtime facade package. Its Cargo package name is `vvm-rs`, but its library name is `vvm`; use `-p vvm-rs` when filtering Cargo commands.
+- Runtime crates should depend on `vvm`; `build.rs` should depend on `vvm-build` directly.
+- Generated DUT code is included from `OUT_DIR`; `vvm` provides `include_dut!` and hidden `__private::cxx` support so user crates do not need a direct runtime `cxx` dependency.
 - `docs/dev/reference-projects/vvm` is a git submodule that holds the legacy/reference project, not the active workspace code.
 
 ## Tooling And Commands
@@ -19,7 +20,8 @@
 
 ## Focused Verification
 - For one package, prefer Cargo package filters, for example `cargo test -p vvm-rs`.
-- The only checked-in integration test target is `cargo test -p vvm-rs --test integration_tests`.
+- The facade integration test target is `cargo test -p vvm-rs --test public_api`.
+- The repository integration test target is `cargo test -p vvm-rs --test integration_tests`.
 - The counter example smoke target is `cargo run -p vvm-example-counter`.
 - For HDL-only verification without Cargo, use `verilator --lint-only examples/counter/rtl/counter.sv`.
 

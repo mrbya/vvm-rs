@@ -69,6 +69,7 @@ mod tests {
         assert!(result.passed());
         assert_eq!(result.cycles(), 7);
         assert_eq!(result.checks(), 7);
+        assert_eq!(result.final_time(), vvm::SimulationTime::from_ticks(14));
         assert_eq!(result.failure_count(), 0);
         assert!(result.simulation_error().is_none());
         assert!(result.finalization_error().is_none());

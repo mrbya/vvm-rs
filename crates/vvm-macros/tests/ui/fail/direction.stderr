@@ -5,7 +5,7 @@ error[E0599]: no method named `set_count` found for mutable reference `&mut Mock
    |     ^^^^^
    |
 help: there is a method `count` with a similar name, but with different arguments
-  --> tests/ui/fail/direction.rs:27:5
+  --> tests/ui/fail/direction.rs:39:5
    |
-27 |     fn count(&self) -> Result<u8, Infallible> {
+39 |     fn count(&self) -> Result<u8, Infallible> {
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

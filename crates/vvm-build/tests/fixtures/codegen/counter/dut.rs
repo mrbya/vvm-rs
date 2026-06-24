@@ -17,6 +17,9 @@ pub enum CounterError {
 
     /// The internal native adapter is unexpectedly unavailable.
     AdapterUnavailable,
+
+    /// Simulation time would overflow.
+    TimeOverflow,
 }
 
 impl std::fmt::Display for CounterError {
@@ -28,6 +31,7 @@ impl std::fmt::Display for CounterError {
             Self::ConstructionFailed => "failed to construct the Verilated counter model",
             Self::Finished => "the counter model has already been finished",
             Self::AdapterUnavailable => "the counter native adapter is unexpectedly unavailable",
+            Self::TimeOverflow => "advancing counter simulation time would overflow"
         };
 
         formatter.write_str(message)
@@ -46,6 +50,9 @@ pub struct Counter {
 
     /// Tracks whether finalisation has already completed.
     finished: bool,
+
+    /// Current logical simulation time.
+    time: ::vvm::SimulationTime,
 }
 
 #[allow(dead_code)]
@@ -70,6 +77,7 @@ impl Counter {
         Ok(Self {
             inner,
             finished: false,
+            time: ::vvm::SimulationTime::ZERO,
         })
     }
 
@@ -106,6 +114,38 @@ impl Counter {
         self.inner_mut()?.finish();
         self.finished = true;
 
+        Ok(())
+    }
+    /// Returns the current simulation time.
+    #[must_use]
+    const fn simulation_time_value(
+        &self,
+    ) -> ::vvm::SimulationTime {
+        self.time
+    }
+    /// Advances the simulation time without evaluating the DUT.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the DUT is finished, the adapter is unavailable, or
+    /// the resulting time would overflow.
+    fn advance_time_inner(
+        &mut self,
+        delta: ::vvm::TimeStep,
+    ) -> Result<()> {
+        self.ensure_running()?;
+        let Some(next_time) =
+            self.time.checked_add(delta)
+        else {
+            return Err(CounterError::TimeOverflow);
+        };
+        let advanced = self
+            .inner_mut()?
+            .advance_time(delta.ticks());
+        if !advanced {
+            return Err(CounterError::TimeOverflow);
+        }
+        self.time = next_time;
         Ok(())
     }
 
@@ -187,6 +227,7 @@ impl std::fmt::Debug for Counter {
     ) -> std::fmt::Result {
         formatter.debug_struct("Counter")
             .field("finished", &self.finished)
+            .field("time", &self.time)
             .finish_non_exhaustive()
     }
 }
@@ -200,6 +241,17 @@ impl ::vvm::Dut for Counter {
 
     fn finalize(&mut self) -> Result<()> {
         Self::finish(self)
+    }
+    fn simulation_time(
+        &self,
+    ) -> ::vvm::SimulationTime {
+        Self::simulation_time_value(self)
+    }
+    fn advance_time(
+        &mut self,
+        delta: ::vvm::TimeStep,
+    ) -> Result<()> {
+        Self::advance_time_inner(self, delta)
     }
 }
 

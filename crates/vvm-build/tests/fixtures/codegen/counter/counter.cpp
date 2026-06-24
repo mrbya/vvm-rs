@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <memory>
 #include <type_traits>
+#include <limits>
 
 namespace vvm::counter {
 
@@ -83,6 +84,20 @@ void Counter::set_enable(const bool value) noexcept {
 
 std::uint8_t Counter::count() const noexcept {
     return static_cast<std::uint8_t>(impl_->model->count());
+}
+
+bool Counter::advance_time(
+    const std::uint64_t delta
+) noexcept {
+    const auto current = impl_->context->time();
+
+    if (delta > std::numeric_limits<std::uint64_t>::max() - current) {
+        return false;
+    }
+
+    impl_->context->timeInc(delta);
+
+    return true;
 }
 
 std::unique_ptr<Counter> create_counter() noexcept {

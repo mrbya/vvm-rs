@@ -1,5 +1,5 @@
 error[E0599]: no method named `set_invalid` found for mutable reference `&mut MockDut` in the current scope
-  --> tests/ui/fail/invalid_port.rs:33:5
+  --> tests/ui/fail/invalid_port.rs:45:5
    |
-33 |     invalid: bool,
+45 |     invalid: bool,
    |     ^^^^^^^ method not found in `&mut MockDut`

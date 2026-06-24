@@ -4,7 +4,8 @@ use std::process::Command;
 use std::{fmt, fs};
 
 use crate::builder::Define;
-use crate::{BuildError, BuildResult, command};
+use crate::trace::TraceFormat;
+use crate::{BuildError, BuildResult, TraceOptions, command};
 
 /// Default Verilator executable name.
 const DEFAULT_EXECUTABLE: &str = "verilator";
@@ -31,6 +32,8 @@ pub struct ModelCommand<'a> {
     pub(crate) extra_arguments: &'a [OsString],
     /// HDL source files.
     pub(crate) sources: &'a [PathBuf],
+    /// Waveform trace config.
+    pub(crate) trace: Option<TraceOptions>,
 }
 
 /// Parsed Verilator version.
@@ -209,6 +212,8 @@ pub fn model_command(model: &ModelCommand<'_>) -> Command {
         .arg("--Mdir")
         .arg(model.output_dir)
         .arg("--emit-accessors");
+
+    append_trace_arguments(&mut command, model.trace);
 
     append_hdl_arguments(
         &mut command,
@@ -439,4 +444,19 @@ fn append_hdl_arguments(
     for source in sources {
         command.arg(source);
     }
+}
+
+/// Appends native waveform tracing flags to a Verilator command.
+fn append_trace_arguments(command: &mut Command, trace: Option<TraceOptions>) {
+    let Some(TraceOptions { format, depth }) = trace else {
+        return;
+    };
+
+    match format {
+        TraceFormat::Vcd => command.arg("--trace"),
+        TraceFormat::Fst => command.arg("--trace-fst"),
+    };
+
+    command.arg("--trace-depth");
+    command.arg(depth.to_string());
 }

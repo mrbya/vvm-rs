@@ -78,12 +78,15 @@ pub(crate) mod metadata;
 pub(crate) mod native;
 /// Path resolution, validation and deduplication.
 pub(crate) mod paths;
+/// Trace dump api
+pub(crate) mod trace;
 /// Verilator discovery, metadata and model generation.
 pub(crate) mod verilator;
 
 // Re-exports
 pub use builder::DutBuilder;
 pub use error::{BuildError, BuildResult};
+pub use trace::TraceOptions;
 
 // Tests
 #[cfg(test)]

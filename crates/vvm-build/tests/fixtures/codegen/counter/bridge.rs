@@ -15,6 +15,9 @@ mod ffi {
         /// Evaluates the current DUT state.
         fn eval(self: Pin<&mut Counter>);
 
+        /// Advances the native simulation context time.
+        fn advance_time(self: Pin<&mut Counter>, delta: u64) -> bool;
+
         /// Finalises the DUT model.
         fn finish(self: Pin<&mut Counter>);
 

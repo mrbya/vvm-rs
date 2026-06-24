@@ -20,6 +20,8 @@ public:
 
     void eval() noexcept;
     void finish() noexcept;
+    [[nodiscard]]
+    bool advance_time(std::uint64_t delta) noexcept;
 
     void set_clk(bool value) noexcept;
     void set_reset_n(bool value) noexcept;

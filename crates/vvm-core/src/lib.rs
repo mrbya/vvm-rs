@@ -93,7 +93,7 @@ pub use result::{CheckFailure, SimulationError, SimulationStage, TestResult};
 pub use sample::Sample;
 pub use scoreboard::{ExactScoreboard, Mismatch, Scoreboard};
 pub use testbench::{Testbench, Unconfigured};
-pub use time::{InvalidTimeStep, SimulationTime, TimeStep};
+pub use time::{CycleTiming, InvalidTimeStep, SimulationTime, TimeStep};
 
 // Unit tests.
 #[cfg(test)]

@@ -71,6 +71,11 @@ fn render_header(metadata: &DutMetadata, names: &DutNames) -> String {
     push_line(&mut output, "");
     push_line(&mut output, "    void eval() noexcept;");
     push_line(&mut output, "    void finish() noexcept;");
+    push_line(&mut output, "    [[nodiscard]]");
+    push_line(
+        &mut output,
+        "    bool advance_time(std::uint64_t delta) noexcept;",
+    );
     push_line(&mut output, "");
 
     for (port, port_names) in metadata.ports.iter().zip(&names.ports) {
@@ -131,6 +136,7 @@ fn render_source(metadata: &DutMetadata, names: &DutNames) -> String {
     render_impl_class(&mut output, metadata, names);
     render_lifecycle_methods(&mut output, names);
     render_port_methods(&mut output, metadata, names);
+    render_time_methods(&mut output, names);
     render_factory_function(&mut output, names);
     render_source_epilogue(&mut output, names);
 
@@ -149,6 +155,7 @@ fn render_source_prelude(output: &mut String, names: &DutNames) {
     push_line(output, "#include <cstdint>");
     push_line(output, "#include <memory>");
     push_line(output, "#include <type_traits>");
+    push_line(output, "#include <limits>");
     push_line(output, "");
     push_line(output, &format!("namespace vvm::{} {{", names.namespace));
     push_line(output, "");
@@ -268,6 +275,27 @@ fn render_port_methods(output: &mut String, metadata: &DutMetadata, names: &DutN
             PortDirection::Inout => {}
         }
     }
+}
+
+/// Renders the adapter timing methods.
+fn render_time_methods(output: &mut String, names: &DutNames) {
+    push_line(output, "");
+    push_line(output, &format!("bool {}::advance_time(", names.cpp_type));
+    push_line(output, "    const std::uint64_t delta");
+    push_line(output, ") noexcept {");
+    push_line(output, "    const auto current = impl_->context->time();");
+    push_line(output, "");
+    push_line(
+        output,
+        "    if (delta > std::numeric_limits<std::uint64_t>::max() - current) {",
+    );
+    push_line(output, "        return false;");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(output, "    impl_->context->timeInc(delta);");
+    push_line(output, "");
+    push_line(output, "    return true;");
+    push_line(output, "}");
 }
 
 /// Renders the adapter factory function.

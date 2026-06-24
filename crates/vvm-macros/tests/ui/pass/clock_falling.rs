@@ -12,12 +12,25 @@ struct MockClock;
 
 struct MockDut {
     clk: bool,
+    time: vvm::SimulationTime,
 }
 
 impl vvm::Dut for MockDut {
     type Error = Infallible;
 
     fn evaluate(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn simulation_time(&self) -> vvm::SimulationTime {
+        self.time
+    }
+
+    fn advance_time(&mut self, delta: vvm::TimeStep) -> Result<(), Self::Error> {
+        if let Some(time) = self.time.checked_add(delta) {
+            self.time = time;
+        }
+
         Ok(())
     }
 
@@ -35,7 +48,10 @@ impl MockDut {
 
 fn main() -> Result<(), Infallible> {
     let mut clock = MockClock;
-    let mut dut = MockDut { clk: false };
+    let mut dut = MockDut {
+        clk: false,
+        time: vvm::SimulationTime::ZERO,
+    };
 
     vvm::Clock::drive_inactive(&mut clock, &mut dut)?;
 

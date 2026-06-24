@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::{env, fs};
 
 use crate::error::{BuildError, BuildResult};
-use crate::{cargo, codegen, native, paths, verilator};
+use crate::{TraceOptions, cargo, codegen, native, paths, verilator};
 
 /// HDL preprocessor definition configuration.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -44,6 +44,9 @@ pub struct DutBuilder {
 
     /// Explicit Verilator executable override.
     verilator_executable: Option<OsString>,
+
+    /// Waveform trace options.
+    trace: Option<TraceOptions>,
 }
 
 impl DutBuilder {
@@ -60,6 +63,7 @@ impl DutBuilder {
             cpp_include_dirs: Vec::new(),
             verilator_arguments: Vec::new(),
             verilator_executable: None,
+            trace: None,
         }
     }
 
@@ -190,6 +194,13 @@ impl DutBuilder {
         self
     }
 
+    /// Overrides Verilator waveform trace config.
+    #[must_use]
+    pub const fn trace(mut self, trace: TraceOptions) -> Self {
+        self.trace = Some(trace);
+        self
+    }
+
     /// Generates the Verilated model and compiles the native bridge.
     ///
     /// # Errors
@@ -288,6 +299,7 @@ impl DutBuilder {
             defines: &self.defines,
             extra_arguments: &self.verilator_arguments,
             sources: &sources,
+            trace: self.trace,
         };
 
         verilator::generate(&model_command)?;

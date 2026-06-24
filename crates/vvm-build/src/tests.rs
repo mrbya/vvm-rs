@@ -423,6 +423,7 @@ fn constructs_verilator_model_command_in_expected_order() {
         defines: &defines,
         extra_arguments: &raw_arguments,
         sources: &sources,
+        trace: None,
     });
 
     assert_eq!(command.get_program(), executable);

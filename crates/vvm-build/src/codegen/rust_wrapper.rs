@@ -45,6 +45,7 @@ pub(super) fn render(metadata: &DutMetadata, names: &DutNames) -> String {
 
     render_constructor(&mut output, metadata, names);
     render_lifecycle(&mut output, names);
+    render_timing(&mut output, names);
 
     for (port, port_names) in metadata.ports.iter().zip(&names.ports) {
         match port.direction {
@@ -97,6 +98,9 @@ fn render_error(output: &mut String, metadata: &DutMetadata, names: &DutNames) {
         "    /// The internal native adapter is unexpectedly unavailable.",
     );
     push_line(output, "    AdapterUnavailable,");
+    push_line(output, "");
+    push_line(output, "    /// Simulation time would overflow.");
+    push_line(output, "    TimeOverflow,");
     push_line(output, "}");
     push_line(output, "");
 
@@ -129,6 +133,13 @@ fn render_error(output: &mut String, metadata: &DutMetadata, names: &DutNames) {
         &format!(
             "            Self::AdapterUnavailable => \"the {} native adapter is unexpectedly \
              unavailable\",",
+            metadata.name
+        ),
+    );
+    push_line(
+        output,
+        &format!(
+            "            Self::TimeOverflow => \"advancing {} simulation time would overflow\"",
             metadata.name
         ),
     );
@@ -172,6 +183,9 @@ fn render_struct(output: &mut String, metadata: &DutMetadata, names: &DutNames) 
         "    /// Tracks whether finalisation has already completed.",
     );
     push_line(output, "    finished: bool,");
+    push_line(output, "");
+    push_line(output, "    /// Current logical simulation time.");
+    push_line(output, "    time: ::vvm::SimulationTime,");
     push_line(output, "}");
 }
 
@@ -220,6 +234,7 @@ fn render_constructor(output: &mut String, _metadata: &DutMetadata, names: &DutN
     push_line(output, "        Ok(Self {");
     push_line(output, "            inner,");
     push_line(output, "            finished: false,");
+    push_line(output, "            time: ::vvm::SimulationTime::ZERO,");
     push_line(output, "        })");
     push_line(output, "    }");
 }
@@ -271,6 +286,62 @@ fn render_lifecycle(output: &mut String, names: &DutNames) {
     push_line(output, "        self.inner_mut()?.finish();");
     push_line(output, "        self.finished = true;");
     push_line(output, "");
+    push_line(output, "        Ok(())");
+    push_line(output, "    }");
+
+    let _ = names;
+}
+
+/// Renders timing operations.
+fn render_timing(output: &mut String, names: &DutNames) {
+    push_line(output, "    /// Returns the current simulation time.");
+    push_line(output, "    #[must_use]");
+    push_line(output, "    const fn simulation_time_value(");
+    push_line(output, "        &self,");
+    push_line(output, "    ) -> ::vvm::SimulationTime {");
+    push_line(output, "        self.time");
+    push_line(output, "    }");
+
+    push_line(
+        output,
+        "    /// Advances the simulation time without evaluating the DUT.",
+    );
+    push_line(output, "    ///");
+    push_line(output, "    /// # Errors");
+    push_line(output, "    ///");
+    push_line(
+        output,
+        "    /// Returns an error if the DUT is finished, the adapter is unavailable, or",
+    );
+    push_line(output, "    /// the resulting time would overflow.");
+    push_line(output, "    fn advance_time_inner(");
+    push_line(output, "        &mut self,");
+    push_line(output, "        delta: ::vvm::TimeStep,");
+    push_line(output, "    ) -> Result<()> {");
+    push_line(output, "        self.ensure_running()?;");
+
+    push_line(output, "        let Some(next_time) =");
+    push_line(output, "            self.time.checked_add(delta)");
+    push_line(output, "        else {");
+    push_line(
+        output,
+        "            return Err(CounterError::TimeOverflow);",
+    );
+    push_line(output, "        };");
+
+    push_line(output, "        let advanced = self");
+    push_line(output, "            .inner_mut()?");
+    push_line(output, "            .advance_time(delta.ticks());");
+
+    push_line(output, "        if !advanced {");
+    push_line(
+        output,
+        "            return Err(CounterError::TimeOverflow);",
+    );
+    push_line(output, "        }");
+
+    push_line(output, "        self.time = next_time;");
+
     push_line(output, "        Ok(())");
     push_line(output, "    }");
 
@@ -416,6 +487,7 @@ fn render_debug(output: &mut String, names: &DutNames) {
         &format!("        formatter.debug_struct(\"{}\")", names.cpp_type),
     );
     push_line(output, "            .field(\"finished\", &self.finished)");
+    push_line(output, "            .field(\"time\", &self.time)");
     push_line(output, "            .finish_non_exhaustive()");
     push_line(output, "    }");
     push_line(output, "}");
@@ -440,6 +512,19 @@ fn render_dut_trait(output: &mut String, names: &DutNames) {
 
     push_line(output, "    fn finalize(&mut self) -> Result<()> {");
     push_line(output, "        Self::finish(self)");
+    push_line(output, "    }");
+
+    push_line(output, "    fn simulation_time(");
+    push_line(output, "        &self,");
+    push_line(output, "    ) -> ::vvm::SimulationTime {");
+    push_line(output, "        Self::simulation_time_value(self)");
+    push_line(output, "    }");
+
+    push_line(output, "    fn advance_time(");
+    push_line(output, "        &mut self,");
+    push_line(output, "        delta: ::vvm::TimeStep,");
+    push_line(output, "    ) -> Result<()> {");
+    push_line(output, "        Self::advance_time_inner(self, delta)");
     push_line(output, "    }");
 
     push_line(output, "}");

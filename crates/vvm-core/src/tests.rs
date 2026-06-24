@@ -1,10 +1,19 @@
-use crate::{Drive, Dut, ExactScoreboard, ReferenceModel, Sample, Scoreboard};
+use std::cell::Cell;
+use std::rc::Rc;
+
+use crate::{
+    CheckFailure, Clock, CycleTiming, Drive, Dut, ExactScoreboard, InvalidTimeStep, ReferenceModel,
+    Sample, Scoreboard, SimulationStage, SimulationTime, TimeStep,
+};
 
 /// Error returned by the mock DUT.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum MockError {
     /// The mock has already been finalized.
     Finished,
+
+    /// Advancing time would overflow the simulation clock.
+    TimeOverflow,
 }
 
 /// Minimal pure-Rust DUT.
@@ -16,8 +25,23 @@ struct MockDut {
     /// Evaluated output.
     output: u8,
 
+    /// Current simulation time.
+    time: SimulationTime,
+
     /// Lifecycle state.
     finished: bool,
+}
+
+impl MockDut {
+    /// Constructs a mock DUT at an explicit simulation time.
+    const fn at_time(time: SimulationTime) -> Self {
+        Self {
+            input: 0,
+            output: 0,
+            time,
+            finished: false,
+        }
+    }
 }
 
 impl Dut for MockDut {
@@ -33,8 +57,87 @@ impl Dut for MockDut {
         Ok(())
     }
 
+    fn simulation_time(&self) -> SimulationTime {
+        self.time
+    }
+
+    fn advance_time(&mut self, delta: TimeStep) -> Result<(), Self::Error> {
+        if self.finished {
+            return Err(MockError::Finished);
+        }
+
+        let Some(next_time) = self.time.checked_add(delta) else {
+            return Err(MockError::TimeOverflow);
+        };
+
+        self.time = next_time;
+
+        Ok(())
+    }
+
     fn finalize(&mut self) -> Result<(), Self::Error> {
         self.finished = true;
+
+        Ok(())
+    }
+}
+
+/// Minimal overflow-test DUT that exposes finalization through a shared flag.
+#[derive(Debug)]
+struct OverflowMockDut {
+    /// Current simulation time.
+    time: SimulationTime,
+
+    /// Lifecycle state.
+    finished: bool,
+
+    /// Records whether finalization ran.
+    finalized: Rc<Cell<bool>>,
+}
+
+impl OverflowMockDut {
+    /// Constructs an overflow-test DUT at a chosen time.
+    fn at_time(time: SimulationTime, finalized: Rc<Cell<bool>>) -> Self {
+        Self {
+            time,
+            finished: false,
+            finalized,
+        }
+    }
+}
+
+impl Dut for OverflowMockDut {
+    type Error = MockError;
+
+    fn evaluate(&mut self) -> Result<(), Self::Error> {
+        if self.finished {
+            return Err(MockError::Finished);
+        }
+
+        Ok(())
+    }
+
+    fn simulation_time(&self) -> SimulationTime {
+        self.time
+    }
+
+    fn advance_time(&mut self, delta: TimeStep) -> Result<(), Self::Error> {
+        if self.finished {
+            return Err(MockError::Finished);
+        }
+
+        let Some(next_time) = self.time.checked_add(delta) else {
+            return Err(MockError::TimeOverflow);
+        };
+
+        self.time = next_time;
+
+        Ok(())
+    }
+
+    fn finalize(&mut self) -> Result<(), Self::Error> {
+        self.finished = true;
+        self.finalized.set(true);
 
         Ok(())
     }
@@ -50,6 +153,16 @@ impl crate::Clock<MockDut> for MockClock {
     }
 
     fn drive_active(&mut self, _dut: &mut MockDut) -> Result<(), MockError> {
+        Ok(())
+    }
+}
+
+impl Clock<OverflowMockDut> for MockClock {
+    fn drive_inactive(&mut self, _dut: &mut OverflowMockDut) -> Result<(), MockError> {
+        Ok(())
+    }
+
+    fn drive_active(&mut self, _dut: &mut OverflowMockDut) -> Result<(), MockError> {
         Ok(())
     }
 }
@@ -87,6 +200,30 @@ impl Sample<MockDut> for MockObservation {
         }
 
         Ok(Self { value: dut.output })
+    }
+}
+
+impl Drive<OverflowMockDut> for MockStimulus {
+    fn drive(&self, dut: &mut OverflowMockDut) -> Result<(), <OverflowMockDut as Dut>::Error> {
+        if dut.finished {
+            return Err(MockError::Finished);
+        }
+
+        Ok(())
+    }
+}
+
+impl Sample<OverflowMockDut> for MockObservation {
+    fn sample(_dut: &OverflowMockDut) -> Result<Self, <OverflowMockDut as Dut>::Error> {
+        Ok(Self { value: 0 })
+    }
+}
+
+impl ReferenceModel<MockStimulus> for Rc<Cell<u8>> {
+    type Expected = MockObservation;
+
+    fn predict(&mut self, _stimulus: &MockStimulus) -> Self::Expected {
+        MockObservation { value: self.get() }
     }
 }
 
@@ -128,6 +265,50 @@ fn drives_samples_and_checks_mock_dut() -> Result<(), MockError> {
 }
 
 #[test]
+fn dut_lifecycle_separates_evaluation_and_time_advancement() -> Result<(), MockError> {
+    let mut dut = MockDut::default();
+    let stimulus = MockStimulus { value: 7 };
+    let initial_time = Dut::simulation_time(&dut);
+
+    stimulus.drive(&mut dut)?;
+    Dut::evaluate(&mut dut)?;
+
+    assert_eq!(Dut::simulation_time(&dut), initial_time);
+    assert_eq!(dut.output, 7);
+
+    Dut::advance_time(&mut dut, TimeStep::ONE)?;
+
+    assert_eq!(Dut::simulation_time(&dut), SimulationTime::from_ticks(1));
+
+    Dut::finalize(&mut dut)?;
+
+    assert_eq!(Dut::simulation_time(&dut), SimulationTime::from_ticks(1));
+    assert_eq!(
+        Dut::advance_time(&mut dut, TimeStep::ONE),
+        Err(MockError::Finished)
+    );
+
+    Ok(())
+}
+
+#[test]
+fn finalized_dut_retains_time_but_rejects_advancement() -> Result<(), MockError> {
+    let mut dut = MockDut::at_time(SimulationTime::ZERO);
+
+    Dut::advance_time(&mut dut, TimeStep::ONE)?;
+    Dut::finalize(&mut dut)?;
+
+    assert_eq!(Dut::simulation_time(&dut), SimulationTime::from_ticks(1));
+    assert_eq!(
+        Dut::advance_time(&mut dut, TimeStep::ONE),
+        Err(MockError::Finished)
+    );
+    assert_eq!(Dut::simulation_time(&dut), SimulationTime::from_ticks(1));
+
+    Ok(())
+}
+
+#[test]
 fn exact_scoreboard_retains_mismatched_values() {
     let mut scoreboard = ExactScoreboard;
 
@@ -158,6 +339,7 @@ fn runner_executes_pure_rust_mock() {
     assert!(result.passed());
     assert_eq!(result.cycles(), 6);
     assert_eq!(result.checks(), 6);
+    assert_eq!(result.final_time(), SimulationTime::from_ticks(12));
     assert_eq!(result.failure_count(), 0);
     assert!(result.simulation_error().is_none());
     assert!(result.finalization_error().is_none());
@@ -196,12 +378,60 @@ fn runner_collects_only_configured_failure_count() -> Result<(), crate::InvalidF
     assert_eq!(result.checks(), 2);
     assert_eq!(result.failure_count(), 2);
     assert!(result.stopped_by_failure_policy());
+    assert_eq!(result.final_time(), SimulationTime::from_ticks(3));
 
     let failures = result.failures();
 
     assert_eq!(failures.first().map(crate::CheckFailure::cycle), Some(0));
+    assert_eq!(
+        failures.first().map(CheckFailure::time),
+        Some(SimulationTime::from_ticks(1))
+    );
 
     assert_eq!(failures.get(1).map(crate::CheckFailure::cycle), Some(1));
+    assert_eq!(
+        failures.get(1).map(CheckFailure::time),
+        Some(SimulationTime::from_ticks(3))
+    );
 
     Ok(())
+}
+
+#[test]
+fn runner_uses_configured_cycle_timing() -> Result<(), InvalidTimeStep> {
+    let timing = CycleTiming::new(TimeStep::new(2)?, TimeStep::new(3)?);
+
+    let result = crate::Testbench::new(MockDut::default())
+        .with_sequence([MockStimulus { value: 1 }, MockStimulus { value: 2 }])
+        .with_reference_model(MockReferenceModel)
+        .with_scoreboard(ExactScoreboard)
+        .with_clock(MockClock)
+        .with_cycle_timing(timing)
+        .run::<MockObservation>();
+
+    assert!(result.passed());
+    assert_eq!(result.final_time(), SimulationTime::from_ticks(10));
+
+    Ok(())
+}
+
+#[test]
+fn runner_reports_time_overflow_and_still_finalizes() {
+    let finalized = Rc::new(Cell::new(false));
+    let dut = OverflowMockDut::at_time(SimulationTime::from_ticks(u64::MAX), Rc::clone(&finalized));
+    let result = crate::Testbench::new(dut)
+        .with_sequence([MockStimulus { value: 1 }])
+        .with_reference_model(Rc::new(Cell::new(0)))
+        .with_scoreboard(ExactScoreboard)
+        .with_clock(MockClock)
+        .run::<MockObservation>();
+
+    let error = result.simulation_error().expect("simulation should fail");
+
+    assert_eq!(result.cycles(), 0);
+    assert_eq!(result.checks(), 0);
+    assert_eq!(error.stage(), SimulationStage::AdvanceInactivePhase);
+    assert_eq!(error.time(), SimulationTime::from_ticks(u64::MAX));
+    assert_eq!(result.final_time(), SimulationTime::from_ticks(u64::MAX));
+    assert!(finalized.get());
 }

@@ -1,3 +1,5 @@
+use crate::{SimulationTime, TimeStep};
+
 /// A simulation model that can be evaluated and finalized.
 ///
 /// Implementations may wrap a Verilated model, another simulator, or a
@@ -14,6 +16,21 @@ pub trait Dut {
     ///
     /// Returns an implementation-defined error when evaluation canot complete.
     fn evaluate(&mut self) -> Result<(), Self::Error>;
+
+    /// Returns the current absolute simulation time.
+    ///
+    /// This remains available after the DUT has been finalized.
+    fn simulation_time(&self) -> SimulationTime;
+
+    /// Advances the DUT simulation time.
+    ///
+    /// This operation does not evaluate the DUT or change any signal.
+    ///
+    /// # Errors
+    ///
+    /// Returns an implementation-defined error if time cannot be advanced,
+    /// including arithmetic overflow or use after finalization.
+    fn advance_time(&mut self, delta: TimeStep) -> Result<(), Self::Error>;
 
     /// Finalizes the DUT.
     ///

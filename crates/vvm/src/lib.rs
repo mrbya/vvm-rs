@@ -66,8 +66,9 @@
 
 #[doc(inline)]
 pub use vvm_core::{
-    CheckFailure, Clock, Drive, Dut, ExactScoreboard, FailurePolicy, InvalidFailureLimit, Mismatch,
-    ReferenceModel, Sample, Scoreboard, SimulationError, SimulationStage, TestResult, Testbench,
+    CheckFailure, Clock, CycleTiming, Drive, Dut, ExactScoreboard, FailurePolicy,
+    InvalidFailureLimit, InvalidTimeStep, Mismatch, ReferenceModel, Sample, Scoreboard,
+    SimulationError, SimulationStage, SimulationTime, TestResult, Testbench, TimeStep,
 };
 #[doc(inline)]
 pub use vvm_macros::{Clock, Drive, Sample};
@@ -82,8 +83,8 @@ pub use vvm_macros::{Clock, Drive, Sample};
 /// ```
 pub mod prelude {
     pub use crate::{
-        Clock, Drive, Dut, ExactScoreboard, FailurePolicy, ReferenceModel, Sample, Scoreboard,
-        Testbench,
+        Clock, CycleTiming, Drive, Dut, ExactScoreboard, FailurePolicy, ReferenceModel, Sample,
+        Scoreboard, SimulationTime, Testbench, TimeStep,
     };
 }
 

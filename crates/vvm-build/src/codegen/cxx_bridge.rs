@@ -52,6 +52,19 @@ pub(super) fn render(metadata: &DutMetadata, names: &DutNames) -> String {
     );
     push_line(&mut output, "");
 
+    push_line(
+        &mut output,
+        "        /// Advances the native simulation context time.",
+    );
+    push_line(
+        &mut output,
+        &format!(
+            "        fn advance_time(self: Pin<&mut {}>, delta: u64) -> bool;",
+            names.cpp_type
+        ),
+    );
+    push_line(&mut output, "");
+
     push_line(&mut output, "        /// Finalises the DUT model.");
     push_line(
         &mut output,

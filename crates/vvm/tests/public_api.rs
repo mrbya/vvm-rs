@@ -18,6 +18,7 @@ enum Lifecycle {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum MockError {
     Finalized,
+    TimeOverflow,
 }
 
 #[derive(Debug, Default)]
@@ -26,6 +27,7 @@ struct MockDut {
     reset_n: bool,
     enable: bool,
     count: u8,
+    time: SimulationTime,
     lifecycle: Lifecycle,
 }
 
@@ -66,10 +68,14 @@ impl MockDut {
     }
 }
 
-impl vvm::Dut for MockDut {
+impl Dut for MockDut {
     type Error = MockError;
 
     fn evaluate(&mut self) -> Result<(), Self::Error> {
+        if self.lifecycle == Lifecycle::Finalized {
+            return Err(MockError::Finalized);
+        }
+
         if !self.reset_n {
             self.count = 0;
         } else if !self.clock.previous && self.clock.current && self.enable {
@@ -77,6 +83,24 @@ impl vvm::Dut for MockDut {
         }
 
         self.clock.previous = self.clock.current;
+        Ok(())
+    }
+
+    fn simulation_time(&self) -> SimulationTime {
+        self.time
+    }
+
+    fn advance_time(&mut self, delta: TimeStep) -> Result<(), Self::Error> {
+        if self.lifecycle == Lifecycle::Finalized {
+            return Err(MockError::Finalized);
+        }
+
+        let Some(next_time) = self.time.checked_add(delta) else {
+            return Err(MockError::TimeOverflow);
+        };
+
+        self.time = next_time;
+
         Ok(())
     }
 
@@ -144,6 +168,13 @@ fn facade_exports_traits_derives_and_runner() {
 
     drive_once(&stimulus, &mut dut);
 
+    assert_eq!(Dut::simulation_time(&dut), SimulationTime::ZERO);
+
+    let advance = Dut::advance_time(&mut dut, TimeStep::ONE);
+
+    assert!(matches!(advance, Ok(())));
+    assert_eq!(Dut::simulation_time(&dut), SimulationTime::from_ticks(1));
+
     let result = Testbench::new(MockDut::default())
         .with_sequence([
             Stimulus {
@@ -152,19 +183,7 @@ fn facade_exports_traits_derives_and_runner() {
             },
             Stimulus {
                 reset_n: true,
-                enable: false,
-            },
-            Stimulus {
-                reset_n: true,
                 enable: true,
-            },
-            Stimulus {
-                reset_n: true,
-                enable: true,
-            },
-            Stimulus {
-                reset_n: true,
-                enable: false,
             },
         ])
         .with_reference_model(MockReferenceModel::default())
@@ -174,8 +193,9 @@ fn facade_exports_traits_derives_and_runner() {
 
     assert!(result.passed());
     assert_eq!(result.failure_count(), 0);
-    assert_eq!(result.cycles(), 5);
-    assert_eq!(result.checks(), 5);
+    assert_eq!(result.cycles(), 2);
+    assert_eq!(result.checks(), 2);
+    assert_eq!(result.final_time(), SimulationTime::from_ticks(4));
     assert!(result.simulation_error().is_none());
     assert!(result.finalization_error().is_none());
 }

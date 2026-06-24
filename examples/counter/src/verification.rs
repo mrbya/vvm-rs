@@ -1,8 +1,7 @@
 use thiserror::Error;
-use vvm_core::{Mismatch, ReferenceModel, TestResult};
-use vvm_macros::{Clock, Drive, Sample};
+use vvm::{Clock, Drive, Mismatch, ReferenceModel, Sample, TestResult};
 
-use crate::generated::CounterError;
+use crate::counter::CounterError;
 
 /// Counter simulation error.
 #[derive(Debug, Error)]
@@ -28,7 +27,7 @@ pub type CounterTestResult = TestResult<CounterStimulus, CounterMismatch, Counte
 /// Clock driver for the generated dounter DUT.
 #[derive(Debug, Clone, Copy, Default, Clock)]
 #[vvm(
-    dut = crate::generated::Counter,
+    dut = crate::counter::Counter,
     clock = "clk"
 )]
 pub struct CounterClock;
@@ -38,7 +37,7 @@ pub struct CounterClock;
 /// Clock control is intentionally excluded because the explicit simulation
 /// loop owns active-edge timing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Drive)]
-#[vvm(dut = crate::generated::Counter)]
+#[vvm(dut = crate::counter::Counter)]
 pub struct CounterStimulus {
     /// Active-low reset input.
     #[vvm(port)]
@@ -59,7 +58,7 @@ impl CounterStimulus {
 
 /// Counter output sampled after an active edge.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Sample)]
-#[vvm(dut = crate::generated::Counter)]
+#[vvm(dut = crate::counter::Counter)]
 pub struct CounterObservation {
     /// Sampled counter value.
     #[vvm(port)]
@@ -106,10 +105,10 @@ pub fn counter_sequence() -> impl ExactSizeIterator<Item = CounterStimulus> {
 
 #[cfg(test)]
 mod tests {
-    use vvm_core::{ExactScoreboard, ReferenceModel, Scoreboard};
+    use vvm::{CheckFailure, ExactScoreboard, ReferenceModel, Scoreboard, Testbench};
 
     use super::{CounterClock, CounterObservation, CounterReferenceModel, counter_sequence};
-    use crate::generated::{Counter, Result};
+    use crate::counter::{Counter, Result};
 
     impl CounterObservation {
         /// Creates one counter observation.
@@ -129,7 +128,7 @@ mod tests {
     #[derive(Debug, Default)]
     struct IncorrectCounterModel;
 
-    impl vvm_core::ReferenceModel<crate::verification::CounterStimulus> for IncorrectCounterModel {
+    impl vvm::ReferenceModel<crate::verification::CounterStimulus> for IncorrectCounterModel {
         type Expected = crate::verification::CounterObservation;
 
         fn predict(&mut self, _stimulus: &crate::verification::CounterStimulus) -> Self::Expected {
@@ -161,10 +160,10 @@ mod tests {
     fn runner_reports_cycle_aware_mismatch() -> Result<()> {
         let dut = Counter::new()?;
 
-        let result = vvm_core::Testbench::new(dut)
+        let result = Testbench::new(dut)
             .with_sequence(counter_sequence())
             .with_reference_model(IncorrectCounterModel)
-            .with_scoreboard(vvm_core::ExactScoreboard)
+            .with_scoreboard(ExactScoreboard)
             .with_clock(CounterClock)
             .run::<CounterObservation>();
 
@@ -174,7 +173,7 @@ mod tests {
 
         let failure = result.failures().first();
 
-        assert_eq!(failure.map(vvm_core::CheckFailure::cycle), Some(0));
+        assert_eq!(failure.map(CheckFailure::cycle), Some(0));
 
         Ok(())
     }

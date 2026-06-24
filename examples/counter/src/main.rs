@@ -1,17 +1,14 @@
 //! Counter verification using the synchronous VVM runner.
 
-use vvm_core::{ExactScoreboard, Testbench};
+use vvm::{ExactScoreboard, Testbench};
 
-use crate::generated::Counter;
+use crate::counter::Counter;
 use crate::verification::{
     CounterClock, CounterObservation, CounterReferenceModel, CounterTestResult, Error, Result,
     counter_sequence,
 };
 
-/// Generated DUT wrapper.
-mod generated {
-    include!(concat!(env!("OUT_DIR"), "/vvm/counter/generated/dut.rs"));
-}
+vvm::include_dut!(counter);
 
 /// Counter-specific verification setup.
 mod verification;

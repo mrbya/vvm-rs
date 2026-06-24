@@ -339,27 +339,31 @@ mod tests {
         let bridge = std::fs::read_to_string(&generated.cxx_bridge)?;
         let wrapper = std::fs::read_to_string(&generated.rust_wrapper)?;
 
-        assert!(wrapper.contains("if self.evaluated {"));
+        assert!(wrapper.contains("if self.evaluated.is_set() {"));
         assert!(wrapper.contains("TraceAfterEvaluation"));
-        assert!(wrapper.contains("if self.trace_configured {"));
+        assert!(wrapper.contains("if self.trace_configured.is_set() {"));
         assert!(wrapper.contains("TraceAlreadyConfigured"));
         assert!(wrapper.contains("path.to_str().ok_or("));
         assert!(wrapper.contains("TracePathNotUtf8"));
-        assert!(wrapper.contains("self.trace_configured = true;"));
+        assert!(wrapper.contains("self.trace_configured = TraceFlag::new(true);"));
         assert!(wrapper.contains("TraceOpenFailed"));
-        assert!(wrapper.contains("self.evaluated = true;"));
-        assert!(wrapper.contains("self.trace_open = true;"));
+        assert!(wrapper.contains("self.evaluated = TraceFlag::new(true);"));
+        assert!(
+            wrapper
+                .contains("self.trace_open = TraceFlag::new(self.inner_ref()?.trace_is_open());")
+        );
         assert!(wrapper.contains(
-            "if self.finished {\n            self.trace_open = false;\n            return Ok(());"
+            "if self.finished {\n            self.trace_open = TraceFlag::new(false);\n            return Ok(());"
         ));
         assert!(wrapper.contains("self.inner_mut()?.close_trace();"));
-        assert!(wrapper.contains("self.trace_open = false;"));
+        assert!(wrapper.contains("self.trace_open = TraceFlag::new(false);"));
         assert!(wrapper.contains("pub const fn trace_is_open(&self) -> bool {"));
         assert!(wrapper.contains("if self.finished {\n            return Ok(());\n        }"));
         assert!(wrapper.contains("self.inner_mut()?.finish();"));
         assert!(wrapper.contains(
             "if let Some(inner) = self.inner.as_mut() {\n            inner.finish();\n        }"
         ));
+        assert!(wrapper.contains("#[allow(clippy::same_name_method)]"));
         assert!(wrapper.contains("impl ::vvm::TraceableDut for Counter"));
         assert!(bridge.contains("fn trace_is_open(self: &Counter) -> bool;"));
 

@@ -1,11 +1,11 @@
 //! Safe Rust DUT wrapper generation.
 
+use super::GENERATED_NOTICE;
 use super::names::DutNames;
 use super::types::SignalType;
-use super::GENERATED_NOTICE;
+use crate::TraceOptions;
 use crate::metadata::{DutMetadata, Port, PortDirection};
 use crate::trace::TraceFormat;
-use crate::TraceOptions;
 
 /// Renders the safe Rust wrapper for one DUT.
 pub(super) fn render(
@@ -28,6 +28,11 @@ pub(super) fn render(
     push_line(&mut output, "));");
     push_line(&mut output, "");
 
+    if traced {
+        render_trace_flag(&mut output);
+        push_line(&mut output, "");
+    }
+
     render_error(&mut output, metadata, names, traced);
     push_line(&mut output, "");
 
@@ -48,6 +53,9 @@ pub(super) fn render(
     push_line(&mut output, "");
 
     push_line(&mut output, "#[allow(dead_code)]");
+    if traced {
+        push_line(&mut output, "#[allow(clippy::same_name_method)]");
+    }
     push_line(&mut output, &format!("impl {} {{", names.cpp_type));
 
     render_constructor(&mut output, metadata, names, traced);
@@ -230,6 +238,34 @@ fn render_error_display(
     push_line(output, "}");
 }
 
+/// Renders a small bool wrapper to keep traced state explicit.
+fn render_trace_flag(output: &mut String) {
+    push_line(output, "/// Compact generated trace-state flag.");
+    push_line(output, "#[derive(Clone, Copy, Default, PartialEq, Eq)]");
+    push_line(output, "struct TraceFlag(bool);");
+    push_line(output, "");
+    push_line(output, "impl TraceFlag {");
+    push_line(output, "    /// Creates a flag from a raw boolean state.");
+    push_line(output, "    const fn new(value: bool) -> Self {");
+    push_line(output, "        Self(value)");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(output, "    /// Returns whether the flag is currently set.");
+    push_line(output, "    const fn is_set(self) -> bool {");
+    push_line(output, "        self.0");
+    push_line(output, "    }");
+    push_line(output, "}");
+    push_line(output, "");
+    push_line(output, "impl std::fmt::Debug for TraceFlag {");
+    push_line(output, "    fn fmt(");
+    push_line(output, "        &self,");
+    push_line(output, "        formatter: &mut std::fmt::Formatter<'_>,");
+    push_line(output, "    ) -> std::fmt::Result {");
+    push_line(output, "        self.0.fmt(formatter)");
+    push_line(output, "    }");
+    push_line(output, "}");
+}
+
 /// Renders the safe DUT structure.
 fn render_struct(output: &mut String, metadata: &DutMetadata, names: &DutNames, traced: bool) {
     push_line(
@@ -263,19 +299,19 @@ fn render_struct(output: &mut String, metadata: &DutMetadata, names: &DutNames, 
     if traced {
         push_line(output, "");
         push_line(output, "    /// Whether the DUT has been evaluated.");
-        push_line(output, "    evaluated: bool,");
+        push_line(output, "    evaluated: TraceFlag,");
         push_line(output, "");
         push_line(
             output,
             "    /// Whether trace configuration has been attempted.",
         );
-        push_line(output, "    trace_configured: bool,");
+        push_line(output, "    trace_configured: TraceFlag,");
         push_line(output, "");
         push_line(
             output,
             "    /// Whether the native trace is currently open.",
         );
-        push_line(output, "    trace_open: bool,");
+        push_line(output, "    trace_open: TraceFlag,");
     }
     push_line(output, "}");
 }
@@ -332,9 +368,12 @@ fn render_constructor(
     push_line(output, "            finished: false,");
     push_line(output, "            time: ::vvm::SimulationTime::ZERO,");
     if traced {
-        push_line(output, "            evaluated: false,");
-        push_line(output, "            trace_configured: false,");
-        push_line(output, "            trace_open: false,");
+        push_line(output, "            evaluated: TraceFlag::new(false),");
+        push_line(
+            output,
+            "            trace_configured: TraceFlag::new(false),",
+        );
+        push_line(output, "            trace_open: TraceFlag::new(false),");
     }
     push_line(output, "        })");
     push_line(output, "    }");
@@ -365,7 +404,7 @@ fn render_lifecycle(output: &mut String, names: &DutNames, traced: bool) {
     push_line(output, "        self.ensure_running()?;");
     push_line(output, "        self.inner_mut()?.eval();");
     if traced {
-        push_line(output, "        self.evaluated = true;");
+        push_line(output, "        self.evaluated = TraceFlag::new(true);");
     }
     push_line(output, "");
     push_line(output, "        Ok(())");
@@ -393,7 +432,7 @@ fn render_lifecycle(output: &mut String, names: &DutNames, traced: bool) {
     push_line(output, "");
     push_line(output, "        self.inner_mut()?.finish();");
     if traced {
-        push_line(output, "        self.trace_open = false;");
+        push_line(output, "        self.trace_open = TraceFlag::new(false);");
     }
     push_line(output, "        self.finished = true;");
     push_line(output, "");
@@ -436,7 +475,7 @@ fn render_open_trace_method(output: &mut String, names: &DutNames) {
     push_line(output, "    ) -> Result<()> {");
     push_line(output, "        self.ensure_running()?;");
     push_line(output, "");
-    push_line(output, "        if self.evaluated {");
+    push_line(output, "        if self.evaluated.is_set() {");
     push_line(
         output,
         &format!(
@@ -446,7 +485,7 @@ fn render_open_trace_method(output: &mut String, names: &DutNames) {
     );
     push_line(output, "        }");
     push_line(output, "");
-    push_line(output, "        if self.trace_configured {");
+    push_line(output, "        if self.trace_configured.is_set() {");
     push_line(
         output,
         &format!(
@@ -466,7 +505,10 @@ fn render_open_trace_method(output: &mut String, names: &DutNames) {
     push_line(output, "        let opened =");
     push_line(output, "            self.inner_mut()?.open_trace(path);");
     push_line(output, "");
-    push_line(output, "        self.trace_configured = true;");
+    push_line(
+        output,
+        "        self.trace_configured = TraceFlag::new(true);",
+    );
     push_line(output, "");
     push_line(output, "        if !opened {");
     push_line(
@@ -478,7 +520,10 @@ fn render_open_trace_method(output: &mut String, names: &DutNames) {
     );
     push_line(output, "        }");
     push_line(output, "");
-    push_line(output, "        self.trace_open = true;");
+    push_line(
+        output,
+        "        self.trace_open = TraceFlag::new(self.inner_ref()?.trace_is_open());",
+    );
     push_line(output, "");
     push_line(output, "        Ok(())");
     push_line(output, "    }");
@@ -502,12 +547,18 @@ fn render_close_trace_methods(output: &mut String) {
     );
     push_line(output, "    pub fn close_trace(&mut self) -> Result<()> {");
     push_line(output, "        if self.finished {");
-    push_line(output, "            self.trace_open = false;");
+    push_line(
+        output,
+        "            self.trace_open = TraceFlag::new(false);",
+    );
     push_line(output, "            return Ok(());");
     push_line(output, "        }");
     push_line(output, "");
     push_line(output, "        self.inner_mut()?.close_trace();");
-    push_line(output, "        self.trace_open = false;");
+    push_line(
+        output,
+        "        self.trace_open = TraceFlag::new(self.inner_ref()?.trace_is_open());",
+    );
     push_line(output, "");
     push_line(output, "        Ok(())");
     push_line(output, "    }");
@@ -519,7 +570,7 @@ fn render_close_trace_methods(output: &mut String) {
     );
     push_line(output, "    #[must_use]");
     push_line(output, "    pub const fn trace_is_open(&self) -> bool {");
-    push_line(output, "        self.trace_open");
+    push_line(output, "        self.trace_open.is_set()");
     push_line(output, "    }");
 }
 
@@ -780,6 +831,7 @@ fn render_dut_trait(output: &mut String, names: &DutNames) {
 
 /// Renders the optional VVM traceable DUT trait implementation.
 fn render_traceable_trait(output: &mut String, names: &DutNames) {
+    push_line(output, "#[allow(clippy::same_name_method)]");
     push_line(
         output,
         &format!("impl ::vvm::TraceableDut for {} {{", names.cpp_type),
@@ -816,7 +868,7 @@ fn render_drop(output: &mut String, names: &DutNames, traced: bool) {
     push_line(output, "        }");
     push_line(output, "");
     if traced {
-        push_line(output, "        self.trace_open = false;");
+        push_line(output, "        self.trace_open = TraceFlag::new(false);");
     }
     push_line(output, "        self.finished = true;");
     push_line(output, "    }");

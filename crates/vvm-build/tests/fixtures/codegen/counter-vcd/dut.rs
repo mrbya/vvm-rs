@@ -5,6 +5,31 @@ include!(concat!(
     "/vvm/counter/generated/bridge.rs"
 ));
 
+/// Compact generated trace-state flag.
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+struct TraceFlag(bool);
+
+impl TraceFlag {
+    /// Creates a flag from a raw boolean state.
+    const fn new(value: bool) -> Self {
+        Self(value)
+    }
+
+    /// Returns whether the flag is currently set.
+    const fn is_set(self) -> bool {
+        self.0
+    }
+}
+
+impl std::fmt::Debug for TraceFlag {
+    fn fmt(
+        &self,
+        formatter: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
+        self.0.fmt(formatter)
+    }
+}
+
 /// Error returned by generated DUT operations.
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -71,16 +96,17 @@ pub struct Counter {
     time: ::vvm::SimulationTime,
 
     /// Whether the DUT has been evaluated.
-    evaluated: bool,
+    evaluated: TraceFlag,
 
     /// Whether trace configuration has been attempted.
-    trace_configured: bool,
+    trace_configured: TraceFlag,
 
     /// Whether the native trace is currently open.
-    trace_open: bool,
+    trace_open: TraceFlag,
 }
 
 #[allow(dead_code)]
+#[allow(clippy::same_name_method)]
 impl Counter {
     /// Constructs the Verilated DUT.
     ///
@@ -103,9 +129,9 @@ impl Counter {
             inner,
             finished: false,
             time: ::vvm::SimulationTime::ZERO,
-            evaluated: false,
-            trace_configured: false,
-            trace_open: false,
+            evaluated: TraceFlag::new(false),
+            trace_configured: TraceFlag::new(false),
+            trace_open: TraceFlag::new(false),
         })
     }
 
@@ -123,7 +149,7 @@ impl Counter {
     pub fn eval(&mut self) -> Result<()> {
         self.ensure_running()?;
         self.inner_mut()?.eval();
-        self.evaluated = true;
+        self.evaluated = TraceFlag::new(true);
 
         Ok(())
     }
@@ -143,11 +169,11 @@ impl Counter {
     ) -> Result<()> {
         self.ensure_running()?;
 
-        if self.evaluated {
+        if self.evaluated.is_set() {
             return Err(CounterError::TraceAfterEvaluation);
         }
 
-        if self.trace_configured {
+        if self.trace_configured.is_set() {
             return Err(CounterError::TraceAlreadyConfigured);
         }
 
@@ -158,13 +184,13 @@ impl Counter {
         let opened =
             self.inner_mut()?.open_trace(path);
 
-        self.trace_configured = true;
+        self.trace_configured = TraceFlag::new(true);
 
         if !opened {
             return Err(CounterError::TraceOpenFailed);
         }
 
-        self.trace_open = true;
+        self.trace_open = TraceFlag::new(self.inner_ref()?.trace_is_open());
 
         Ok(())
     }
@@ -178,12 +204,12 @@ impl Counter {
     /// Returns an error if the native adapter is unexpectedly unavailable.
     pub fn close_trace(&mut self) -> Result<()> {
         if self.finished {
-            self.trace_open = false;
+            self.trace_open = TraceFlag::new(false);
             return Ok(());
         }
 
         self.inner_mut()?.close_trace();
-        self.trace_open = false;
+        self.trace_open = TraceFlag::new(self.inner_ref()?.trace_is_open());
 
         Ok(())
     }
@@ -191,7 +217,7 @@ impl Counter {
     /// Returns whether the waveform trace is currently open.
     #[must_use]
     pub const fn trace_is_open(&self) -> bool {
-        self.trace_open
+        self.trace_open.is_set()
     }
 
     /// Finalises the DUT exactly once.
@@ -207,7 +233,7 @@ impl Counter {
         }
 
         self.inner_mut()?.finish();
-        self.trace_open = false;
+        self.trace_open = TraceFlag::new(false);
         self.finished = true;
 
         Ok(())
@@ -354,6 +380,7 @@ impl ::vvm::Dut for Counter {
     }
 }
 
+#[allow(clippy::same_name_method)]
 impl ::vvm::TraceableDut for Counter {
     fn open_trace(
         &mut self,
@@ -383,7 +410,7 @@ impl Drop for Counter {
             inner.finish();
         }
 
-        self.trace_open = false;
+        self.trace_open = TraceFlag::new(false);
         self.finished = true;
     }
 }

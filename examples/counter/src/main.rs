@@ -6,8 +6,8 @@ use vvm::{ExactScoreboard, Testbench};
 
 use crate::counter::Counter;
 use crate::verification::{
-    counter_sequence, CounterClock, CounterObservation, CounterReferenceModel, CounterTestResult,
-    Error, Result,
+    CounterClock, CounterObservation, CounterReferenceModel, CounterTestResult, Error, Result,
+    counter_sequence,
 };
 
 vvm::include_dut!(counter);
@@ -64,7 +64,7 @@ fn print_result(result: &CounterTestResult) {
 
 #[cfg(test)]
 mod tests {
-    use super::{run_simulation, Result};
+    use super::{Result, run_simulation};
 
     #[test]
     fn runner_verifies_counter() -> Result<()> {

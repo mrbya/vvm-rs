@@ -157,17 +157,7 @@ Later responsibilities:
 
 ### `vvm-ffi`
 
-Status: **parked until a genuinely shared FFI abstraction appears**.
-
-Potential future responsibilities:
-
-- Fixed-width bit-vector transfer types.
-- Common C++ support headers.
-- Shared bridge errors.
-- Tracing configuration types.
-- Internal ABI utilities.
-
-DUT-specific bridge code must remain generated in the consuming crate.
+Removed. Shared ABI support should only return once concrete cross-DUT native functionality exists.
 
 ---
 
@@ -177,14 +167,14 @@ DUT-specific bridge code must remain generated in the consuming crate.
 |---:|---|---|
 | 0 | Workspace preparation | Complete |
 | 1 | Handwritten Rust ↔ CXX ↔ Verilator bridge | Complete |
-| 2 | Reusable Verilator build orchestration | Not started |
-| 3 | Verilator metadata extraction | Not started |
-| 4 | Generated DUT bridge | Not started |
-| 5 | Safe generated DUT API | Not started |
-| 6 | Minimal pure-Rust VVM core | Not started |
-| 7 | Testbench runner | Not started |
-| 8 | Derive macros | Not started |
-| 9 | Public facade | Not started |
+| 2 | Reusable Verilator build orchestration | Complete |
+| 3 | Verilator metadata extraction | Complete |
+| 4 | Generated DUT bridge | Complete |
+| 5 | Safe generated DUT API | Complete |
+| 6 | Minimal pure-Rust VVM core | Complete |
+| 7 | Testbench runner | Complete |
+| 8 | Derive macros | Complete |
+| 9 | Public facade | Complete |
 | 10 | Tracing, reporting, and CLI | Not started |
 | 11 | Wider HDL feature support | Backlog |
 
@@ -203,7 +193,6 @@ Prepare the workspace for the first real CXX/Verilator integration without desig
 - [x] Create the `vvm` facade crate.
 - [x] Create the `vvm-build` crate.
 - [x] Create the `vvm-core` crate.
-- [x] Create the `vvm-ffi` crate.
 - [x] Create the `vvm-macros` crate.
 - [x] Configure `vvm-macros` as a procedural macro crate.
 - [x] Add workspace-level `proc-macro2`.
@@ -1023,9 +1012,15 @@ pub struct TestResult<F> {
 
 ## Goal
 
-Generate repetitive `Drive` and `Sample` implementations after their handwritten forms are proven.
+Generate repetitive `Clock`, `Drive`, and `Sample` implementations after their handwritten forms are proven.
 
 ## Intended API
+
+```rust
+#[derive(Clone, Debug, vvm::Clock)]
+#[vvm(dut = crate::dut::Counter, clock = "clk")]
+struct CounterClock;
+```
 
 ```rust
 #[derive(Clone, Debug, vvm::Drive)]
@@ -1066,6 +1061,10 @@ vvm-macros/src/
 │   ├── mod.rs
 │   ├── input.rs
 │   └── expand.rs
+├── clock/
+│   ├── mod.rs
+│   ├── input.rs
+│   └── expand.rs
 └── sample/
     ├── mod.rs
     ├── input.rs
@@ -1082,6 +1081,17 @@ vvm-macros/src/
 - [x] Reject unknown options.
 - [x] Preserve useful spans.
 - [x] Avoid panics for malformed input.
+
+## `Clock` derive
+
+- [x] Accept unit structs.
+- [x] Reject enums and non-unit structs.
+- [x] Require a DUT path.
+- [x] Require a clock port name.
+- [x] Support rising and falling edge selection.
+- [x] Preserve generics and where clauses.
+- [x] Use hygienic VVM trait paths.
+- [x] Produce readable expanded code.
 
 ## `Drive` derive
 
@@ -1122,6 +1132,7 @@ Rely initially on generated DUT method availability:
 
 Pass cases:
 
+- [x] Basic `Clock`.
 - [x] Basic `Drive`.
 - [x] Basic `Sample`.
 - [x] Explicit port rename.
@@ -1130,6 +1141,10 @@ Pass cases:
 
 Fail cases:
 
+- [x] Missing clock DUT attribute.
+- [x] Missing clock port.
+- [x] Invalid clock edge.
+- [x] Invalid clock target type.
 - [x] Missing DUT attribute.
 - [x] Enum derives `Drive`.
 - [x] Tuple struct derives `Sample`.
@@ -1143,6 +1158,7 @@ Fail cases:
 
 ## Acceptance criteria
 
+- [x] Handwritten counter `Clock` implementation is removed.
 - [x] Handwritten counter `Drive` implementation is removed.
 - [x] Handwritten counter `Sample` implementation is removed.
 - [x] Runtime behavior is unchanged.
@@ -1161,7 +1177,8 @@ Expose only stable, proven APIs.
 Possible contents:
 
 ```rust
-pub use vvm_core::{
+pub use vvm::{
+    Clock,
     Drive,
     Dut,
     ReferenceModel,
@@ -1170,24 +1187,19 @@ pub use vvm_core::{
     TestResult,
     Testbench,
 };
-
-pub use vvm_macros::{
-    Drive,
-    Sample,
-};
 ```
 
 ## Re-export checklist
 
-- [ ] Re-export stable core traits.
-- [ ] Re-export stable result types.
-- [ ] Re-export stable derive macros.
-- [ ] Add facade-level crate documentation.
-- [ ] Add a minimal prelude.
-- [ ] Verify derive and trait name coexistence.
-- [ ] Avoid re-exporting internal parser or codegen types.
-- [ ] Keep `vvm-build` as a direct build dependency.
-- [ ] Decide whether `vvm-ffi` remains private.
+- [x] Re-export stable core traits.
+- [x] Re-export stable result types.
+- [x] Re-export stable derive macros.
+- [x] Add facade-level crate documentation.
+- [x] Add a minimal prelude.
+- [x] Verify derive and trait name coexistence.
+- [x] Avoid re-exporting internal parser or codegen types.
+- [x] Keep `vvm-build` as a direct build dependency.
+- [x] Remove the unused `vvm-ffi` crate.
 
 ## DUT inclusion convenience
 
@@ -1197,20 +1209,20 @@ Potential API:
 vvm::include_dut!(counter);
 ```
 
-- [ ] Decide whether inclusion belongs in `vvm` or `vvm-build`.
-- [ ] Define generated file naming conventions.
-- [ ] Support multiple DUTs in one crate.
-- [ ] Prevent module-name collisions.
-- [ ] Keep generated implementation modules private by default.
-- [ ] Document manual `include!` fallback.
+- [x] Decide whether inclusion belongs in `vvm` or `vvm-build`.
+- [x] Define generated file naming conventions.
+- [x] Support multiple DUTs in one crate.
+- [x] Prevent module-name collisions.
+- [x] Keep generated implementation modules private by default.
+- [x] Document manual `include!` fallback.
 
 ## Acceptance criteria
 
-- [ ] Example user code imports from `vvm`.
-- [ ] Example `build.rs` imports from `vvm-build`.
-- [ ] Ordinary users need no internal crates directly.
-- [ ] The facade exposes no unstable implementation details.
-- [ ] Public rustdoc shows an end-to-end counter example.
+- [x] Example user code imports from `vvm`.
+- [x] Example `build.rs` imports from `vvm-build`.
+- [x] Ordinary users need no internal crates directly.
+- [x] The facade exposes no unstable implementation details.
+- [x] Public rustdoc shows an end-to-end counter example.
 
 ---
 
@@ -1518,7 +1530,7 @@ Implement only after the MVP is stable.
 | D-005 | Use `Iterator<Item = Stimulus>` before defining a sequence trait. | Accepted |
 | D-006 | Handwrite the first bridge before implementing bridge generation. | Accepted |
 | D-007 | Handwrite `Drive` and `Sample` before implementing derives. | Accepted |
-| D-008 | Park `vvm-ffi` until shared ABI functionality is identified. | Accepted |
+| D-008 | Remove `vvm-ffi` until shared ABI functionality is concretely needed. | Accepted |
 | D-009 | Keep the public facade nearly empty until stable APIs exist. | Accepted |
 | D-010 | Start with unsigned top-level ports no wider than 64 bits. | Proposed |
 | D-011 | Start with a synchronous cycle-based runner and no async runtime. | Proposed |

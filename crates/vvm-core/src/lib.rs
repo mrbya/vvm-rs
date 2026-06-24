@@ -80,6 +80,8 @@ pub(crate) mod sample;
 pub(crate) mod scoreboard;
 /// Reusable synchronous testbench runner.
 pub(crate) mod testbench;
+/// Explicit simulation time.
+pub(crate) mod time;
 
 // Re-exports
 pub use clock::Clock;
@@ -91,6 +93,7 @@ pub use result::{CheckFailure, SimulationError, SimulationStage, TestResult};
 pub use sample::Sample;
 pub use scoreboard::{ExactScoreboard, Mismatch, Scoreboard};
 pub use testbench::{Testbench, Unconfigured};
+pub use time::{InvalidTimeStep, SimulationTime, TimeStep};
 
 // Unit tests.
 #[cfg(test)]

@@ -86,7 +86,7 @@ pub(crate) mod time;
 // Re-exports
 pub use clock::Clock;
 pub use drive::Drive;
-pub use dut::Dut;
+pub use dut::{Dut, TraceableDut};
 pub use failure_policy::{FailurePolicy, InvalidFailureLimit};
 pub use reference_model::ReferenceModel;
 pub use result::{CheckFailure, SimulationError, SimulationStage, TestResult};

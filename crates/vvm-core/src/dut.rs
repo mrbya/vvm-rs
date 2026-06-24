@@ -42,3 +42,23 @@ pub trait Dut {
     /// Returns an implementation-defined error when finalization cannot complete.
     fn finalize(&mut self) -> Result<(), Self::Error>;
 }
+
+/// Optional waveform-tracing lifecycle for DUTs that support generated traces.
+pub trait TraceableDut: Dut {
+    /// Opens a waveform trace for the DUT.
+    ///
+    /// # Errors
+    ///
+    /// Returns an implementation-defined error if tracing cannot be configured.
+    fn open_trace(&mut self, path: &std::path::Path) -> Result<(), Self::Error>;
+
+    /// Flushes and closes the active waveform trace.
+    ///
+    /// # Errors
+    ///
+    /// Returns an implementation-defined error if the trace cannot be closed.
+    fn close_trace(&mut self) -> Result<(), Self::Error>;
+
+    /// Returns whether the waveform trace is currently open.
+    fn trace_is_open(&self) -> bool;
+}

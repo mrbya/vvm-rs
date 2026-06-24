@@ -1,80 +1,21 @@
 use super::names::DutNames;
 use super::types::SignalType;
+use crate::TraceOptions;
 use crate::codegen::GENERATED_NOTICE;
 use crate::metadata::{DutMetadata, PortDirection};
-use crate::TraceOptions;
+use crate::trace::TraceFormat;
 
 /// Renders the raw CXX bridge for one DUT.
 pub(super) fn render(
     metadata: &DutMetadata,
     names: &DutNames,
-    _trace: Option<TraceOptions>,
+    trace: Option<TraceOptions>,
 ) -> String {
     let mut output = String::new();
+    let traced = trace.is_some_and(|options| options.format == TraceFormat::Vcd);
 
-    push_line(&mut output, GENERATED_NOTICE);
-    push_line(&mut output, "");
-    push_line(
-        &mut output,
-        &format!("#[cxx::bridge(namespace = \"vvm::{}\")]", names.namespace),
-    );
-    push_line(
-        &mut output,
-        "/// Raw generated FFI bindings for the Verilated DUT adapter.",
-    );
-    push_line(&mut output, "mod ffi {");
-    push_line(&mut output, "    unsafe extern \"C++\" {");
-    push_line(
-        &mut output,
-        &format!("        include!(\"{}.hpp\");", names.file_stem),
-    );
-    push_line(&mut output, "");
-
-    push_line(
-        &mut output,
-        "        /// Opaque generated Verilated DUT adapter.",
-    );
-    push_line(&mut output, &format!("        type {};", names.cpp_type));
-    push_line(&mut output, "");
-
-    push_line(
-        &mut output,
-        "        /// Constructs a Verilated DUT adapter.",
-    );
-    push_line(
-        &mut output,
-        &format!(
-            "        fn {}() -> UniquePtr<{}>;",
-            names.factory, names.cpp_type
-        ),
-    );
-    push_line(&mut output, "");
-
-    push_line(&mut output, "        /// Evaluates the current DUT state.");
-    push_line(
-        &mut output,
-        &format!("        fn eval(self: Pin<&mut {}>);", names.cpp_type),
-    );
-    push_line(&mut output, "");
-
-    push_line(
-        &mut output,
-        "        /// Advances the native simulation context time.",
-    );
-    push_line(
-        &mut output,
-        &format!(
-            "        fn advance_time(self: Pin<&mut {}>, delta: u64) -> bool;",
-            names.cpp_type
-        ),
-    );
-    push_line(&mut output, "");
-
-    push_line(&mut output, "        /// Finalises the DUT model.");
-    push_line(
-        &mut output,
-        &format!("        fn finish(self: Pin<&mut {}>);", names.cpp_type),
-    );
+    render_bridge_prelude(&mut output, names);
+    render_bridge_lifecycle(&mut output, names, traced);
 
     for (port, port_names) in metadata.ports.iter().zip(&names.ports) {
         let signal_type = SignalType::from_width(port.width);
@@ -120,6 +61,104 @@ pub(super) fn render(
     push_line(&mut output, "}");
 
     output
+}
+
+/// Renders the bridge prelude and type declarations.
+fn render_bridge_prelude(output: &mut String, names: &DutNames) {
+    push_line(output, GENERATED_NOTICE);
+    push_line(output, "");
+    push_line(
+        output,
+        &format!("#[cxx::bridge(namespace = \"vvm::{}\")]", names.namespace),
+    );
+    push_line(
+        output,
+        "/// Raw generated FFI bindings for the Verilated DUT adapter.",
+    );
+    push_line(output, "mod ffi {");
+    push_line(output, "    unsafe extern \"C++\" {");
+    push_line(
+        output,
+        &format!("        include!(\"{}.hpp\");", names.file_stem),
+    );
+    push_line(output, "");
+    push_line(
+        output,
+        "        /// Opaque generated Verilated DUT adapter.",
+    );
+    push_line(output, &format!("        type {};", names.cpp_type));
+    push_line(output, "");
+    push_line(output, "        /// Constructs a Verilated DUT adapter.");
+    push_line(
+        output,
+        &format!(
+            "        fn {}() -> UniquePtr<{}>;",
+            names.factory, names.cpp_type
+        ),
+    );
+    push_line(output, "");
+}
+
+/// Renders bridge lifecycle and optional trace methods.
+fn render_bridge_lifecycle(output: &mut String, names: &DutNames, traced: bool) {
+    push_line(output, "        /// Evaluates the current DUT state.");
+    push_line(
+        output,
+        &format!("        fn eval(self: Pin<&mut {}>);", names.cpp_type),
+    );
+    push_line(output, "");
+    push_line(
+        output,
+        "        /// Advances the native simulation context time.",
+    );
+    push_line(
+        output,
+        &format!(
+            "        fn advance_time(self: Pin<&mut {}>, delta: u64) -> bool;",
+            names.cpp_type
+        ),
+    );
+    push_line(output, "");
+    push_line(output, "        /// Finalises the DUT model.");
+    push_line(
+        output,
+        &format!("        fn finish(self: Pin<&mut {}>);", names.cpp_type),
+    );
+    if traced {
+        push_line(output, "");
+        push_line(
+            output,
+            "        /// Opens the generated VCD waveform trace.",
+        );
+        push_line(
+            output,
+            &format!(
+                "        fn open_trace(self: Pin<&mut {}>, path: &str) -> bool;",
+                names.cpp_type
+            ),
+        );
+        push_line(output, "");
+        push_line(output, "        /// Flushes and closes the waveform trace.");
+        push_line(
+            output,
+            &format!(
+                "        fn close_trace(self: Pin<&mut {}>);",
+                names.cpp_type
+            ),
+        );
+        push_line(output, "");
+        push_line(
+            output,
+            "        /// Returns whether the waveform trace is open.",
+        );
+        push_line(
+            output,
+            &format!(
+                "        fn trace_is_open(self: &{}) -> bool;",
+                names.cpp_type
+            ),
+        );
+    }
 }
 
 /// Appends one line and a Unix newline.

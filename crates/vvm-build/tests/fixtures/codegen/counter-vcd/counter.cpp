@@ -4,8 +4,10 @@
 
 #include "Vcounter.h"
 #include "verilated.h"
+#include "verilated_vcd_c.h"
 
 #include <cstdint>
+#include <string>
 #include <memory>
 #include <type_traits>
 #include <limits>
@@ -15,8 +17,10 @@ namespace vvm::counter {
 class Counter::Impl final {
 public:
     Impl()
-        : context{std::make_unique<VerilatedContext>()},
-          model{std::make_unique<Vcounter>(context.get())} {
+        : context{std::make_unique<VerilatedContext>()} {
+        context->traceEverOn(true);
+
+        model = std::make_unique<Vcounter>(context.get());
         {
             using RawType = std::decay_t<decltype(model->clk())>;
             RawType raw_value{0};
@@ -34,8 +38,36 @@ public:
         }
     }
 
+    void dump_trace() noexcept {
+        if (trace == nullptr || !trace->isOpen()) {
+            return;
+        }
+
+        const auto now = context->time();
+
+        if (has_trace_dump && now <= last_trace_time) {
+            return;
+        }
+
+        trace->dump(now);
+        last_trace_time = now;
+        has_trace_dump = true;
+    }
+
+    void close_trace() noexcept {
+        if (trace == nullptr || !trace->isOpen()) {
+            return;
+        }
+
+        trace->flush();
+        trace->close();
+    }
+
     std::unique_ptr<VerilatedContext> context;
     std::unique_ptr<Vcounter> model;
+    std::unique_ptr<VerilatedVcdC> trace;
+    std::uint64_t last_trace_time{0};
+    bool has_trace_dump{false};
     bool finished{false};
 };
 
@@ -52,6 +84,7 @@ void Counter::eval() noexcept {
     }
 
     impl_->model->eval();
+    impl_->dump_trace();
 }
 
 void Counter::finish() noexcept {
@@ -61,7 +94,40 @@ void Counter::finish() noexcept {
 
     impl_->model->final();
 
+    impl_->dump_trace();
+    impl_->close_trace();
+
     impl_->finished = true;
+}
+
+bool Counter::open_trace(
+    const rust::Str path
+) noexcept {
+    if (impl_->finished || impl_->trace != nullptr) {
+        return false;
+    }
+
+    try {
+        impl_->trace = std::make_unique<VerilatedVcdC>();
+
+        impl_->model->trace(impl_->trace.get(), 99);
+
+        const std::string filename{path};
+
+        impl_->trace->open(filename.c_str());
+
+        return impl_->trace->isOpen();
+    } catch (...) {
+        return false;
+    }
+}
+
+void Counter::close_trace() noexcept {
+    impl_->close_trace();
+}
+
+bool Counter::trace_is_open() const noexcept {
+    return impl_->trace != nullptr && impl_->trace->isOpen();
 }
 
 void Counter::set_clk(const bool value) noexcept {

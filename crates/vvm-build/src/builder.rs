@@ -4,7 +4,7 @@ use std::{env, fs};
 
 use crate::error::{BuildError, BuildResult};
 use crate::trace::TraceFormat;
-use crate::{cargo, codegen, native, paths, verilator, TraceOptions};
+use crate::{TraceOptions, cargo, codegen, native, paths, verilator};
 
 /// HDL preprocessor definition configuration.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -315,16 +315,16 @@ impl DutBuilder {
 
         let generated_sources = verilator::generated_sources(&verilated_dir, &model_prefix)?;
 
-        native::compile(
-            &self.name,
-            &generated.cxx_bridge,
-            &cpp_sources,
-            &cpp_include_dirs,
-            &verilated_dir,
-            &verilator_root,
-            &generated_sources,
-            self.trace,
-        )
+        native::compile(&native::CompileInputs {
+            name: &self.name,
+            bridge: &generated.cxx_bridge,
+            cpp_sources: &cpp_sources,
+            cpp_include_dirs: &cpp_include_dirs,
+            verilated_dir: &verilated_dir,
+            verilator_root: &verilator_root,
+            generated_sources: &generated_sources,
+            trace: self.trace,
+        })
     }
 
     #[cfg(test)]

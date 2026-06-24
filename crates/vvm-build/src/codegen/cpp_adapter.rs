@@ -1,8 +1,9 @@
 use super::names::DutNames;
 use super::types::SignalType;
+use crate::TraceOptions;
 use crate::codegen::GENERATED_NOTICE;
 use crate::metadata::{DutMetadata, Port, PortDirection};
-use crate::TraceOptions;
+use crate::trace::TraceFormat;
 
 /// Complete generated C++ adapter text.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -18,98 +19,22 @@ pub(super) struct CppAdapterText {
 pub(super) fn render(
     metadata: &DutMetadata,
     names: &DutNames,
-    _trace: Option<TraceOptions>,
+    trace: Option<TraceOptions>,
 ) -> CppAdapterText {
+    let trace = trace.filter(|options| options.format == TraceFormat::Vcd);
+
     CppAdapterText {
-        header: render_header(metadata, names),
-        source: render_source(metadata, names),
+        header: render_header(metadata, names, trace.is_some()),
+        source: render_source(metadata, names, trace),
     }
 }
 
 /// Renders the generated public adapter header.
-fn render_header(metadata: &DutMetadata, names: &DutNames) -> String {
+fn render_header(metadata: &DutMetadata, names: &DutNames, traced: bool) -> String {
     let mut output = String::new();
 
-    push_line(&mut output, GENERATED_NOTICE);
-    push_line(&mut output, "");
-    push_line(&mut output, "#pragma once");
-    push_line(&mut output, "");
-    push_line(&mut output, "#include <cstdint>");
-    push_line(&mut output, "#include <memory>");
-    push_line(&mut output, "");
-    push_line(
-        &mut output,
-        &format!("namespace vvm::{} {{", names.namespace),
-    );
-    push_line(&mut output, "");
-    push_line(&mut output, &format!("class {} final {{", names.cpp_type));
-    push_line(&mut output, "public:");
-    push_line(&mut output, &format!("    {}();", names.cpp_type));
-    push_line(&mut output, &format!("    ~{}() noexcept;", names.cpp_type));
-    push_line(&mut output, "");
-    push_line(
-        &mut output,
-        &format!(
-            "    {}(const {}&) = delete;",
-            names.cpp_type, names.cpp_type
-        ),
-    );
-    push_line(
-        &mut output,
-        &format!(
-            "    {}& operator=(const {}&) = delete;",
-            names.cpp_type, names.cpp_type
-        ),
-    );
-    push_line(&mut output, "");
-    push_line(
-        &mut output,
-        &format!("    {}({}&&) = delete;", names.cpp_type, names.cpp_type),
-    );
-    push_line(
-        &mut output,
-        &format!(
-            "    {}& operator=({}&&) = delete;",
-            names.cpp_type, names.cpp_type
-        ),
-    );
-    push_line(&mut output, "");
-    push_line(&mut output, "    void eval() noexcept;");
-    push_line(&mut output, "    void finish() noexcept;");
-    push_line(&mut output, "    [[nodiscard]]");
-    push_line(
-        &mut output,
-        "    bool advance_time(std::uint64_t delta) noexcept;",
-    );
-    push_line(&mut output, "");
-
-    for (port, port_names) in metadata.ports.iter().zip(&names.ports) {
-        let signal_type = SignalType::from_width(port.width);
-
-        match port.direction {
-            PortDirection::Input => {
-                push_line(
-                    &mut output,
-                    &format!(
-                        "    void {}({} value) noexcept;",
-                        port_names.method,
-                        signal_type.cpp_type()
-                    ),
-                );
-            }
-            PortDirection::Output => {
-                push_line(
-                    &mut output,
-                    &format!(
-                        "    [[nodiscard]] {} {}() const noexcept;",
-                        signal_type.cpp_type(),
-                        port_names.method
-                    ),
-                );
-            }
-            PortDirection::Inout => {}
-        }
-    }
+    render_header_prelude(&mut output, names, traced);
+    render_header_port_methods(&mut output, metadata, names);
 
     push_line(&mut output, "");
     push_line(&mut output, "private:");
@@ -133,13 +58,107 @@ fn render_header(metadata: &DutMetadata, names: &DutNames) -> String {
     output
 }
 
-/// Renders the generated adapter implementation.
-fn render_source(metadata: &DutMetadata, names: &DutNames) -> String {
-    let mut output = String::new();
+/// Renders the header prelude and lifecycle declarations.
+fn render_header_prelude(output: &mut String, names: &DutNames, traced: bool) {
+    push_line(output, GENERATED_NOTICE);
+    push_line(output, "");
+    push_line(output, "#pragma once");
+    push_line(output, "");
+    if traced {
+        push_line(output, "#include \"rust/cxx.h\"");
+    }
+    push_line(output, "#include <cstdint>");
+    push_line(output, "#include <memory>");
+    push_line(output, "");
+    push_line(output, &format!("namespace vvm::{} {{", names.namespace));
+    push_line(output, "");
+    push_line(output, &format!("class {} final {{", names.cpp_type));
+    push_line(output, "public:");
+    push_line(output, &format!("    {}();", names.cpp_type));
+    push_line(output, &format!("    ~{}() noexcept;", names.cpp_type));
+    push_line(output, "");
+    push_line(
+        output,
+        &format!(
+            "    {}(const {}&) = delete;",
+            names.cpp_type, names.cpp_type
+        ),
+    );
+    push_line(
+        output,
+        &format!(
+            "    {}& operator=(const {}&) = delete;",
+            names.cpp_type, names.cpp_type
+        ),
+    );
+    push_line(output, "");
+    push_line(
+        output,
+        &format!("    {}({}&&) = delete;", names.cpp_type, names.cpp_type),
+    );
+    push_line(
+        output,
+        &format!(
+            "    {}& operator=({}&&) = delete;",
+            names.cpp_type, names.cpp_type
+        ),
+    );
+    push_line(output, "");
+    push_line(output, "    void eval() noexcept;");
+    push_line(output, "    void finish() noexcept;");
+    push_line(output, "    [[nodiscard]]");
+    push_line(
+        output,
+        "    bool advance_time(std::uint64_t delta) noexcept;",
+    );
+    if traced {
+        push_line(output, "    [[nodiscard]]");
+        push_line(output, "    bool open_trace(rust::Str path) noexcept;");
+        push_line(output, "");
+        push_line(output, "    void close_trace() noexcept;");
+        push_line(output, "");
+        push_line(output, "    [[nodiscard]]");
+        push_line(output, "    bool trace_is_open() const noexcept;");
+    }
+    push_line(output, "");
+}
 
-    render_source_prelude(&mut output, names);
-    render_impl_class(&mut output, metadata, names);
-    render_lifecycle_methods(&mut output, names);
+/// Renders per-port method declarations in the public header.
+fn render_header_port_methods(output: &mut String, metadata: &DutMetadata, names: &DutNames) {
+    for (port, port_names) in metadata.ports.iter().zip(&names.ports) {
+        let signal_type = SignalType::from_width(port.width);
+
+        match port.direction {
+            PortDirection::Input => push_line(
+                output,
+                &format!(
+                    "    void {}({} value) noexcept;",
+                    port_names.method,
+                    signal_type.cpp_type()
+                ),
+            ),
+            PortDirection::Output => push_line(
+                output,
+                &format!(
+                    "    [[nodiscard]] {} {}() const noexcept;",
+                    signal_type.cpp_type(),
+                    port_names.method
+                ),
+            ),
+            PortDirection::Inout => {}
+        }
+    }
+}
+
+/// Renders the generated adapter implementation.
+fn render_source(metadata: &DutMetadata, names: &DutNames, trace: Option<TraceOptions>) -> String {
+    let mut output = String::new();
+    let traced = trace.is_some();
+    let trace_depth = trace.map(|options| options.depth);
+
+    render_source_prelude(&mut output, names, traced);
+    render_impl_class(&mut output, metadata, names, trace);
+    render_lifecycle_methods(&mut output, names, trace_depth);
     render_port_methods(&mut output, metadata, names);
     render_time_methods(&mut output, names);
     render_factory_function(&mut output, names);
@@ -149,15 +168,21 @@ fn render_source(metadata: &DutMetadata, names: &DutNames) -> String {
 }
 
 /// Renders the source-file prelude and namespace opening.
-fn render_source_prelude(output: &mut String, names: &DutNames) {
+fn render_source_prelude(output: &mut String, names: &DutNames, traced: bool) {
     push_line(output, GENERATED_NOTICE);
     push_line(output, "");
     push_line(output, &format!("#include \"{}.hpp\"", names.file_stem));
     push_line(output, "");
     push_line(output, &format!("#include \"{}.h\"", names.model_type));
     push_line(output, "#include \"verilated.h\"");
+    if traced {
+        push_line(output, "#include \"verilated_vcd_c.h\"");
+    }
     push_line(output, "");
     push_line(output, "#include <cstdint>");
+    if traced {
+        push_line(output, "#include <string>");
+    }
     push_line(output, "#include <memory>");
     push_line(output, "#include <type_traits>");
     push_line(output, "#include <limits>");
@@ -167,31 +192,95 @@ fn render_source_prelude(output: &mut String, names: &DutNames) {
 }
 
 /// Renders the PIMPL implementation class.
-fn render_impl_class(output: &mut String, metadata: &DutMetadata, names: &DutNames) {
+fn render_impl_class(
+    output: &mut String,
+    metadata: &DutMetadata,
+    names: &DutNames,
+    trace: Option<TraceOptions>,
+) {
+    let traced = trace.is_some();
+
     push_line(output, &format!("class {}::Impl final {{", names.cpp_type));
     push_line(output, "public:");
     push_line(output, "    Impl()");
-    push_line(
-        output,
-        "        : context{std::make_unique<VerilatedContext>()},",
-    );
-    push_line(
-        output,
-        &format!(
-            "          model{{std::make_unique<{}>(context.get())}} {{",
-            names.model_type
-        ),
-    );
+    if traced {
+        push_line(
+            output,
+            "        : context{std::make_unique<VerilatedContext>()} {",
+        );
+        push_line(output, "        context->traceEverOn(true);");
+        push_line(output, "");
+        push_line(
+            output,
+            &format!(
+                "        model = std::make_unique<{}>(context.get());",
+                names.model_type
+            ),
+        );
+    } else {
+        push_line(
+            output,
+            "        : context{std::make_unique<VerilatedContext>()},",
+        );
+        push_line(
+            output,
+            &format!(
+                "          model{{std::make_unique<{}>(context.get())}} {{",
+                names.model_type
+            ),
+        );
+    }
 
     render_input_initializers(output, metadata, names);
 
     push_line(output, "    }");
     push_line(output, "");
+    if traced {
+        push_line(output, "    void dump_trace() noexcept {");
+        push_line(
+            output,
+            "        if (trace == nullptr || !trace->isOpen()) {",
+        );
+        push_line(output, "            return;");
+        push_line(output, "        }");
+        push_line(output, "");
+        push_line(output, "        const auto now = context->time();");
+        push_line(output, "");
+        push_line(
+            output,
+            "        if (has_trace_dump && now <= last_trace_time) {",
+        );
+        push_line(output, "            return;");
+        push_line(output, "        }");
+        push_line(output, "");
+        push_line(output, "        trace->dump(now);");
+        push_line(output, "        last_trace_time = now;");
+        push_line(output, "        has_trace_dump = true;");
+        push_line(output, "    }");
+        push_line(output, "");
+        push_line(output, "    void close_trace() noexcept {");
+        push_line(
+            output,
+            "        if (trace == nullptr || !trace->isOpen()) {",
+        );
+        push_line(output, "            return;");
+        push_line(output, "        }");
+        push_line(output, "");
+        push_line(output, "        trace->flush();");
+        push_line(output, "        trace->close();");
+        push_line(output, "    }");
+        push_line(output, "");
+    }
     push_line(output, "    std::unique_ptr<VerilatedContext> context;");
     push_line(
         output,
         &format!("    std::unique_ptr<{}> model;", names.model_type),
     );
+    if traced {
+        push_line(output, "    std::unique_ptr<VerilatedVcdC> trace;");
+        push_line(output, "    std::uint64_t last_trace_time{0};");
+        push_line(output, "    bool has_trace_dump{false};");
+    }
     push_line(output, "    bool finished{false};");
     push_line(output, "};");
     push_line(output, "");
@@ -222,7 +311,10 @@ fn render_input_initializers(output: &mut String, metadata: &DutMetadata, names:
 }
 
 /// Renders constructor, destructor, and simulation lifecycle methods.
-fn render_lifecycle_methods(output: &mut String, names: &DutNames) {
+fn render_lifecycle_methods(output: &mut String, names: &DutNames, trace_depth: Option<u32>) {
+    let traced = trace_depth.is_some();
+    let trace_depth = trace_depth.unwrap_or(0);
+
     push_line(output, &format!("{}::{}()", names.cpp_type, names.cpp_type));
     push_line(output, "    : impl_{std::make_unique<Impl>()} {}");
     push_line(output, "");
@@ -237,9 +329,14 @@ fn render_lifecycle_methods(output: &mut String, names: &DutNames) {
         output,
         &format!("void {}::eval() noexcept {{", names.cpp_type),
     );
-    push_line(output, "    if (!impl_->finished) {");
-    push_line(output, "        impl_->model->eval();");
+    push_line(output, "    if (impl_->finished) {");
+    push_line(output, "        return;");
     push_line(output, "    }");
+    push_line(output, "");
+    push_line(output, "    impl_->model->eval();");
+    if traced {
+        push_line(output, "    impl_->dump_trace();");
+    }
     push_line(output, "}");
     push_line(output, "");
     push_line(
@@ -250,9 +347,65 @@ fn render_lifecycle_methods(output: &mut String, names: &DutNames) {
     push_line(output, "        return;");
     push_line(output, "    }");
     push_line(output, "");
-    push_line(output, "    impl_->finished = true;");
     push_line(output, "    impl_->model->final();");
+    if traced {
+        push_line(output, "");
+        push_line(output, "    impl_->dump_trace();");
+        push_line(output, "    impl_->close_trace();");
+    }
+    push_line(output, "");
+    push_line(output, "    impl_->finished = true;");
     push_line(output, "}");
+    if traced {
+        push_line(output, "");
+        push_line(output, &format!("bool {}::open_trace(", names.cpp_type));
+        push_line(output, "    const rust::Str path");
+        push_line(output, ") noexcept {");
+        push_line(
+            output,
+            "    if (impl_->finished || impl_->trace != nullptr) {",
+        );
+        push_line(output, "        return false;");
+        push_line(output, "    }");
+        push_line(output, "");
+        push_line(output, "    try {");
+        push_line(
+            output,
+            "        impl_->trace = std::make_unique<VerilatedVcdC>();",
+        );
+        push_line(output, "");
+        push_line(
+            output,
+            &format!("        impl_->model->trace(impl_->trace.get(), {trace_depth});"),
+        );
+        push_line(output, "");
+        push_line(output, "        const std::string filename{path};");
+        push_line(output, "");
+        push_line(output, "        impl_->trace->open(filename.c_str());");
+        push_line(output, "");
+        push_line(output, "        return impl_->trace->isOpen();");
+        push_line(output, "    } catch (...) {");
+        push_line(output, "        return false;");
+        push_line(output, "    }");
+        push_line(output, "}");
+        push_line(output, "");
+        push_line(
+            output,
+            &format!("void {}::close_trace() noexcept {{", names.cpp_type),
+        );
+        push_line(output, "    impl_->close_trace();");
+        push_line(output, "}");
+        push_line(output, "");
+        push_line(
+            output,
+            &format!("bool {}::trace_is_open() const noexcept {{", names.cpp_type),
+        );
+        push_line(
+            output,
+            "    return impl_->trace != nullptr && impl_->trace->isOpen();",
+        );
+        push_line(output, "}");
+    }
 }
 
 /// Renders generated per-port setters and getters.

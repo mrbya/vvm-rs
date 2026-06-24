@@ -2,18 +2,40 @@ use std::path::{Path, PathBuf};
 
 use crate::{BuildError, BuildResult, TraceOptions};
 
+/// Native compilation inputs for one generated DUT.
+pub struct CompileInputs<'a> {
+    /// Logical DUT name.
+    pub name: &'a str,
+    /// Generated CXX bridge source.
+    pub bridge: &'a Path,
+    /// Generated adapter and Verilated C++ sources.
+    pub cpp_sources: &'a [PathBuf],
+    /// C++ include directories.
+    pub cpp_include_dirs: &'a [PathBuf],
+    /// Directory containing Verilator generated headers.
+    pub verilated_dir: &'a Path,
+    /// Verilator installation root.
+    pub verilator_root: &'a Path,
+    /// Extra generated native sources.
+    pub generated_sources: &'a [PathBuf],
+    /// Optional waveform trace configuration.
+    pub trace: Option<TraceOptions>,
+}
+
 /// Compiles the generated CXX bridge, generated and configured adapter
 /// sources, Verilated model, and Verilator runtime.
-pub fn compile(
-    name: &str,
-    bridge: &Path,
-    cpp_sources: &[PathBuf],
-    cpp_include_dirs: &[PathBuf],
-    verilated_dir: &Path,
-    verilator_root: &Path,
-    generated_sources: &[PathBuf],
-    trace: Option<TraceOptions>,
-) -> BuildResult<()> {
+pub fn compile(inputs: &CompileInputs<'_>) -> BuildResult<()> {
+    let CompileInputs {
+        name,
+        bridge,
+        cpp_sources,
+        cpp_include_dirs,
+        verilated_dir,
+        verilator_root,
+        generated_sources,
+        trace,
+    } = *inputs;
+
     let verilator_include = verilator_root.join("include");
     let runtime_source = verilator_include.join("verilated.cpp");
 
@@ -30,6 +52,7 @@ pub fn compile(
     build
         .flag_if_supported("-Wno-sign-compare")
         .flag_if_supported("-Wno-unused-variable")
+        .flag_if_supported("-Wno-unused-parameter")
         .std("c++17");
 
     let compiler = build.get_compiler();

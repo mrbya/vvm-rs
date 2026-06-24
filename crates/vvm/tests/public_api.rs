@@ -1,5 +1,6 @@
 //! Public facade integration coverage.
 
+use vvm::TraceableDut;
 use vvm::prelude::*;
 
 #[derive(Debug, Default)]
@@ -110,6 +111,20 @@ impl Dut for MockDut {
     }
 }
 
+impl TraceableDut for MockDut {
+    fn open_trace(&mut self, _path: &std::path::Path) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn close_trace(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn trace_is_open(&self) -> bool {
+        false
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, Clock)]
 #[vvm(dut = MockDut, clock = "clk")]
 struct MockClock;
@@ -160,6 +175,8 @@ fn facade_exports_traits_derives_and_runner() {
         assert!(matches!(result, Ok(())));
     }
 
+    fn assert_traceable<D: vvm::TraceableDut>(_dut: &D) {}
+
     let mut dut = MockDut::default();
     let stimulus = Stimulus {
         reset_n: false,
@@ -167,6 +184,7 @@ fn facade_exports_traits_derives_and_runner() {
     };
 
     drive_once(&stimulus, &mut dut);
+    assert_traceable(&dut);
 
     assert_eq!(Dut::simulation_time(&dut), SimulationTime::ZERO);
 

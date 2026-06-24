@@ -20,6 +20,18 @@ pub enum CounterError {
 
     /// Simulation time would overflow.
     TimeOverflow,
+
+    /// Trace configuration was requested after evaluation began.
+    TraceAfterEvaluation,
+
+    /// A waveform trace has already been configured.
+    TraceAlreadyConfigured,
+
+    /// The waveform trace path is not valid UTF-8.
+    TracePathNotUtf8,
+
+    /// The native waveform trace could not be opened.
+    TraceOpenFailed,
 }
 
 impl std::fmt::Display for CounterError {
@@ -32,6 +44,10 @@ impl std::fmt::Display for CounterError {
             Self::Finished => "the counter model has already been finished",
             Self::AdapterUnavailable => "the counter native adapter is unexpectedly unavailable",
             Self::TimeOverflow => "advancing counter simulation time would overflow",
+            Self::TraceAfterEvaluation => {"waveform tracing must be configured before the first evaluation"},
+            Self::TraceAlreadyConfigured => {"waveform tracing has already been configured for this DUT"},
+            Self::TracePathNotUtf8 => {"waveform trace path is not valid UTF-8"},
+            Self::TraceOpenFailed => {"failed to open the native VCD waveform trace"}
         };
 
         formatter.write_str(message)
@@ -53,6 +69,15 @@ pub struct Counter {
 
     /// Current logical simulation time.
     time: ::vvm::SimulationTime,
+
+    /// Whether the DUT has been evaluated.
+    evaluated: bool,
+
+    /// Whether trace configuration has been attempted.
+    trace_configured: bool,
+
+    /// Whether the native trace is currently open.
+    trace_open: bool,
 }
 
 #[allow(dead_code)]
@@ -78,6 +103,9 @@ impl Counter {
             inner,
             finished: false,
             time: ::vvm::SimulationTime::ZERO,
+            evaluated: false,
+            trace_configured: false,
+            trace_open: false,
         })
     }
 
@@ -95,8 +123,75 @@ impl Counter {
     pub fn eval(&mut self) -> Result<()> {
         self.ensure_running()?;
         self.inner_mut()?.eval();
+        self.evaluated = true;
 
         Ok(())
+    }
+
+    /// Opens the generated VCD waveform trace.
+    ///
+    /// This must be called before the first DUT evaluation.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the DUT is finished, has already been evaluated,
+    /// tracing was previously configured, the path is not valid UTF-8, or the
+    /// native trace file cannot be opened.
+    pub fn open_trace(
+        &mut self,
+        path: &std::path::Path,
+    ) -> Result<()> {
+        self.ensure_running()?;
+
+        if self.evaluated {
+            return Err(CounterError::TraceAfterEvaluation);
+        }
+
+        if self.trace_configured {
+            return Err(CounterError::TraceAlreadyConfigured);
+        }
+
+        let path = path.to_str().ok_or(
+            CounterError::TracePathNotUtf8,
+        )?;
+
+        let opened =
+            self.inner_mut()?.open_trace(path);
+
+        self.trace_configured = true;
+
+        if !opened {
+            return Err(CounterError::TraceOpenFailed);
+        }
+
+        self.trace_open = true;
+
+        Ok(())
+    }
+
+    /// Flushes and closes the active waveform trace.
+    ///
+    /// Repeated calls are safe.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the native adapter is unexpectedly unavailable.
+    pub fn close_trace(&mut self) -> Result<()> {
+        if self.finished {
+            self.trace_open = false;
+            return Ok(());
+        }
+
+        self.inner_mut()?.close_trace();
+        self.trace_open = false;
+
+        Ok(())
+    }
+
+    /// Returns whether the waveform trace is currently open.
+    #[must_use]
+    pub const fn trace_is_open(&self) -> bool {
+        self.trace_open
     }
 
     /// Finalises the DUT exactly once.
@@ -112,6 +207,7 @@ impl Counter {
         }
 
         self.inner_mut()?.finish();
+        self.trace_open = false;
         self.finished = true;
 
         Ok(())
@@ -228,6 +324,9 @@ impl std::fmt::Debug for Counter {
         formatter.debug_struct("Counter")
             .field("finished", &self.finished)
             .field("time", &self.time)
+            .field("evaluated", &self.evaluated)
+            .field("trace_configured", &self.trace_configured)
+            .field("trace_open", &self.trace_open)
             .finish_non_exhaustive()
     }
 }
@@ -255,6 +354,25 @@ impl ::vvm::Dut for Counter {
     }
 }
 
+impl ::vvm::TraceableDut for Counter {
+    fn open_trace(
+        &mut self,
+        path: &std::path::Path,
+    ) -> Result<()> {
+        Self::open_trace(self, path)
+    }
+
+    fn close_trace(
+        &mut self,
+    ) -> Result<()> {
+        Self::close_trace(self)
+    }
+
+    fn trace_is_open(&self) -> bool {
+        Self::trace_is_open(self)
+    }
+}
+
 impl Drop for Counter {
     fn drop(&mut self) {
         if self.finished {
@@ -265,6 +383,7 @@ impl Drop for Counter {
             inner.finish();
         }
 
+        self.trace_open = false;
         self.finished = true;
     }
 }

@@ -3,18 +3,18 @@
 use super::names::DutNames;
 use super::types::SignalType;
 use super::GENERATED_NOTICE;
-use crate::{
-    metadata::{DutMetadata, Port, PortDirection},
-    TraceOptions,
-};
+use crate::metadata::{DutMetadata, Port, PortDirection};
+use crate::trace::TraceFormat;
+use crate::TraceOptions;
 
 /// Renders the safe Rust wrapper for one DUT.
 pub(super) fn render(
     metadata: &DutMetadata,
     names: &DutNames,
-    _trace: Option<TraceOptions>,
+    trace: Option<TraceOptions>,
 ) -> String {
     let mut output = String::new();
+    let traced = trace.is_some_and(|options| options.format == TraceFormat::Vcd);
 
     push_line(&mut output, GENERATED_NOTICE);
     push_line(&mut output, "");
@@ -28,7 +28,7 @@ pub(super) fn render(
     push_line(&mut output, "));");
     push_line(&mut output, "");
 
-    render_error(&mut output, metadata, names);
+    render_error(&mut output, metadata, names, traced);
     push_line(&mut output, "");
 
     push_line(
@@ -44,14 +44,14 @@ pub(super) fn render(
     );
     push_line(&mut output, "");
 
-    render_struct(&mut output, metadata, names);
+    render_struct(&mut output, metadata, names, traced);
     push_line(&mut output, "");
 
     push_line(&mut output, "#[allow(dead_code)]");
     push_line(&mut output, &format!("impl {} {{", names.cpp_type));
 
-    render_constructor(&mut output, metadata, names);
-    render_lifecycle(&mut output, names);
+    render_constructor(&mut output, metadata, names, traced);
+    render_lifecycle(&mut output, names, traced);
     render_timing(&mut output, names);
 
     for (port, port_names) in metadata.ports.iter().zip(&names.ports) {
@@ -71,23 +71,43 @@ pub(super) fn render(
     push_line(&mut output, "}");
     push_line(&mut output, "");
 
-    render_debug(&mut output, names);
+    render_debug(&mut output, names, traced);
     push_line(&mut output, "");
 
     render_dut_trait(&mut output, names);
     push_line(&mut output, "");
 
-    render_drop(&mut output, names);
+    if traced {
+        render_traceable_trait(&mut output, names);
+        push_line(&mut output, "");
+    }
+
+    render_drop(&mut output, names, traced);
 
     output
 }
 
 /// Renders the generated DUT error type.
-fn render_error(output: &mut String, metadata: &DutMetadata, names: &DutNames) {
+fn render_error(output: &mut String, metadata: &DutMetadata, names: &DutNames, traced: bool) {
     push_line(output, "/// Error returned by generated DUT operations.");
     push_line(output, "#[allow(dead_code)]");
     push_line(output, "#[derive(Debug, Clone, Copy, PartialEq, Eq)]");
     push_line(output, &format!("pub enum {} {{", names.rust_error_type));
+    render_error_variants(output, traced);
+    push_line(output, "}");
+    push_line(output, "");
+
+    render_error_display(output, metadata, names, traced);
+    push_line(output, "");
+
+    push_line(
+        output,
+        &format!("impl std::error::Error for {} {{}}", names.rust_error_type),
+    );
+}
+
+/// Renders the generated DUT error variants.
+fn render_error_variants(output: &mut String, traced: bool) {
     push_line(
         output,
         "    /// The native Verilated model could not be constructed.",
@@ -108,9 +128,41 @@ fn render_error(output: &mut String, metadata: &DutMetadata, names: &DutNames) {
     push_line(output, "");
     push_line(output, "    /// Simulation time would overflow.");
     push_line(output, "    TimeOverflow,");
-    push_line(output, "}");
-    push_line(output, "");
+    if traced {
+        push_line(output, "");
+        push_line(
+            output,
+            "    /// Trace configuration was requested after evaluation began.",
+        );
+        push_line(output, "    TraceAfterEvaluation,");
+        push_line(output, "");
+        push_line(
+            output,
+            "    /// A waveform trace has already been configured.",
+        );
+        push_line(output, "    TraceAlreadyConfigured,");
+        push_line(output, "");
+        push_line(
+            output,
+            "    /// The waveform trace path is not valid UTF-8.",
+        );
+        push_line(output, "    TracePathNotUtf8,");
+        push_line(output, "");
+        push_line(
+            output,
+            "    /// The native waveform trace could not be opened.",
+        );
+        push_line(output, "    TraceOpenFailed,");
+    }
+}
 
+/// Renders the generated DUT error display implementation.
+fn render_error_display(
+    output: &mut String,
+    metadata: &DutMetadata,
+    names: &DutNames,
+    traced: bool,
+) {
     push_line(
         output,
         &format!("impl std::fmt::Display for {} {{", names.rust_error_type),
@@ -146,25 +198,40 @@ fn render_error(output: &mut String, metadata: &DutMetadata, names: &DutNames) {
     push_line(
         output,
         &format!(
-            "            Self::TimeOverflow => \"advancing {} simulation time would overflow\"",
+            "            Self::TimeOverflow => \"advancing {} simulation time would overflow\",",
             metadata.name
         ),
     );
+    if traced {
+        push_line(
+            output,
+            "            Self::TraceAfterEvaluation => {\"waveform tracing must be configured \
+             before the first evaluation\"},",
+        );
+        push_line(
+            output,
+            "            Self::TraceAlreadyConfigured => {\"waveform tracing has already been \
+             configured for this DUT\"},",
+        );
+        push_line(
+            output,
+            "            Self::TracePathNotUtf8 => {\"waveform trace path is not valid UTF-8\"},",
+        );
+        push_line(
+            output,
+            "            Self::TraceOpenFailed => {\"failed to open the native VCD waveform \
+             trace\"}",
+        );
+    }
     push_line(output, "        };");
     push_line(output, "");
     push_line(output, "        formatter.write_str(message)");
     push_line(output, "    }");
     push_line(output, "}");
-    push_line(output, "");
-
-    push_line(
-        output,
-        &format!("impl std::error::Error for {} {{}}", names.rust_error_type),
-    );
 }
 
 /// Renders the safe DUT structure.
-fn render_struct(output: &mut String, metadata: &DutMetadata, names: &DutNames) {
+fn render_struct(output: &mut String, metadata: &DutMetadata, names: &DutNames, traced: bool) {
     push_line(
         output,
         &format!(
@@ -193,11 +260,33 @@ fn render_struct(output: &mut String, metadata: &DutMetadata, names: &DutNames) 
     push_line(output, "");
     push_line(output, "    /// Current logical simulation time.");
     push_line(output, "    time: ::vvm::SimulationTime,");
+    if traced {
+        push_line(output, "");
+        push_line(output, "    /// Whether the DUT has been evaluated.");
+        push_line(output, "    evaluated: bool,");
+        push_line(output, "");
+        push_line(
+            output,
+            "    /// Whether trace configuration has been attempted.",
+        );
+        push_line(output, "    trace_configured: bool,");
+        push_line(output, "");
+        push_line(
+            output,
+            "    /// Whether the native trace is currently open.",
+        );
+        push_line(output, "    trace_open: bool,");
+    }
     push_line(output, "}");
 }
 
 /// Renders construction and pointer validation.
-fn render_constructor(output: &mut String, _metadata: &DutMetadata, names: &DutNames) {
+fn render_constructor(
+    output: &mut String,
+    _metadata: &DutMetadata,
+    names: &DutNames,
+    traced: bool,
+) {
     push_line(output, "    /// Constructs the Verilated DUT.");
     push_line(output, "    ///");
     push_line(output, "    /// # Errors");
@@ -242,12 +331,17 @@ fn render_constructor(output: &mut String, _metadata: &DutMetadata, names: &DutN
     push_line(output, "            inner,");
     push_line(output, "            finished: false,");
     push_line(output, "            time: ::vvm::SimulationTime::ZERO,");
+    if traced {
+        push_line(output, "            evaluated: false,");
+        push_line(output, "            trace_configured: false,");
+        push_line(output, "            trace_open: false,");
+    }
     push_line(output, "        })");
     push_line(output, "    }");
 }
 
 /// Renders lifecycle operations.
-fn render_lifecycle(output: &mut String, names: &DutNames) {
+fn render_lifecycle(output: &mut String, names: &DutNames, traced: bool) {
     push_line(output, "");
     push_line(
         output,
@@ -270,9 +364,16 @@ fn render_lifecycle(output: &mut String, names: &DutNames) {
     push_line(output, "    pub fn eval(&mut self) -> Result<()> {");
     push_line(output, "        self.ensure_running()?;");
     push_line(output, "        self.inner_mut()?.eval();");
+    if traced {
+        push_line(output, "        self.evaluated = true;");
+    }
     push_line(output, "");
     push_line(output, "        Ok(())");
     push_line(output, "    }");
+
+    if traced {
+        render_trace_lifecycle(output, names);
+    }
 
     push_line(output, "");
     push_line(output, "    /// Finalises the DUT exactly once.");
@@ -291,12 +392,135 @@ fn render_lifecycle(output: &mut String, names: &DutNames) {
     push_line(output, "        }");
     push_line(output, "");
     push_line(output, "        self.inner_mut()?.finish();");
+    if traced {
+        push_line(output, "        self.trace_open = false;");
+    }
     push_line(output, "        self.finished = true;");
     push_line(output, "");
     push_line(output, "        Ok(())");
     push_line(output, "    }");
 
     let _ = names;
+}
+
+/// Renders optional trace lifecycle methods.
+fn render_trace_lifecycle(output: &mut String, names: &DutNames) {
+    render_open_trace_method(output, names);
+    render_close_trace_methods(output);
+}
+
+/// Renders the safe trace opening method.
+fn render_open_trace_method(output: &mut String, names: &DutNames) {
+    push_line(output, "");
+    push_line(output, "    /// Opens the generated VCD waveform trace.");
+    push_line(output, "    ///");
+    push_line(
+        output,
+        "    /// This must be called before the first DUT evaluation.",
+    );
+    push_line(output, "    ///");
+    push_line(output, "    /// # Errors");
+    push_line(output, "    ///");
+    push_line(
+        output,
+        "    /// Returns an error if the DUT is finished, has already been evaluated,",
+    );
+    push_line(
+        output,
+        "    /// tracing was previously configured, the path is not valid UTF-8, or the",
+    );
+    push_line(output, "    /// native trace file cannot be opened.");
+    push_line(output, "    pub fn open_trace(");
+    push_line(output, "        &mut self,");
+    push_line(output, "        path: &std::path::Path,");
+    push_line(output, "    ) -> Result<()> {");
+    push_line(output, "        self.ensure_running()?;");
+    push_line(output, "");
+    push_line(output, "        if self.evaluated {");
+    push_line(
+        output,
+        &format!(
+            "            return Err({}::TraceAfterEvaluation);",
+            names.rust_error_type
+        ),
+    );
+    push_line(output, "        }");
+    push_line(output, "");
+    push_line(output, "        if self.trace_configured {");
+    push_line(
+        output,
+        &format!(
+            "            return Err({}::TraceAlreadyConfigured);",
+            names.rust_error_type
+        ),
+    );
+    push_line(output, "        }");
+    push_line(output, "");
+    push_line(output, "        let path = path.to_str().ok_or(");
+    push_line(
+        output,
+        &format!("            {}::TracePathNotUtf8,", names.rust_error_type),
+    );
+    push_line(output, "        )?;");
+    push_line(output, "");
+    push_line(output, "        let opened =");
+    push_line(output, "            self.inner_mut()?.open_trace(path);");
+    push_line(output, "");
+    push_line(output, "        self.trace_configured = true;");
+    push_line(output, "");
+    push_line(output, "        if !opened {");
+    push_line(
+        output,
+        &format!(
+            "            return Err({}::TraceOpenFailed);",
+            names.rust_error_type
+        ),
+    );
+    push_line(output, "        }");
+    push_line(output, "");
+    push_line(output, "        self.trace_open = true;");
+    push_line(output, "");
+    push_line(output, "        Ok(())");
+    push_line(output, "    }");
+}
+
+/// Renders the safe trace closing and query methods.
+fn render_close_trace_methods(output: &mut String) {
+    push_line(output, "");
+    push_line(
+        output,
+        "    /// Flushes and closes the active waveform trace.",
+    );
+    push_line(output, "    ///");
+    push_line(output, "    /// Repeated calls are safe.");
+    push_line(output, "    ///");
+    push_line(output, "    /// # Errors");
+    push_line(output, "    ///");
+    push_line(
+        output,
+        "    /// Returns an error if the native adapter is unexpectedly unavailable.",
+    );
+    push_line(output, "    pub fn close_trace(&mut self) -> Result<()> {");
+    push_line(output, "        if self.finished {");
+    push_line(output, "            self.trace_open = false;");
+    push_line(output, "            return Ok(());");
+    push_line(output, "        }");
+    push_line(output, "");
+    push_line(output, "        self.inner_mut()?.close_trace();");
+    push_line(output, "        self.trace_open = false;");
+    push_line(output, "");
+    push_line(output, "        Ok(())");
+    push_line(output, "    }");
+
+    push_line(output, "");
+    push_line(
+        output,
+        "    /// Returns whether the waveform trace is currently open.",
+    );
+    push_line(output, "    #[must_use]");
+    push_line(output, "    pub const fn trace_is_open(&self) -> bool {");
+    push_line(output, "        self.trace_open");
+    push_line(output, "    }");
 }
 
 /// Renders timing operations.
@@ -332,7 +556,10 @@ fn render_timing(output: &mut String, names: &DutNames) {
     push_line(output, "        else {");
     push_line(
         output,
-        "            return Err(CounterError::TimeOverflow);",
+        &format!(
+            "            return Err({}::TimeOverflow);",
+            names.rust_error_type
+        ),
     );
     push_line(output, "        };");
 
@@ -343,7 +570,10 @@ fn render_timing(output: &mut String, names: &DutNames) {
     push_line(output, "        if !advanced {");
     push_line(
         output,
-        "            return Err(CounterError::TimeOverflow);",
+        &format!(
+            "            return Err({}::TimeOverflow);",
+            names.rust_error_type
+        ),
     );
     push_line(output, "        }");
 
@@ -480,7 +710,7 @@ fn render_internal_access(output: &mut String, names: &DutNames) {
 }
 
 /// Renders the safe debug implementation.
-fn render_debug(output: &mut String, names: &DutNames) {
+fn render_debug(output: &mut String, names: &DutNames, traced: bool) {
     push_line(
         output,
         &format!("impl std::fmt::Debug for {} {{", names.cpp_type),
@@ -495,6 +725,17 @@ fn render_debug(output: &mut String, names: &DutNames) {
     );
     push_line(output, "            .field(\"finished\", &self.finished)");
     push_line(output, "            .field(\"time\", &self.time)");
+    if traced {
+        push_line(output, "            .field(\"evaluated\", &self.evaluated)");
+        push_line(
+            output,
+            "            .field(\"trace_configured\", &self.trace_configured)",
+        );
+        push_line(
+            output,
+            "            .field(\"trace_open\", &self.trace_open)",
+        );
+    }
     push_line(output, "            .finish_non_exhaustive()");
     push_line(output, "    }");
     push_line(output, "}");
@@ -537,8 +778,33 @@ fn render_dut_trait(output: &mut String, names: &DutNames) {
     push_line(output, "}");
 }
 
+/// Renders the optional VVM traceable DUT trait implementation.
+fn render_traceable_trait(output: &mut String, names: &DutNames) {
+    push_line(
+        output,
+        &format!("impl ::vvm::TraceableDut for {} {{", names.cpp_type),
+    );
+    push_line(output, "    fn open_trace(");
+    push_line(output, "        &mut self,");
+    push_line(output, "        path: &std::path::Path,");
+    push_line(output, "    ) -> Result<()> {");
+    push_line(output, "        Self::open_trace(self, path)");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(output, "    fn close_trace(");
+    push_line(output, "        &mut self,");
+    push_line(output, "    ) -> Result<()> {");
+    push_line(output, "        Self::close_trace(self)");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(output, "    fn trace_is_open(&self) -> bool {");
+    push_line(output, "        Self::trace_is_open(self)");
+    push_line(output, "    }");
+    push_line(output, "}");
+}
+
 /// Renders safe drop-time finalisation.
-fn render_drop(output: &mut String, names: &DutNames) {
+fn render_drop(output: &mut String, names: &DutNames, traced: bool) {
     push_line(output, &format!("impl Drop for {} {{", names.cpp_type));
     push_line(output, "    fn drop(&mut self) {");
     push_line(output, "        if self.finished {");
@@ -549,6 +815,9 @@ fn render_drop(output: &mut String, names: &DutNames) {
     push_line(output, "            inner.finish();");
     push_line(output, "        }");
     push_line(output, "");
+    if traced {
+        push_line(output, "        self.trace_open = false;");
+    }
     push_line(output, "        self.finished = true;");
     push_line(output, "    }");
     push_line(output, "}");

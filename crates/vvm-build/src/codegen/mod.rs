@@ -88,8 +88,78 @@ mod tests {
     use tempfile::tempdir;
 
     use super::generate;
-    use crate::metadata::{normalize, RawMetadata};
+    use crate::TraceOptions;
+    use crate::metadata::{RawMetadata, normalize};
     use crate::verilator::VerilatorVersion;
+
+    fn counter_metadata() -> Result<crate::metadata::DutMetadata, Box<dyn std::error::Error>> {
+        let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+
+        let metadata_fixture = manifest
+            .join("tests")
+            .join("fixtures")
+            .join("verilator")
+            .join("5.048")
+            .join("counter");
+
+        let raw = RawMetadata::from_paths(
+            VerilatorVersion::new(5, 48),
+            &metadata_fixture.join("counter.tree.json"),
+            &metadata_fixture.join("counter.tree.meta.json"),
+        )?;
+
+        Ok(normalize("counter", "counter", &raw)?)
+    }
+
+    fn expected_codegen_directory(name: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("codegen")
+            .join(name)
+    }
+
+    fn assert_generated_artifacts_match(
+        generated: &super::GeneratedArtifacts,
+        expected_directory: &Path,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        assert_generated_snapshot(
+            &generated.cpp_header,
+            &expected_directory.join("counter.hpp"),
+        )?;
+        assert_generated_snapshot(
+            &generated.cpp_source,
+            &expected_directory.join("counter.cpp"),
+        )?;
+        assert_generated_snapshot(&generated.cxx_bridge, &expected_directory.join("bridge.rs"))?;
+        assert_generated_snapshot(&generated.rust_wrapper, &expected_directory.join("dut.rs"))?;
+
+        Ok(())
+    }
+
+    fn assert_same_generated_contents(
+        first: &super::GeneratedArtifacts,
+        second: &super::GeneratedArtifacts,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        assert_eq!(
+            std::fs::read_to_string(&first.cpp_header)?,
+            std::fs::read_to_string(&second.cpp_header)?
+        );
+        assert_eq!(
+            std::fs::read_to_string(&first.cpp_source)?,
+            std::fs::read_to_string(&second.cpp_source)?
+        );
+        assert_eq!(
+            std::fs::read_to_string(&first.cxx_bridge)?,
+            std::fs::read_to_string(&second.cxx_bridge)?
+        );
+        assert_eq!(
+            std::fs::read_to_string(&first.rust_wrapper)?,
+            std::fs::read_to_string(&second.rust_wrapper)?
+        );
+
+        Ok(())
+    }
 
     fn assert_generated_snapshot(
         actual_path: &Path,
@@ -128,46 +198,25 @@ mod tests {
 
     #[test]
     fn generates_expected_counter_artifacts() -> Result<(), Box<dyn std::error::Error>> {
-        let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-
-        let metadata_fixture = manifest
-            .join("tests")
-            .join("fixtures")
-            .join("verilator")
-            .join("5.048")
-            .join("counter");
-
-        let raw = RawMetadata::from_paths(
-            VerilatorVersion::new(5, 48),
-            &metadata_fixture.join("counter.tree.json"),
-            &metadata_fixture.join("counter.tree.meta.json"),
-        )?;
-
-        let metadata = normalize("counter", "counter", &raw)?;
-
+        let metadata = counter_metadata()?;
         let output = tempdir()?;
-
         let generated = generate(&metadata, "Vcounter", output.path(), None)?;
+        let expected_directory = expected_codegen_directory("counter");
 
-        let expected_directory = manifest
-            .join("tests")
-            .join("fixtures")
-            .join("codegen")
-            .join("counter");
+        assert_generated_artifacts_match(&generated, &expected_directory)?;
 
-        assert_generated_snapshot(
-            &generated.cpp_header,
-            &expected_directory.join("counter.hpp"),
-        )?;
-        assert_generated_snapshot(
-            &generated.cpp_source,
-            &expected_directory.join("counter.cpp"),
-        )?;
-        assert_generated_snapshot(&generated.cxx_bridge, &expected_directory.join("bridge.rs"))?;
-        assert_generated_snapshot(&generated.rust_wrapper, &expected_directory.join("dut.rs"))?;
-
+        let header = std::fs::read_to_string(&generated.cpp_header)?;
+        let source = std::fs::read_to_string(&generated.cpp_source)?;
+        let bridge = std::fs::read_to_string(&generated.cxx_bridge)?;
         let wrapper = std::fs::read_to_string(&generated.rust_wrapper)?;
 
+        assert!(!header.contains("rust/cxx.h"));
+        assert!(!header.contains("open_trace"));
+        assert!(!source.contains("VerilatedVcdC"));
+        assert!(!source.contains("traceEverOn"));
+        assert!(!bridge.contains("open_trace"));
+        assert!(!wrapper.contains("TraceAfterEvaluation"));
+        assert!(!wrapper.contains("TraceableDut"));
         assert!(!wrapper.contains(".pin_mut()"));
         assert!(!wrapper.contains("unsafe"));
         assert!(!wrapper.contains("Vcounter"));
@@ -180,30 +229,139 @@ mod tests {
     }
 
     #[test]
+    fn generates_expected_traced_counter_artifacts() -> Result<(), Box<dyn std::error::Error>> {
+        let metadata = counter_metadata()?;
+        let output = tempdir()?;
+        let generated = generate(
+            &metadata,
+            "Vcounter",
+            output.path(),
+            Some(TraceOptions::vcd()),
+        )?;
+        let expected_directory = expected_codegen_directory("counter-vcd");
+
+        assert_generated_artifacts_match(&generated, &expected_directory)?;
+
+        let header = std::fs::read_to_string(&generated.cpp_header)?;
+        let source = std::fs::read_to_string(&generated.cpp_source)?;
+        let bridge = std::fs::read_to_string(&generated.cxx_bridge)?;
+        let wrapper = std::fs::read_to_string(&generated.rust_wrapper)?;
+
+        assert!(header.contains("rust/cxx.h"));
+        assert!(header.contains("open_trace"));
+        assert!(header.contains("close_trace"));
+        assert!(header.contains("trace_is_open"));
+        assert!(!header.contains("VerilatedVcdC"));
+        assert!(source.contains("context->traceEverOn(true)"));
+        assert!(source.contains("std::unique_ptr<VerilatedVcdC>"));
+        assert!(source.contains("impl_->model->trace(impl_->trace.get(), 99);"));
+        assert!(source.contains("trace->dump"));
+        assert!(source.contains("trace->flush"));
+        assert!(source.contains("trace->close"));
+        assert!(source.contains("last_trace_time"));
+        assert!(source.contains("has_trace_dump"));
+        assert!(bridge.contains("fn open_trace"));
+        assert!(bridge.contains("fn close_trace"));
+        assert!(bridge.contains("fn trace_is_open"));
+        assert!(bridge.contains("path: &str"));
+        assert!(wrapper.contains("TraceAfterEvaluation"));
+        assert!(wrapper.contains("TraceAlreadyConfigured"));
+        assert!(wrapper.contains("TracePathNotUtf8"));
+        assert!(wrapper.contains("TraceOpenFailed"));
+        assert!(wrapper.contains("evaluated"));
+        assert!(wrapper.contains("trace_configured"));
+        assert!(wrapper.contains("trace_open"));
+        assert!(wrapper.contains("impl ::vvm::TraceableDut"));
+        assert!(wrapper.contains("impl ::vvm::Dut"));
+        assert!(wrapper.contains("SimulationTime"));
+        assert!(wrapper.contains("advance_time"));
+        assert!(wrapper.contains("Drop"));
+
+        let trace_ever_on = source.find("context->traceEverOn(true)").ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, "missing traceEverOn")
+        })?;
+        let model_construction = source
+            .find("model = std::make_unique<Vcounter>(context.get());")
+            .ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "missing traced model construction",
+                )
+            })?;
+
+        assert!(trace_ever_on < model_construction);
+
+        Ok(())
+    }
+
+    #[test]
     fn generates_deterministic_output() -> Result<(), Box<dyn std::error::Error>> {
-        let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let metadata = counter_metadata()?;
 
-        let metadata_fixture = manifest
-            .join("tests")
-            .join("fixtures")
-            .join("verilator")
-            .join("5.048")
-            .join("counter");
+        let first_output = tempdir()?;
+        let second_output = tempdir()?;
+        let traced_first_output = tempdir()?;
+        let traced_second_output = tempdir()?;
 
-        let raw = RawMetadata::from_paths(
-            VerilatorVersion::new(5, 48),
-            &metadata_fixture.join("counter.tree.json"),
-            &metadata_fixture.join("counter.tree.meta.json"),
+        let first = generate(&metadata, "Vcounter", first_output.path(), None)?;
+        let second = generate(&metadata, "Vcounter", second_output.path(), None)?;
+        let traced_first = generate(
+            &metadata,
+            "Vcounter",
+            traced_first_output.path(),
+            Some(TraceOptions::vcd()),
+        )?;
+        let traced_second = generate(
+            &metadata,
+            "Vcounter",
+            traced_second_output.path(),
+            Some(TraceOptions::vcd()),
         )?;
 
-        let metadata = normalize("counter", "counter", &raw)?;
+        assert_same_generated_contents(&first, &second)?;
+        assert_same_generated_contents(&traced_first, &traced_second)?;
 
+        Ok(())
+    }
+
+    #[test]
+    fn traced_wrapper_generation_encodes_trace_lifecycle_rules()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let metadata = counter_metadata()?;
         let output = tempdir()?;
+        let generated = generate(
+            &metadata,
+            "Vcounter",
+            output.path(),
+            Some(TraceOptions::vcd()),
+        )?;
 
-        let first = generate(&metadata, "Vcounter", output.path(), None)?;
-        let second = generate(&metadata, "Vcounter", output.path(), None)?;
+        let bridge = std::fs::read_to_string(&generated.cxx_bridge)?;
+        let wrapper = std::fs::read_to_string(&generated.rust_wrapper)?;
 
-        assert_eq!(first, second);
+        assert!(wrapper.contains("if self.evaluated {"));
+        assert!(wrapper.contains("TraceAfterEvaluation"));
+        assert!(wrapper.contains("if self.trace_configured {"));
+        assert!(wrapper.contains("TraceAlreadyConfigured"));
+        assert!(wrapper.contains("path.to_str().ok_or("));
+        assert!(wrapper.contains("TracePathNotUtf8"));
+        assert!(wrapper.contains("self.trace_configured = true;"));
+        assert!(wrapper.contains("TraceOpenFailed"));
+        assert!(wrapper.contains("self.evaluated = true;"));
+        assert!(wrapper.contains("self.trace_open = true;"));
+        assert!(wrapper.contains(
+            "if self.finished {\n            self.trace_open = false;\n            return Ok(());"
+        ));
+        assert!(wrapper.contains("self.inner_mut()?.close_trace();"));
+        assert!(wrapper.contains("self.trace_open = false;"));
+        assert!(wrapper.contains("pub const fn trace_is_open(&self) -> bool {"));
+        assert!(wrapper.contains("if self.finished {\n            return Ok(());\n        }"));
+        assert!(wrapper.contains("self.inner_mut()?.finish();"));
+        assert!(wrapper.contains(
+            "if let Some(inner) = self.inner.as_mut() {\n            inner.finish();\n        }"
+        ));
+        assert!(wrapper.contains("impl ::vvm::TraceableDut for Counter"));
+        assert!(bridge.contains("fn trace_is_open(self: &Counter) -> bool;"));
 
         Ok(())
     }

@@ -1,11 +1,13 @@
 //! Counter verification using the synchronous VVM runner.
 
+use std::path::Path;
+
 use vvm::{ExactScoreboard, Testbench};
 
 use crate::counter::Counter;
 use crate::verification::{
-    CounterClock, CounterObservation, CounterReferenceModel, CounterTestResult, Error, Result,
-    counter_sequence,
+    counter_sequence, CounterClock, CounterObservation, CounterReferenceModel, CounterTestResult,
+    Error, Result,
 };
 
 vvm::include_dut!(counter);
@@ -29,7 +31,9 @@ fn main() -> Result<()> {
 
 /// Runs the counter testbench.
 fn run_simulation() -> Result<CounterTestResult> {
-    let dut = Counter::new()?;
+    let mut dut = Counter::new()?;
+
+    dut.open_trace(Path::new("akafuka.vcd"))?;
 
     let result = Testbench::new(dut)
         .with_sequence(counter_sequence())
@@ -60,7 +64,7 @@ fn print_result(result: &CounterTestResult) {
 
 #[cfg(test)]
 mod tests {
-    use super::{Result, run_simulation};
+    use super::{run_simulation, Result};
 
     #[test]
     fn runner_verifies_counter() -> Result<()> {

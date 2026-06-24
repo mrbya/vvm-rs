@@ -3,7 +3,8 @@ use std::path::{Path, PathBuf};
 use std::{env, fs};
 
 use crate::error::{BuildError, BuildResult};
-use crate::{TraceOptions, cargo, codegen, native, paths, verilator};
+use crate::trace::TraceFormat;
+use crate::{cargo, codegen, native, paths, verilator, TraceOptions};
 
 /// HDL preprocessor definition configuration.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -216,6 +217,13 @@ impl DutBuilder {
             return Err(BuildError::MissingSources);
         }
 
+        if self
+            .trace
+            .is_some_and(|trace| trace.format != TraceFormat::Vcd)
+        {
+            return Err(BuildError::UnsupportedTraceFormat);
+        }
+
         validate_defines(&self.defines)?;
 
         let manifest_dir = required_environment_path("CARGO_MANIFEST_DIR")?;
@@ -284,7 +292,8 @@ impl DutBuilder {
         let dut_metadata = crate::metadata::normalize(&self.name, &top_module, &raw_metadata)?;
         crate::metadata::validate_supported(&dut_metadata)?;
 
-        let generated = codegen::generate(&dut_metadata, &model_prefix, &generated_dir)?;
+        let generated =
+            codegen::generate(&dut_metadata, &model_prefix, &generated_dir, self.trace)?;
         cpp_sources.push(generated.cpp_source);
         cpp_include_dirs.push(generated.include_dir.clone());
 
@@ -314,6 +323,7 @@ impl DutBuilder {
             &verilated_dir,
             &verilator_root,
             &generated_sources,
+            self.trace,
         )
     }
 

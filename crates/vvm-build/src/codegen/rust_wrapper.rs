@@ -1,12 +1,19 @@
 //! Safe Rust DUT wrapper generation.
 
-use super::GENERATED_NOTICE;
 use super::names::DutNames;
 use super::types::SignalType;
-use crate::metadata::{DutMetadata, Port, PortDirection};
+use super::GENERATED_NOTICE;
+use crate::{
+    metadata::{DutMetadata, Port, PortDirection},
+    TraceOptions,
+};
 
 /// Renders the safe Rust wrapper for one DUT.
-pub(super) fn render(metadata: &DutMetadata, names: &DutNames) -> String {
+pub(super) fn render(
+    metadata: &DutMetadata,
+    names: &DutNames,
+    _trace: Option<TraceOptions>,
+) -> String {
     let mut output = String::new();
 
     push_line(&mut output, GENERATED_NOTICE);

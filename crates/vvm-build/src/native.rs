@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use crate::{BuildError, BuildResult};
+use crate::{BuildError, BuildResult, TraceOptions};
 
 /// Compiles the generated CXX bridge, generated and configured adapter
 /// sources, Verilated model, and Verilator runtime.
@@ -12,6 +12,7 @@ pub fn compile(
     verilated_dir: &Path,
     verilator_root: &Path,
     generated_sources: &[PathBuf],
+    trace: Option<TraceOptions>,
 ) -> BuildResult<()> {
     let verilator_include = verilator_root.join("include");
     let runtime_source = verilator_include.join("verilated.cpp");
@@ -62,6 +63,18 @@ pub fn compile(
 
     for source in generated_sources {
         build.file(source);
+    }
+
+    if trace.is_some() {
+        let trace_runtime = verilator_include.join("verilated_vcd_c.cpp");
+
+        if !trace_runtime.exists() {
+            return Err(BuildError::MissingRuntimeSource {
+                path: trace_runtime,
+            });
+        }
+
+        build.file(trace_runtime);
     }
 
     build.file(runtime_source);

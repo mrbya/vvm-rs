@@ -2,9 +2,14 @@ use super::names::DutNames;
 use super::types::SignalType;
 use crate::codegen::GENERATED_NOTICE;
 use crate::metadata::{DutMetadata, PortDirection};
+use crate::TraceOptions;
 
 /// Renders the raw CXX bridge for one DUT.
-pub(super) fn render(metadata: &DutMetadata, names: &DutNames) -> String {
+pub(super) fn render(
+    metadata: &DutMetadata,
+    names: &DutNames,
+    _trace: Option<TraceOptions>,
+) -> String {
     let mut output = String::new();
 
     push_line(&mut output, GENERATED_NOTICE);

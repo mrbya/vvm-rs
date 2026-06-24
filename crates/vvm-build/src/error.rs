@@ -399,4 +399,8 @@ pub enum BuildError {
         /// Ambiguous generated name.
         name: String,
     },
+
+    /// Build was configured with an unsupported waveform trace format.
+    #[error("currently, only VCD waveform trace format is supported")]
+    UnsupportedTraceFormat,
 }

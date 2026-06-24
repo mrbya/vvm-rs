@@ -2,6 +2,7 @@ use super::names::DutNames;
 use super::types::SignalType;
 use crate::codegen::GENERATED_NOTICE;
 use crate::metadata::{DutMetadata, Port, PortDirection};
+use crate::TraceOptions;
 
 /// Complete generated C++ adapter text.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -14,7 +15,11 @@ pub(super) struct CppAdapterText {
 }
 
 /// Renders a complete C++ adapter.
-pub(super) fn render(metadata: &DutMetadata, names: &DutNames) -> CppAdapterText {
+pub(super) fn render(
+    metadata: &DutMetadata,
+    names: &DutNames,
+    _trace: Option<TraceOptions>,
+) -> CppAdapterText {
     CppAdapterText {
         header: render_header(metadata, names),
         source: render_source(metadata, names),

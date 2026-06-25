@@ -2,8 +2,7 @@
 
 use std::path::Path;
 
-use cxx::Seed;
-use vvm::{ExactScoreboard, Testbench};
+use vvm::{ExactScoreboard, Seed, Testbench};
 
 use crate::counter::Counter;
 use crate::verification::{
@@ -69,9 +68,9 @@ mod tests {
         let result = run_simulation(None)?;
 
         assert!(result.passed());
-        assert_eq!(result.cycles(), 7);
-        assert_eq!(result.checks(), 7);
-        assert_eq!(result.final_time(), vvm::SimulationTime::from_ticks(14));
+        assert_eq!(result.cycles(), 10000);
+        assert_eq!(result.checks(), 10000);
+        assert_eq!(result.final_time(), vvm::SimulationTime::from_ticks(20000));
         assert_eq!(result.failure_count(), 0);
         assert!(result.simulation_error().is_none());
         assert!(result.finalization_error().is_none());
@@ -107,7 +106,7 @@ mod tests {
 
         assert_eq!(timestamps.first().copied(), Some(0));
 
-        assert_eq!(timestamps.last().copied(), Some(14));
+        assert_eq!(timestamps.last().copied(), Some(20000));
 
         assert!(timestamps
             .windows(2)

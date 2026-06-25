@@ -237,3 +237,35 @@ pub trait ReplayableSequence: IntoIterator {
     /// Returns the replay token for this sequence.
     fn replay_token(&self) -> ReplayToken;
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{RandomContext, ReplayToken, Seed};
+
+    #[test]
+    fn chacha8_v1_stream_is_stable() {
+        let mut random = RandomContext::new(Seed::new(0x0123_4567_89ab_cdef));
+
+        assert_eq!(
+            [
+                random.next_u64(),
+                random.next_u64(),
+                random.next_u64(),
+                random.next_u64(),
+            ],
+            [
+                16_439_174_753_831_872_311,
+                8_357_938_314_514_734_176,
+                16_425_382_708_020_085_233,
+                5_893_040_097_532_677_258,
+            ],
+        );
+    }
+
+    #[test]
+    fn replay_token_display_and_parse() {
+        let token = ReplayToken::new(Seed::new(0x0123_4567_89ab_cdef));
+
+        assert_eq!(token.to_string().parse::<ReplayToken>(), Ok(token));
+    }
+}

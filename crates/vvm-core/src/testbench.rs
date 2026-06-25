@@ -1,6 +1,7 @@
 use crate::{
-    CheckFailure, Clock, CycleTiming, Drive, Dut, FailurePolicy, ReferenceModel, Sample,
-    Scoreboard, SimulationError, SimulationStage, SimulationTime, TestResult, TimeStep,
+    CheckFailure, Clock, CycleTiming, Drive, Dut, FailurePolicy, ReferenceModel, ReplayToken,
+    ReplayableSequence, Sample, Scoreboard, SimulationError, SimulationStage, SimulationTime,
+    TestResult, TimeStep,
 };
 
 /// Result type produced by a synchronous testbench run.
@@ -46,6 +47,9 @@ pub struct Testbench<D, S = Unconfigured, R = Unconfigured, B = Unconfigured, C 
 
     /// Testbench clock cycle timing.
     cycle_timing: CycleTiming,
+
+    /// Replay metadata for the configured sequence.
+    replay_token: Option<ReplayToken>,
 }
 
 impl<D> Testbench<D> {
@@ -60,6 +64,7 @@ impl<D> Testbench<D> {
             clock: Unconfigured,
             failure_policy: FailurePolicy::STOP_ON_FIRST,
             cycle_timing: CycleTiming::default(),
+            replay_token: None,
         }
     }
 }
@@ -76,6 +81,27 @@ impl<D, S, R, B, C> Testbench<D, S, R, B, C> {
             clock: self.clock,
             failure_policy: self.failure_policy,
             cycle_timing: self.cycle_timing,
+            replay_token: None,
+        }
+    }
+
+    /// Configures a random or otherwise replayable sequence.
+    #[must_use]
+    pub fn with_replayable_sequence<NS>(self, sequence: NS) -> Testbench<D, NS, R, B, C>
+    where
+        NS: ReplayableSequence,
+    {
+        let replay_token = Some(sequence.replay_token());
+
+        Testbench {
+            dut: self.dut,
+            sequence,
+            reference_model: self.reference_model,
+            scoreboard: self.scoreboard,
+            clock: self.clock,
+            failure_policy: self.failure_policy,
+            cycle_timing: self.cycle_timing,
+            replay_token,
         }
     }
 
@@ -90,6 +116,7 @@ impl<D, S, R, B, C> Testbench<D, S, R, B, C> {
             clock: self.clock,
             failure_policy: self.failure_policy,
             cycle_timing: self.cycle_timing,
+            replay_token: self.replay_token,
         }
     }
 
@@ -104,6 +131,7 @@ impl<D, S, R, B, C> Testbench<D, S, R, B, C> {
             clock: self.clock,
             failure_policy: self.failure_policy,
             cycle_timing: self.cycle_timing,
+            replay_token: self.replay_token,
         }
     }
 
@@ -118,6 +146,7 @@ impl<D, S, R, B, C> Testbench<D, S, R, B, C> {
             clock,
             failure_policy: self.failure_policy,
             cycle_timing: self.cycle_timing,
+            replay_token: self.replay_token,
         }
     }
 
@@ -207,9 +236,10 @@ where
             mut clock,
             failure_policy,
             cycle_timing,
+            replay_token,
         } = self;
 
-        let mut result = TestResult::new(dut.simulation_time());
+        let mut result = TestResult::new(dut.simulation_time(), replay_token);
 
         for stimulus in sequence {
             let cycle = result.cycles();

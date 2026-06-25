@@ -49,6 +49,10 @@ impl<S, F, E> fmt::Display for TestSummary<'_, S, F, E> {
             formatter.write_str(", finalization error")?;
         }
 
+        if let Some(replay) = result.replay_token() {
+            write!(formatter, ", replay token {replay}")?;
+        }
+
         Ok(())
     }
 }

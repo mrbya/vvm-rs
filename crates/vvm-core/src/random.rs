@@ -1,6 +1,5 @@
-use std::str::FromStr;
-
 use core::fmt;
+use std::str::FromStr;
 
 use rand_chacha::ChaCha8Rng;
 use rand_core::{Rng, SeedableRng};
@@ -145,6 +144,13 @@ pub struct RandomContext {
 }
 
 impl RandomContext {
+    /// Creates a deterministic random source from a seed.
+    #[must_use]
+    pub fn new(seed: Seed) -> Self {
+        Self::from_replay(ReplayToken::new(seed))
+    }
+
+    /// Reconstructs a deterministic random source.
     #[must_use]
     pub fn from_replay(replay: ReplayToken) -> Self {
         let rng = match replay.algorithm() {
@@ -180,4 +186,54 @@ impl RandomContext {
     pub fn next_bool(&mut self) -> bool {
         self.next_u32() & 1 != 0
     }
+}
+
+impl fmt::Debug for RandomContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RandomContext")
+            .field("replay", &self.replay)
+            .finish_non_exhaustive()
+    }
+}
+
+/// Constructs a value from a deterministic VVM random source.
+pub trait Randomize: Sized {
+    /// Constructs one randomized value.
+    fn randomize(random: &mut RandomContext) -> Self;
+}
+
+impl Randomize for bool {
+    fn randomize(random: &mut RandomContext) -> Self {
+        random.next_bool()
+    }
+}
+
+impl Randomize for u32 {
+    fn randomize(random: &mut RandomContext) -> Self {
+        random.next_u32()
+    }
+}
+
+impl Randomize for u64 {
+    fn randomize(random: &mut RandomContext) -> Self {
+        random.next_u64()
+    }
+}
+
+impl Randomize for i32 {
+    fn randomize(random: &mut RandomContext) -> Self {
+        Self::from_le_bytes(random.next_u32().to_le_bytes())
+    }
+}
+
+impl Randomize for i64 {
+    fn randomize(random: &mut RandomContext) -> Self {
+        Self::from_le_bytes(random.next_u64().to_le_bytes())
+    }
+}
+
+/// Sequence that carries enough metadata to reconstruct its random stream.
+pub trait ReplayableSequence: IntoIterator {
+    /// Returns the replay token for this sequence.
+    fn replay_token(&self) -> ReplayToken;
 }

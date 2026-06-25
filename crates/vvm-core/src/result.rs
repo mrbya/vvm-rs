@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::{DetailedTestReport, SimulationTime, TestSummary};
+use crate::{DetailedTestReport, ReplayToken, SimulationTime, TestSummary};
 
 /// Simulation operation stages.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -230,11 +230,14 @@ pub struct TestResult<S, F, E> {
 
     /// Simulation time when execution stopped.
     final_time: SimulationTime,
+
+    /// Random-sequence replay metadata.
+    replay_token: Option<ReplayToken>,
 }
 
 impl<S, F, E> TestResult<S, F, E> {
     /// Creates an empty test result.
-    pub(crate) const fn new(start_time: SimulationTime) -> Self {
+    pub(crate) const fn new(start_time: SimulationTime, replay_token: Option<ReplayToken>) -> Self {
         Self {
             cycles: 0,
             checks: 0,
@@ -244,6 +247,7 @@ impl<S, F, E> TestResult<S, F, E> {
             stopped_by_failure_policy: false,
             start_time,
             final_time: start_time,
+            replay_token,
         }
     }
 
@@ -307,6 +311,12 @@ impl<S, F, E> TestResult<S, F, E> {
         self.failures.is_empty()
             && self.simulation_error.is_none()
             && self.finalization_error.is_none()
+    }
+
+    /// Returns the replay token for a randomized run.
+    #[must_use]
+    pub const fn replay_token(&self) -> Option<ReplayToken> {
+        self.replay_token
     }
 
     /// Consumes the result and returns retained check failures.

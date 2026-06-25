@@ -179,6 +179,21 @@ mod tests {
 
         assert_eq!(failure.map(CheckFailure::cycle), Some(0));
 
+        let report = result.detailed_report().to_string();
+
+        assert!(report.contains(
+            "FAIL: 1 cycle, 1 check, \
+     1 check failure",
+        ));
+
+        assert!(report.contains("Check failures (1):"));
+
+        assert!(report.contains("cycle 0 at 1 ticks"));
+
+        assert!(report.contains("CounterStimulus"));
+
+        assert!(report.contains("scoreboard mismatch"));
+
         Ok(())
     }
 }

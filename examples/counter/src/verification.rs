@@ -1,5 +1,8 @@
 use thiserror::Error;
-use vvm::{Clock, Drive, Mismatch, ReferenceModel, Sample, TestResult};
+use vvm::{
+    Clock, Drive, Mismatch, RandomContext, ReferenceModel, ReplayToken, ReplayableSequence, Sample,
+    Seed, TestResult,
+};
 
 use crate::counter::CounterError;
 
@@ -94,6 +97,7 @@ impl ReferenceModel<CounterStimulus> for CounterReferenceModel {
 ///
 /// The sequence covers reset assertion, reset release, enabled counting,
 /// disabled hold behavior, and reset reassertion.
+#[allow(dead_code)]
 pub fn counter_sequence() -> impl ExactSizeIterator<Item = CounterStimulus> {
     [
         CounterStimulus::new(false, false),
@@ -107,11 +111,78 @@ pub fn counter_sequence() -> impl ExactSizeIterator<Item = CounterStimulus> {
     .into_iter()
 }
 
+/// Replayable randomized counter sequence.
+///
+/// The first cycle always asserts reset. Remaining cycles use one random
+/// 32-bit word each.
+pub struct RandomCounterSequence {
+    /// Deterministic random source.
+    random: RandomContext,
+
+    /// Number of stimuli not yet emitted.
+    remaining: u64,
+
+    /// Whether the mandatory reset preamble is pending.
+    initial_reset: bool,
+}
+
+impl RandomCounterSequence {
+    /// Creates a randomized sequence from a seed.
+    #[must_use]
+    pub fn new(seed: Seed, cycles: u64) -> Self {
+        Self::from_replay(ReplayToken::new(seed), cycles)
+    }
+
+    /// Reconstructs a randomized sequence.
+    #[must_use]
+    pub fn from_replay(replay: ReplayToken, cycles: u64) -> Self {
+        Self {
+            random: RandomContext::from_replay(replay),
+            remaining: cycles,
+            initial_reset: cycles != 0,
+        }
+    }
+}
+
+impl ReplayableSequence for RandomCounterSequence {
+    fn replay_token(&self) -> ReplayToken {
+        self.random.replay_token()
+    }
+}
+
+impl Iterator for RandomCounterSequence {
+    type Item = CounterStimulus;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let remaining = self.remaining.checked_sub(1)?;
+
+        self.remaining = remaining;
+
+        if self.initial_reset {
+            self.initial_reset = false;
+
+            return Some(CounterStimulus::new(false, false));
+        }
+
+        let bits = self.random.next_u32();
+
+        // Assert reset approximately one cycle in
+        // sixteen. No range distribution is involved:
+        // this mapping is part of the sequence contract.
+        let reset_n = bits & 0x0f != 0;
+
+        // Use a separate bit from the same random word.
+        let enable = bits & 0x10 != 0;
+
+        Some(CounterStimulus::new(reset_n, enable))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use vvm::{CheckFailure, ExactScoreboard, ReferenceModel, Scoreboard, Testbench};
 
-    use super::{CounterClock, CounterObservation, CounterReferenceModel, counter_sequence};
+    use super::{counter_sequence, CounterClock, CounterObservation, CounterReferenceModel};
     use crate::counter::{Counter, Result};
 
     impl CounterObservation {

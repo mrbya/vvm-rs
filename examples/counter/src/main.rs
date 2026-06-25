@@ -2,12 +2,13 @@
 
 use std::path::Path;
 
+use cxx::Seed;
 use vvm::{ExactScoreboard, Testbench};
 
 use crate::counter::Counter;
 use crate::verification::{
-    CounterClock, CounterObservation, CounterReferenceModel, CounterTestResult, Error, Result,
-    counter_sequence,
+    CounterClock, CounterObservation, CounterReferenceModel, CounterTestResult, Error,
+    RandomCounterSequence, Result,
 };
 
 vvm::include_dut!(counter);
@@ -32,8 +33,11 @@ fn run_simulation(trace_path: Option<&Path>) -> Result<CounterTestResult> {
         dut.open_trace(path)?;
     }
 
+    let seed = Seed::new(0x72d7_5a12_993e_8411);
+    let sequence = RandomCounterSequence::new(seed, 10_000);
+
     let result = Testbench::new(dut)
-        .with_sequence(counter_sequence())
+        .with_replayable_sequence(sequence)
         .with_reference_model(CounterReferenceModel::default())
         .with_scoreboard(ExactScoreboard)
         .with_clock(CounterClock)
@@ -58,7 +62,7 @@ fn print_result(result: &CounterTestResult) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Result, run_simulation};
+    use super::{run_simulation, Result};
 
     #[test]
     fn runner_verifies_counter() -> Result<()> {
@@ -105,11 +109,9 @@ mod tests {
 
         assert_eq!(timestamps.last().copied(), Some(14));
 
-        assert!(
-            timestamps
-                .windows(2)
-                .all(|pair| { pair.first() < pair.get(1) })
-        );
+        assert!(timestamps
+            .windows(2)
+            .all(|pair| { pair.first() < pair.get(1) }));
 
         Ok(())
     }

@@ -181,10 +181,7 @@ mod tests {
 
         let report = result.detailed_report().to_string();
 
-        assert!(report.contains(
-            "FAIL: 1 cycle, 1 check, \
-     1 check failure",
-        ));
+        assert!(report.contains("FAIL: 1 cycle, 1 check, 1 check failure",));
 
         assert!(report.contains("Check failures (1):"));
 

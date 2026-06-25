@@ -13,6 +13,10 @@ pub enum Error {
     /// Expected and observed counter value differed.
     #[error("counter verification failed")]
     TestFailed,
+
+    /// IO error.
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }
 
 /// Counter simulation result.

@@ -16,7 +16,10 @@ vvm::include_dut!(counter);
 mod verification;
 
 fn main() -> Result<()> {
-    let result = run_simulation()?;
+    let trace_dir = tempfile::tempdir()?;
+    let trace_path = trace_dir.path().join("counter.vcd");
+
+    let result = run_simulation(Some(&trace_path))?;
 
     print_result(&result);
 
@@ -30,10 +33,12 @@ fn main() -> Result<()> {
 }
 
 /// Runs the counter testbench.
-fn run_simulation() -> Result<CounterTestResult> {
+fn run_simulation(trace_path: Option<&Path>) -> Result<CounterTestResult> {
     let mut dut = Counter::new()?;
 
-    dut.open_trace(Path::new("akafuka.vcd"))?;
+    if let Some(path) = trace_path {
+        dut.open_trace(path)?;
+    }
 
     let result = Testbench::new(dut)
         .with_sequence(counter_sequence())
@@ -68,7 +73,7 @@ mod tests {
 
     #[test]
     fn runner_verifies_counter() -> Result<()> {
-        let result = run_simulation()?;
+        let result = run_simulation(None)?;
 
         assert!(result.passed());
         assert_eq!(result.cycles(), 7);
@@ -77,6 +82,45 @@ mod tests {
         assert_eq!(result.failure_count(), 0);
         assert!(result.simulation_error().is_none());
         assert!(result.finalization_error().is_none());
+
+        Ok(())
+    }
+
+    #[test]
+    fn generates_complete_counter_vcd() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let directory = tempfile::tempdir()?;
+        let trace_path = directory.path().join("counter.vcd");
+
+        let result = run_simulation(Some(&trace_path))?;
+
+        assert!(result.passed());
+
+        let metadata = std::fs::metadata(&trace_path)?;
+
+        assert!(metadata.is_file());
+        assert!(metadata.len() > 0);
+
+        let contents = std::fs::read_to_string(&trace_path)?;
+
+        assert!(contents.contains("$enddefinitions"));
+        assert!(contents.contains("$var"));
+        assert!(contents.contains("#0"));
+
+        let timestamps = contents
+            .lines()
+            .filter_map(|line| line.strip_prefix('#'))
+            .map(str::parse::<u64>)
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
+        assert_eq!(timestamps.first().copied(), Some(0));
+
+        assert_eq!(timestamps.last().copied(), Some(14));
+
+        assert!(
+            timestamps
+                .windows(2)
+                .all(|pair| { pair.first() < pair.get(1) })
+        );
 
         Ok(())
     }

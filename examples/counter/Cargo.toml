@@ -17,8 +17,9 @@ description = "Minimal VVM generated DUT integration example"
 workspace = true
 
 [dependencies]
-thiserror.workspace = true
 vvm.workspace = true
+thiserror.workspace = true
+tempfile.workspace = true
 
 [build-dependencies]
 vvm-build.workspace = true

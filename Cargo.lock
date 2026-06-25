@@ -485,6 +485,7 @@ version = "0.0.1"
 name = "vvm-example-counter"
 version = "0.0.1"
 dependencies = [
+ "tempfile",
  "thiserror",
  "vvm-build",
  "vvm-rs",

@@ -21,15 +21,7 @@ fn main() -> Result<()> {
 
     let result = run_simulation(Some(&trace_path))?;
 
-    print_result(&result);
-
-    if result.passed() {
-        println!("counter verification completed successfully");
-
-        return Ok(());
-    }
-
-    Err(Error::TestFailed)
+    print_result(&result)
 }
 
 /// Runs the counter testbench.
@@ -51,20 +43,17 @@ fn run_simulation(trace_path: Option<&Path>) -> Result<CounterTestResult> {
 }
 
 /// Prints compact and detailed verification results.
-fn print_result(result: &CounterTestResult) {
-    println!("{result}");
+fn print_result(result: &CounterTestResult) -> Result<()> {
+    if result.passed() {
+        println!("{}", result.summary());
+        println!("counter verification completed successfully");
 
-    for failure in result.failures() {
-        eprintln!("check failure: {failure}");
+        return Ok(());
     }
 
-    if let Some(error) = result.simulation_error() {
-        eprintln!("simulation error: {error}");
-    }
+    eprintln!("{}", result.detailed_report());
 
-    if let Some(error) = result.finalization_error() {
-        eprintln!("finalization error: {error}");
-    }
+    Err(Error::TestFailed)
 }
 
 #[cfg(test)]

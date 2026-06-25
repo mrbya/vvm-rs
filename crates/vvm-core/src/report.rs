@@ -28,10 +28,8 @@ impl<S, F, E> fmt::Display for TestSummary<'_, S, F, E> {
 
         write!(
             formatter,
-            "{status}: {cycles} cycle{}, \
-             {checks} check{}, \
-             {failures} check failure{}, \
-             time {}..{} ticks",
+            "{status}: {cycles} cycle{}, {checks} check{}, {failures} check failure{}, time \
+             {}..{} ticks",
             plural_suffix(cycles == 1),
             plural_suffix(checks == 1),
             plural_suffix(failures == 1),
@@ -104,12 +102,7 @@ where
         if let Some(error) = result.simulation_error() {
             write!(
                 formatter,
-                "\n\nSimulation error:\
-                 \n\
-                 \n  cycle: {}\
-                 \n  time: {}\
-                 \n  stage: {}\
-                 \n  error: {}",
+                "\n\nSimulation error:\n\n  cycle: {}\n  time: {}\n  stage: {}\n  error: {}",
                 error.cycle(),
                 error.time(),
                 error.stage(),
@@ -120,10 +113,7 @@ where
         if let Some(error) = result.finalization_error() {
             write!(
                 formatter,
-                "\n\nFinalization error:\
-                 \n\
-                 \n  time: {}\
-                 \n  error: {}",
+                "\n\nFinalization error:\n\n  time: {}\n  error: {}",
                 result.final_time(),
                 error,
             )?;
@@ -135,9 +125,5 @@ where
 
 /// Returns an empty suffix for one item and `"s"` otherwise.
 const fn plural_suffix(is_one: bool) -> &'static str {
-    if is_one {
-        ""
-    } else {
-        "s"
-    }
+    if is_one { "" } else { "s" }
 }

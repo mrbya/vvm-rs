@@ -72,6 +72,8 @@ pub(crate) mod dut;
 pub(crate) mod failure_policy;
 /// Reference model abstraction.
 pub(crate) mod reference_model;
+/// Structured reporting.
+pub(crate) mod report;
 /// Testbench outcome and diagnostic types.
 pub(crate) mod result;
 /// DUT observation abstraction.
@@ -89,6 +91,7 @@ pub use drive::Drive;
 pub use dut::{Dut, TraceableDut};
 pub use failure_policy::{FailurePolicy, InvalidFailureLimit};
 pub use reference_model::ReferenceModel;
+pub use report::{DetailedTestReport, TestSummary};
 pub use result::{CheckFailure, SimulationError, SimulationStage, TestResult};
 pub use sample::Sample;
 pub use scoreboard::{ExactScoreboard, Mismatch, Scoreboard};

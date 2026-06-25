@@ -66,10 +66,10 @@
 
 #[doc(inline)]
 pub use vvm_core::{
-    CheckFailure, Clock, CycleTiming, Drive, Dut, ExactScoreboard, FailurePolicy,
-    InvalidFailureLimit, InvalidTimeStep, Mismatch, ReferenceModel, Sample, Scoreboard,
-    SimulationError, SimulationStage, SimulationTime, TestResult, Testbench, TimeStep,
-    TraceableDut,
+    CheckFailure, Clock, CycleTiming, DetailedTestReport, Drive, Dut, ExactScoreboard,
+    FailurePolicy, InvalidFailureLimit, InvalidTimeStep, Mismatch, ReferenceModel, Sample,
+    Scoreboard, SimulationError, SimulationStage, SimulationTime, TestResult, TestSummary,
+    Testbench, TimeStep, TraceableDut,
 };
 #[doc(inline)]
 pub use vvm_macros::{Clock, Drive, Sample};

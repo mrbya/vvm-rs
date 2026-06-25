@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::SimulationTime;
+use crate::{DetailedTestReport, SimulationTime, TestSummary};
 
 /// Simulation operation stages.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -177,8 +177,8 @@ impl<E> SimulationError<E> {
 
     /// Consumes the failure.
     #[must_use]
-    pub fn into_parts(self) -> (u64, SimulationStage, E) {
-        (self.cycle, self.stage, self.source)
+    pub fn into_parts(self) -> (u64, SimulationTime, SimulationStage, E) {
+        (self.cycle, self.time, self.stage, self.source)
     }
 }
 
@@ -186,9 +186,9 @@ impl<E> fmt::Display for SimulationError<E>
 where
     E: fmt::Display,
 {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
-            formatter,
+            f,
             "simulation failed during cycle {} at {} while {}: {}",
             self.cycle, self.time, self.stage, self.source
         )
@@ -345,29 +345,22 @@ impl<S, F, E> TestResult<S, F, E> {
     pub(crate) const fn record_final_time(&mut self, final_time: SimulationTime) {
         self.final_time = final_time;
     }
+
+    /// Returns a compact, one-line result view.
+    #[must_use]
+    pub const fn summary(&self) -> TestSummary<'_, S, F, E> {
+        TestSummary::new(self)
+    }
+
+    /// Returns a detailed multiline result view.
+    #[must_use]
+    pub const fn detailed_report(&self) -> DetailedTestReport<'_, S, F, E> {
+        DetailedTestReport::new(self)
+    }
 }
 
 impl<S, F, E> fmt::Display for TestResult<S, F, E> {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let status = if self.passed() { "passed" } else { "failed" };
-
-        write!(
-            formatter,
-            "test {status}: {} cycles, {} checks, {} check failures, ended @ {}",
-            self.cycles,
-            self.checks,
-            self.failures.len(),
-            self.final_time
-        )?;
-
-        if self.simulation_error.is_some() {
-            formatter.write_str(", simulation error")?;
-        }
-
-        if self.finalization_error.is_some() {
-            formatter.write_str(", finalization error")?;
-        }
-
-        Ok(())
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.summary().fmt(f)
     }
 }

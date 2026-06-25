@@ -182,7 +182,7 @@ impl Iterator for RandomCounterSequence {
 mod tests {
     use vvm::{CheckFailure, ExactScoreboard, ReferenceModel, Scoreboard, Testbench};
 
-    use super::{counter_sequence, CounterClock, CounterObservation, CounterReferenceModel};
+    use super::{CounterClock, CounterObservation, CounterReferenceModel, counter_sequence};
     use crate::counter::{Counter, Result};
 
     impl CounterObservation {

@@ -61,7 +61,7 @@ fn print_result(result: &CounterTestResult) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{run_simulation, Result};
+    use super::{Result, run_simulation};
 
     #[test]
     fn runner_verifies_counter() -> Result<()> {
@@ -108,9 +108,11 @@ mod tests {
 
         assert_eq!(timestamps.last().copied(), Some(20000));
 
-        assert!(timestamps
-            .windows(2)
-            .all(|pair| { pair.first() < pair.get(1) }));
+        assert!(
+            timestamps
+                .windows(2)
+                .all(|pair| { pair.first() < pair.get(1) })
+        );
 
         Ok(())
     }

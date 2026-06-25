@@ -70,6 +70,8 @@ pub(crate) mod drive;
 pub(crate) mod dut;
 /// Bounded check-failure policy.
 pub(crate) mod failure_policy;
+/// Randomization support.
+pub(crate) mod random;
 /// Reference model abstraction.
 pub(crate) mod reference_model;
 /// Structured reporting.
@@ -90,6 +92,7 @@ pub use clock::Clock;
 pub use drive::Drive;
 pub use dut::{Dut, TraceableDut};
 pub use failure_policy::{FailurePolicy, InvalidFailureLimit};
+pub use random::{ParseReplayTokenError, RandomAlgorithm, ReplayToken, Seed};
 pub use reference_model::ReferenceModel;
 pub use report::{DetailedTestReport, TestSummary};
 pub use result::{CheckFailure, SimulationError, SimulationStage, TestResult};

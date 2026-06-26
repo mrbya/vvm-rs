@@ -1,67 +1,70 @@
 //! Counter verification using the synchronous VVM runner.
 
-use std::path::Path;
+use cxx::{TestRegistry, TestRunConfig};
 
-use vvm::{ExactScoreboard, Seed, Testbench};
-
-use crate::counter::Counter;
-use crate::verification::{
-    CounterClock, CounterObservation, CounterReferenceModel, CounterTestResult, Error,
-    RandomCounterSequence, Result,
-};
+use crate::test_cases::{DEFAULT_TEST, TESTS};
+use crate::verification::{Error, Result};
 
 vvm::include_dut!(counter);
 
+/// Simulation test cases.
+mod test_cases;
 /// Counter-specific verification setup.
 mod verification;
 
 fn main() -> Result<()> {
-    let trace_dir = tempfile::tempdir()?;
-    let trace_path = trace_dir.path().join("counter.vcd");
+    let registry = TestRegistry::new(TESTS)?;
 
-    let result = run_simulation(Some(&trace_path))?;
+    let run = registry.run(DEFAULT_TEST, &TestRunConfig::new())?;
 
-    print_result(&result)
-}
-
-/// Runs the counter testbench.
-fn run_simulation(trace_path: Option<&Path>) -> Result<CounterTestResult> {
-    let mut dut = Counter::new()?;
-
-    if let Some(path) = trace_path {
-        dut.open_trace(path)?;
-    }
-
-    let seed = Seed::new(0x72d7_5a12_993e_8411);
-    let sequence = RandomCounterSequence::new(seed, 10_000);
-
-    let result = Testbench::new(dut)
-        .with_replayable_sequence(sequence)
-        .with_reference_model(CounterReferenceModel::default())
-        .with_scoreboard(ExactScoreboard)
-        .with_clock(CounterClock)
-        .run::<CounterObservation>();
-
-    Ok(result)
-}
-
-/// Prints compact and detailed verification results.
-fn print_result(result: &CounterTestResult) -> Result<()> {
-    if result.passed() {
-        println!("{}", result.summary());
+    if run.passed() {
+        println!("{run}");
         println!("counter verification completed successfully");
 
         return Ok(());
     }
 
-    eprintln!("{}", result.detailed_report());
-
+    eprintln!(
+        "test {} failed\n\n{}",
+        run.test().name(),
+        run.outcome().report()
+    );
     Err(Error::TestFailed)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Result, run_simulation};
+    use std::path::Path;
+
+    use vvm::{ExactScoreboard, Seed, Testbench};
+
+    use super::Result;
+    use crate::counter::Counter;
+    use crate::verification::{
+        CounterClock, CounterObservation, CounterReferenceModel, CounterTestResult,
+        RandomCounterSequence,
+    };
+
+    /// Runs the counter testbench.
+    fn run_simulation(trace_path: Option<&Path>) -> Result<CounterTestResult> {
+        let mut dut = Counter::new()?;
+
+        if let Some(path) = trace_path {
+            dut.open_trace(path)?;
+        }
+
+        let seed = Seed::new(0x72d7_5a12_993e_8411);
+        let sequence = RandomCounterSequence::new(seed, 10_000);
+
+        let result = Testbench::new(dut)
+            .with_replayable_sequence(sequence)
+            .with_reference_model(CounterReferenceModel::default())
+            .with_scoreboard(ExactScoreboard)
+            .with_clock(CounterClock)
+            .run::<CounterObservation>();
+
+        Ok(result)
+    }
 
     #[test]
     fn runner_verifies_counter() -> Result<()> {

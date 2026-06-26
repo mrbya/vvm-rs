@@ -385,6 +385,8 @@ impl fmt::Display for TestRegistryError {
     }
 }
 
+impl std::error::Error for TestRegistryError {}
+
 /// Validated, ordered collection of registered tests.
 #[derive(Debug, Clone, Copy)]
 pub struct TestRegistry<'a> {

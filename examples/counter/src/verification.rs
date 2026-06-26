@@ -1,7 +1,7 @@
 use thiserror::Error;
 use vvm::{
     Clock, Drive, Mismatch, RandomContext, ReferenceModel, ReplayToken, ReplayableSequence, Sample,
-    Seed, TestResult,
+    Seed, TestRegistryError, TestResult,
 };
 
 use crate::counter::CounterError;
@@ -20,6 +20,10 @@ pub enum Error {
     /// IO error.
     #[error(transparent)]
     Io(#[from] std::io::Error),
+
+    /// Registered test failed.
+    #[error(transparent)]
+    Registry(#[from] TestRegistryError),
 }
 
 /// Counter simulation result.

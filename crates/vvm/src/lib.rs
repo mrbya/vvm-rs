@@ -70,8 +70,8 @@ pub use vvm_core::{
     FailurePolicy, InvalidFailureLimit, InvalidTimeStep, Mismatch, ParseReplayTokenError,
     RandomAlgorithm, RandomContext, Randomize, ReferenceModel, ReplayToken, ReplayableSequence,
     Sample, Scoreboard, Seed, SimulationError, SimulationStage, SimulationTime, TestDescriptor,
-    TestFunction, TestKind, TestOutcome, TestRegistry, TestResult, TestRun, TestRunConfig,
-    TestStatistics, TestStatus, TestSummary, Testbench, TimeStep, TraceableDut,
+    TestFunction, TestKind, TestOutcome, TestRegistry, TestRegistryError, TestResult, TestRun,
+    TestRunConfig, TestStatistics, TestStatus, TestSummary, Testbench, TimeStep, TraceableDut,
 };
 #[doc(inline)]
 pub use vvm_macros::{Clock, Drive, Sample};
@@ -88,7 +88,7 @@ pub mod prelude {
     pub use crate::{
         Clock, CycleTiming, Drive, Dut, ExactScoreboard, FailurePolicy, RandomContext, Randomize,
         ReferenceModel, ReplayableSequence, Sample, Scoreboard, Seed, SimulationTime,
-        TestDescriptor, Testbench, TimeStep,
+        TestDescriptor, TestRegistryError, TestRunConfig, Testbench, TimeStep,
     };
 }
 

@@ -2,6 +2,9 @@ use std::fmt;
 
 use crate::{ReplayToken, SimulationTime, TestResult};
 
+/// Function implementing one registered test.
+pub type TestFunction = fn(&TestRunConfig) -> TestOutcome;
+
 /// Classification of a registered test.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TestKind {
@@ -273,4 +276,126 @@ impl fmt::Display for TestOutcome {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(&self.summary)
     }
+}
+
+/// Metadata and entry point for one registered test.
+#[derive(Debug, Clone, Copy)]
+pub struct TestDescriptor {
+    /// Stable registry name.
+    name: &'static str,
+
+    /// Human-readable description.
+    description: &'static str,
+
+    /// Test classification.
+    kind: TestKind,
+
+    /// Execution entry point.
+    function: TestFunction,
+}
+
+impl TestDescriptor {
+    /// Creates a deterministic test descriptor.
+    #[must_use]
+    pub const fn deterministic(
+        name: &'static str,
+        description: &'static str,
+        function: TestFunction,
+    ) -> Self {
+        Self {
+            name,
+            description,
+            kind: TestKind::Deterministic,
+            function,
+        }
+    }
+
+    /// Creates a replayable test descriptor.
+    #[must_use]
+    pub const fn replayable(
+        name: &'static str,
+        description: &'static str,
+        function: TestFunction,
+    ) -> Self {
+        Self {
+            name,
+            description,
+            kind: TestKind::Replayable,
+            function,
+        }
+    }
+
+    /// Returns test name.
+    #[must_use]
+    pub const fn name(&self) -> &'static str {
+        self.name
+    }
+
+    /// Returns test description.
+    #[must_use]
+    pub const fn description(&self) -> &'static str {
+        self.description
+    }
+
+    /// Returns test kind.
+    #[must_use]
+    pub const fn kind(&self) -> TestKind {
+        self.kind
+    }
+}
+
+/// Error returned when constructing or querying a test registry.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TestRegistryError {
+    /// A descriptor has an invalid test name.
+    InvalidName {
+        /// Invalid name.
+        name: &'static str,
+    },
+
+    /// Two descriptors have the same name.
+    DuplicateName {
+        /// Duplicated name.
+        name: &'static str,
+    },
+
+    /// The requested test does not exist.
+    UnknownTest {
+        /// Requested test name.
+        name: String,
+    },
+
+    /// Replay configuration was supplied to a deterministic test.
+    ReplayNotSupported {
+        /// Deterministic test name.
+        name: &'static str,
+    },
+}
+
+impl fmt::Display for TestRegistryError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidName { name } => write!(f, "invalid registered test name `{name}`"),
+            Self::DuplicateName { name } => write!(f, "duplicate registered test name `{name}`"),
+            Self::UnknownTest { name } => write!(f, "unknown registered test {name}"),
+            Self::ReplayNotSupported { name } => {
+                write!(f, "test `{name}` does not accept replay configuration")
+            }
+        }
+    }
+}
+
+fn is_valid_test_name(name: &str) -> bool {
+    let mut characters = name.chars();
+
+    let Some(first) = characters.next() else {
+        return false;
+    };
+
+    first.is_ascii_lowercase()
+        && characters.all(|character| {
+            character.is_ascii_lowercase()
+                || character.is_ascii_digit()
+                || matches!(character, '-' | '_' | '.')
+        })
 }

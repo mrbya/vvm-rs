@@ -99,7 +99,9 @@ pub use random::{
     ReplayableSequence, Seed,
 };
 pub use reference_model::ReferenceModel;
-pub use registry::{TestKind, TestOutcome, TestRunConfig, TestStatistics, TestStatus};
+pub use registry::{
+    TestDescriptor, TestFunction, TestKind, TestOutcome, TestRunConfig, TestStatistics, TestStatus,
+};
 pub use report::{DetailedTestReport, TestSummary};
 pub use result::{CheckFailure, SimulationError, SimulationStage, TestResult};
 pub use sample::Sample;

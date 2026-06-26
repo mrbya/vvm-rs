@@ -100,7 +100,8 @@ pub use random::{
 };
 pub use reference_model::ReferenceModel;
 pub use registry::{
-    TestDescriptor, TestFunction, TestKind, TestOutcome, TestRunConfig, TestStatistics, TestStatus,
+    TestDescriptor, TestFunction, TestKind, TestOutcome, TestRegistry, TestRun, TestRunConfig,
+    TestStatistics, TestStatus,
 };
 pub use report::{DetailedTestReport, TestSummary};
 pub use result::{CheckFailure, SimulationError, SimulationStage, TestResult};

@@ -374,10 +374,10 @@ pub enum TestRegistryError {
 
 impl fmt::Display for TestRegistryError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
+        match *self {
             Self::InvalidName { name } => write!(f, "invalid registered test name `{name}`"),
             Self::DuplicateName { name } => write!(f, "duplicate registered test name `{name}`"),
-            Self::UnknownTest { name } => write!(f, "unknown registered test {name}"),
+            Self::UnknownTest { ref name } => write!(f, "unknown registered test {name}"),
             Self::ReplayNotSupported { name } => {
                 write!(f, "test `{name}` does not accept replay configuration")
             }
@@ -385,17 +385,157 @@ impl fmt::Display for TestRegistryError {
     }
 }
 
-fn is_valid_test_name(name: &str) -> bool {
+/// Validated, ordered collection of registered tests.
+#[derive(Debug, Clone, Copy)]
+pub struct TestRegistry<'a> {
+    /// Tests in declaration order.
+    tests: &'a [TestDescriptor],
+}
+
+impl<'a> TestRegistry<'a> {
+    /// Creates and validates a test registry.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for invalid or duplicate names.
+    pub fn new(tests: &'a [TestDescriptor]) -> Result<Self, TestRegistryError> {
+        for (index, test) in tests.iter().enumerate() {
+            validate_test_name(test.name())?;
+
+            let duplicate = tests
+                .iter()
+                .take(index)
+                .any(|candidate| candidate.name() == test.name());
+
+            if duplicate {
+                return Err(TestRegistryError::DuplicateName { name: test.name() });
+            }
+        }
+
+        Ok(Self { tests })
+    }
+
+    /// Returns registered tests.
+    #[must_use]
+    pub const fn tests(&self) -> &'a [TestDescriptor] {
+        self.tests
+    }
+
+    /// Returns number of registered tests.
+    #[must_use]
+    pub const fn len(&self) -> usize {
+        self.tests.len()
+    }
+
+    /// Returns whether the registry is empty.
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.tests.is_empty()
+    }
+
+    /// Finds test in registry.
+    #[must_use]
+    pub fn find(&self, name: &str) -> Option<&'a TestDescriptor> {
+        self.tests.iter().find(|test| test.name() == name)
+    }
+
+    /// Executes a registered test by exact name.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the test is unknown or the supplied configuration
+    /// is incompatible with the descriptor.
+    pub fn run(
+        &self,
+        name: &str,
+        config: &TestRunConfig,
+    ) -> Result<TestRun<'a>, TestRegistryError> {
+        let test = self
+            .find(name)
+            .ok_or_else(|| TestRegistryError::UnknownTest {
+                name: name.to_owned(),
+            })?;
+
+        if config.replay_token().is_some() && test.kind() == TestKind::Deterministic {
+            return Err(TestRegistryError::ReplayNotSupported { name: test.name() });
+        }
+
+        let outcome = (test.function)(config);
+
+        Ok(TestRun { test, outcome })
+    }
+}
+
+/// Validates test name.
+fn validate_test_name(name: &'static str) -> Result<(), TestRegistryError> {
     let mut characters = name.chars();
 
     let Some(first) = characters.next() else {
-        return false;
+        return Err(TestRegistryError::InvalidName { name });
     };
 
-    first.is_ascii_lowercase()
+    if first.is_ascii_lowercase()
         && characters.all(|character| {
             character.is_ascii_lowercase()
                 || character.is_ascii_digit()
                 || matches!(character, '-' | '_' | '.')
         })
+    {
+        return Ok(());
+    }
+
+    Err(TestRegistryError::InvalidName { name })
+}
+
+/// Completed execution of one registered test.
+#[derive(Debug)]
+pub struct TestRun<'a> {
+    /// Executed descriptor.
+    test: &'a TestDescriptor,
+
+    /// Type-erased execution outcome.
+    outcome: TestOutcome,
+}
+
+impl<'a> TestRun<'a> {
+    /// Returns test descriptor.
+    #[must_use]
+    pub const fn test(&self) -> &'a TestDescriptor {
+        self.test
+    }
+
+    /// Returns test status.
+    #[must_use]
+    pub const fn status(&self) -> TestStatus {
+        self.outcome.status()
+    }
+
+    /// Returns whether the test passed.
+    #[must_use]
+    pub const fn passed(&self) -> bool {
+        self.outcome.passed()
+    }
+
+    /// Returns test outcome.
+    #[must_use]
+    pub const fn outcome(&self) -> &TestOutcome {
+        &self.outcome
+    }
+
+    /// Consumes test run.
+    #[must_use]
+    pub fn into_outcome(self) -> TestOutcome {
+        self.outcome
+    }
+}
+
+impl fmt::Display for TestRun<'_> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            formatter,
+            "{}: {}",
+            self.test.name(),
+            self.outcome.summary(),
+        )
+    }
 }

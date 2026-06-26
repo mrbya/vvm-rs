@@ -74,6 +74,8 @@ pub(crate) mod failure_policy;
 pub(crate) mod random;
 /// Reference model abstraction.
 pub(crate) mod reference_model;
+/// Simulation test registry.
+pub(crate) mod registry;
 /// Structured reporting.
 pub(crate) mod report;
 /// Testbench outcome and diagnostic types.
@@ -97,6 +99,7 @@ pub use random::{
     ReplayableSequence, Seed,
 };
 pub use reference_model::ReferenceModel;
+pub use registry::{TestKind, TestOutcome, TestRunConfig, TestStatistics, TestStatus};
 pub use report::{DetailedTestReport, TestSummary};
 pub use result::{CheckFailure, SimulationError, SimulationStage, TestResult};
 pub use sample::Sample;

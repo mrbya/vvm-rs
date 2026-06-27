@@ -79,6 +79,15 @@ impl TestRunConfig {
         self
     }
 
+    /// Defaults to a provided replay token if configured without replay.
+    #[must_use]
+    pub const fn replay_token_or(&self, default: ReplayToken) -> ReplayToken {
+        match self.replay_token {
+            Some(replay) => replay,
+            None => default,
+        }
+    }
+
     /// Returns configured replay token.
     #[must_use]
     pub const fn replay_token(&self) -> Option<ReplayToken> {
@@ -276,6 +285,15 @@ impl fmt::Display for TestOutcome {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(&self.summary)
     }
+}
+
+/// Translates provided error/return type to a test outcome.
+pub trait IntoTestOutcome {
+    /// Converts provided type into test outcome..
+    fn into_test_outcome(self) -> TestOutcome;
+
+    /// Coverts provided type into test outcome with test replay context.
+    fn into_test_outcome_with_replay(self, replay: ReplayToken) -> TestOutcome;
 }
 
 /// Metadata and entry point for one registered test.

@@ -1,5 +1,6 @@
-use cxx::{TestDescriptor, TestOutcome, TestRunConfig};
-use vvm::{ExactScoreboard, ReplayToken, Seed, Testbench};
+use vvm::{
+    ExactScoreboard, ReplayToken, Seed, TestDescriptor, TestOutcome, TestRunConfig, Testbench,
+};
 
 use crate::counter::Counter;
 use crate::verification::{

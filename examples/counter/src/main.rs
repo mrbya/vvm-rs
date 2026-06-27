@@ -1,6 +1,6 @@
 //! Counter verification using the synchronous VVM runner.
 
-use cxx::{TestRegistry, TestRunConfig};
+use vvm::{TestRegistry, TestRunConfig};
 
 use crate::test_cases::{DEFAULT_TEST, TESTS};
 use crate::verification::{Error, Result};

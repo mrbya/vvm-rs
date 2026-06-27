@@ -67,11 +67,12 @@
 #[doc(inline)]
 pub use vvm_core::{
     CheckFailure, Clock, CycleTiming, DetailedTestReport, Drive, Dut, ExactScoreboard,
-    FailurePolicy, InvalidFailureLimit, InvalidTimeStep, Mismatch, ParseReplayTokenError,
-    RandomAlgorithm, RandomContext, Randomize, ReferenceModel, ReplayToken, ReplayableSequence,
-    Sample, Scoreboard, Seed, SimulationError, SimulationStage, SimulationTime, TestDescriptor,
-    TestFunction, TestKind, TestOutcome, TestRegistry, TestRegistryError, TestResult, TestRun,
-    TestRunConfig, TestStatistics, TestStatus, TestSummary, Testbench, TimeStep, TraceableDut,
+    FailurePolicy, IntoTestOutcome, InvalidFailureLimit, InvalidTimeStep, Mismatch,
+    ParseReplayTokenError, RandomAlgorithm, RandomContext, Randomize, ReferenceModel, ReplayToken,
+    ReplayableSequence, Sample, Scoreboard, Seed, SimulationError, SimulationStage, SimulationTime,
+    TestDescriptor, TestFunction, TestKind, TestOutcome, TestRegistry, TestRegistryError,
+    TestResult, TestRun, TestRunConfig, TestStatistics, TestStatus, TestSummary, Testbench,
+    TimeStep, TraceableDut,
 };
 #[doc(inline)]
 pub use vvm_macros::{Clock, Drive, Sample};

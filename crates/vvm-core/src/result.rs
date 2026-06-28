@@ -1,6 +1,8 @@
 use std::fmt;
 
-use crate::{DetailedTestReport, ReplayToken, SimulationTime, TestSummary};
+use crate::{
+    DetailedTestReport, IntoTestOutcome, ReplayToken, SimulationTime, TestOutcome, TestSummary,
+};
 
 /// Simulation operation stages.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -372,5 +374,29 @@ impl<S, F, E> TestResult<S, F, E> {
 impl<S, F, E> fmt::Display for TestResult<S, F, E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.summary().fmt(f)
+    }
+}
+
+impl<S, F, E, X> IntoTestOutcome for Result<TestResult<S, F, E>, X>
+where
+    S: fmt::Debug,
+    F: fmt::Display,
+    E: fmt::Display,
+    X: fmt::Display,
+{
+    fn into_test_outcome(self) -> TestOutcome {
+        match self {
+            Ok(result) => TestOutcome::from_result(&result),
+
+            Err(error) => TestOutcome::error(error),
+        }
+    }
+
+    fn into_test_outcome_with_replay(self, replay: ReplayToken) -> TestOutcome {
+        match self {
+            Ok(result) => TestOutcome::from_result(&result),
+
+            Err(error) => TestOutcome::error(error).with_replay_token(replay),
+        }
     }
 }

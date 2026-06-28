@@ -37,6 +37,7 @@ thiserror               = { version = "2" }
 serde_json              = { version = "1" }
 rand_chacha             = { version = "~0.10.0", default-features = false }
 rand_core               = { version = "~0.10.0", default-features = false }
+clap                    = { version = "4", features = ["derive"] }
 
 # Test and dev dependencies
 trybuild                = { version = "1" }

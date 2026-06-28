@@ -15,6 +15,10 @@ description             = "Verilator Verification Methodology for Rust"
 name = "vvm"
 bench = false
 
+[features]
+default = []
+cli = ["dep:clap"]
+
 [lints]
 workspace = true
 
@@ -22,3 +26,4 @@ workspace = true
 vvm-core.workspace = true
 vvm-macros.workspace = true
 cxx.workspace = true
+clap = { workspace = true, optional = true }

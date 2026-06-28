@@ -4,8 +4,8 @@ use vvm::{
 
 use crate::counter::Counter;
 use crate::verification::{
-    CounterClock, CounterObservation, CounterReferenceModel, CounterTestResult,
-    RandomCounterSequence, Result, counter_sequence,
+    counter_sequence, CounterClock, CounterObservation, CounterReferenceModel, CounterTestResult,
+    RandomCounterSequence, Result,
 };
 
 /// Default registered test.

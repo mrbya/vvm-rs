@@ -35,6 +35,36 @@ impl fmt::Display for Seed {
     }
 }
 
+impl FromStr for Seed {
+    type Err = ParseSeedError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parsed = s
+            .strip_prefix("0x")
+            .or_else(|| s.strip_prefix("0X"))
+            .map_or_else(|| s.parse::<u64>(), |hex| u64::from_str_radix(hex, 16));
+
+        parsed.map(Self::new).map_err(|_error| ParseSeedError {
+            string: s.to_owned(),
+        })
+    }
+}
+
+/// Random seed parsing failure.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseSeedError {
+    /// String supplied when trying to parse random seed.
+    string: String,
+}
+
+impl fmt::Display for ParseSeedError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "failed to parse random seed from `{}`", self.string)
+    }
+}
+
+impl std::error::Error for ParseSeedError {}
+
 /// Deterministic random-stream algorithm.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RandomAlgorithm {

@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, path::PathBuf};
 
 use crate::{ReplayToken, SimulationTime, TestResult};
 
@@ -56,15 +56,21 @@ impl fmt::Display for TestStatus {
 }
 
 /// Configuration sipplied to one registerred test execution.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct TestRunConfig {
     /// Explicit random-stream replay override.
     replay_token: Option<ReplayToken>,
+
+    /// Requested waveform output path.
+    trace_path: Option<PathBuf>,
 }
 
 impl TestRunConfig {
     /// Empty execution configuration.
-    pub const EMPTY: Self = Self { replay_token: None };
+    pub const EMPTY: Self = Self {
+        replay_token: None,
+        trace_path: None,
+    };
 
     /// Creates an empty execution configuration.
     #[must_use]
@@ -76,6 +82,13 @@ impl TestRunConfig {
     #[must_use]
     pub const fn with_replay_token(mut self, replay_token: ReplayToken) -> Self {
         self.replay_token = Some(replay_token);
+        self
+    }
+
+    /// Overrides test's default trace path.
+    #[must_use]
+    pub fn with_trace_path(mut self, trace_path: impl Into<PathBuf>) -> Self {
+        self.trace_path = Some(trace_path.into());
         self
     }
 
@@ -287,12 +300,12 @@ impl fmt::Display for TestOutcome {
     }
 }
 
-/// Translates provided error/return type to a test outcome.
+/// Converts a typed test setup result into a registry outcome.
 pub trait IntoTestOutcome {
-    /// Converts provided type into test outcome..
+    /// Converts the test result or setup error.
     fn into_test_outcome(self) -> TestOutcome;
 
-    /// Coverts provided type into test outcome with test replay context.
+    /// Converts the result while preserving replay metadata on setup errors.
     fn into_test_outcome_with_replay(self, replay: ReplayToken) -> TestOutcome;
 }
 
@@ -310,6 +323,9 @@ pub struct TestDescriptor {
 
     /// Execution entry point.
     function: TestFunction,
+
+    /// Whether the test supports waveform output.
+    traceable: bool,
 }
 
 impl TestDescriptor {
@@ -325,6 +341,7 @@ impl TestDescriptor {
             description,
             kind: TestKind::Deterministic,
             function,
+            traceable: false,
         }
     }
 
@@ -340,7 +357,15 @@ impl TestDescriptor {
             description,
             kind: TestKind::Replayable,
             function,
+            traceable: false,
         }
+    }
+
+    /// Enables waveform trace support for test.
+    #[must_use]
+    pub const fn traceable(mut self) -> Self {
+        self.traceable = true;
+        self
     }
 
     /// Returns test name.
@@ -359,6 +384,12 @@ impl TestDescriptor {
     #[must_use]
     pub const fn kind(&self) -> TestKind {
         self.kind
+    }
+
+    /// Returns whether test supports waveform tracing.
+    #[must_use]
+    pub const fn is_traceable(&self) -> bool {
+        self.traceable
     }
 }
 
@@ -388,6 +419,12 @@ pub enum TestRegistryError {
         /// Deterministic test name.
         name: &'static str,
     },
+
+    /// Trace output path was supplied to a test that does not support waveform tracing.
+    TraceNotSupported {
+        /// Test name.
+        name: &'static str,
+    },
 }
 
 impl fmt::Display for TestRegistryError {
@@ -398,6 +435,9 @@ impl fmt::Display for TestRegistryError {
             Self::UnknownTest { ref name } => write!(f, "unknown registered test {name}"),
             Self::ReplayNotSupported { name } => {
                 write!(f, "test `{name}` does not accept replay configuration")
+            }
+            Self::TraceNotSupported { name } => {
+                write!(f, "test `{name}` does not support waveform tracing")
             }
         }
     }
@@ -478,6 +518,10 @@ impl<'a> TestRegistry<'a> {
 
         if config.replay_token().is_some() && test.kind() == TestKind::Deterministic {
             return Err(TestRegistryError::ReplayNotSupported { name: test.name() });
+        }
+
+        if config.trace_path.is_some() && !test.is_traceable() {
+            return Err(TestRegistryError::TraceNotSupported { name: test.name() });
         }
 
         let outcome = (test.function)(config);

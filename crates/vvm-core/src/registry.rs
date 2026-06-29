@@ -1,4 +1,5 @@
-use std::{fmt, path::PathBuf};
+use std::fmt;
+use std::path::PathBuf;
 
 use crate::{ReplayToken, SimulationTime, TestResult};
 
@@ -172,7 +173,7 @@ impl TestStatistics {
 ///
 /// Individual tests remain strongly typed internally, Conversion to this type
 /// happens only after the testbench has completed its run.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TestOutcome {
     /// High-level execution status.
     status: TestStatus,
@@ -425,6 +426,15 @@ pub enum TestRegistryError {
         /// Test name.
         name: &'static str,
     },
+
+    /// Test failed with a test outcome report.
+    TestFailed {
+        /// Test name.
+        name: &'static str,
+
+        /// Test outcome report.
+        report: String,
+    },
 }
 
 impl fmt::Display for TestRegistryError {
@@ -438,6 +448,9 @@ impl fmt::Display for TestRegistryError {
             }
             Self::TraceNotSupported { name } => {
                 write!(f, "test `{name}` does not support waveform tracing")
+            }
+            Self::TestFailed { name, ref report } => {
+                write!(f, "test `{name}` failed\n\n{report}")
             }
         }
     }

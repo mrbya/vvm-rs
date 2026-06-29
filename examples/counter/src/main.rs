@@ -1,9 +1,10 @@
 //! Counter verification using the synchronous VVM runner.
 
-use vvm::{TestRegistry, TestRunConfig};
+use std::process::ExitCode;
 
-use crate::test_cases::{DEFAULT_TEST, TESTS};
-use crate::verification::{Error, Result};
+use vvm::TestCli;
+
+use crate::test_cases::TESTS;
 
 vvm::include_dut!(counter);
 
@@ -12,37 +13,20 @@ mod test_cases;
 /// Counter-specific verification setup.
 mod verification;
 
-fn main() -> Result<()> {
-    let registry = TestRegistry::new(TESTS)?;
-
-    let run = registry.run(DEFAULT_TEST, &TestRunConfig::new())?;
-
-    if run.passed() {
-        println!("{run}");
-        println!("counter verification completed successfully");
-
-        return Ok(());
-    }
-
-    eprintln!(
-        "test {} failed\n\n{}",
-        run.test().name(),
-        run.outcome().report()
-    );
-    Err(Error::TestFailed)
+fn main() -> ExitCode {
+    TestCli::run(TESTS)
 }
 
 #[cfg(test)]
 mod tests {
     use std::path::Path;
 
-    use vvm::{ExactScoreboard, Seed, Testbench};
+    use vvm::{ExactScoreboard, ReplayToken, Seed, Testbench};
 
-    use super::Result;
     use crate::counter::Counter;
     use crate::verification::{
         CounterClock, CounterObservation, CounterReferenceModel, CounterTestResult,
-        RandomCounterSequence,
+        RandomCounterSequence, Result,
     };
 
     /// Runs the counter testbench.
@@ -53,8 +37,8 @@ mod tests {
             dut.open_trace(path)?;
         }
 
-        let seed = Seed::new(0x72d7_5a12_993e_8411);
-        let sequence = RandomCounterSequence::new(seed, 10_000);
+        let replay = ReplayToken::new(Seed::new(0x72d7_5a12_993e_8411));
+        let sequence = RandomCounterSequence::new(replay, 10_000);
 
         let result = Testbench::new(dut)
             .with_replayable_sequence(sequence)

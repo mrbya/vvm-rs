@@ -4,12 +4,9 @@ use vvm::{
 
 use crate::counter::Counter;
 use crate::verification::{
-    counter_sequence, CounterClock, CounterObservation, CounterReferenceModel, CounterTestResult,
-    RandomCounterSequence, Result,
+    CounterClock, CounterObservation, CounterReferenceModel, CounterTestResult,
+    RandomCounterSequence, Result, counter_sequence,
 };
-
-/// Default registered test.
-pub const DEFAULT_TEST: &str = "counter-random";
 
 /// Number of random regression cycles.
 pub const RANDOM_CYCLES: u64 = 10_000;
@@ -67,7 +64,7 @@ fn run_deterministic_counter() -> Result<CounterTestResult> {
 fn run_random_counter(replay: ReplayToken, cycles: u64) -> Result<CounterTestResult> {
     let dut = Counter::new()?;
 
-    let sequence = RandomCounterSequence::new(replay.seed(), cycles);
+    let sequence = RandomCounterSequence::new(replay, cycles);
 
     let result = Testbench::new(dut)
         .with_replayable_sequence(sequence)

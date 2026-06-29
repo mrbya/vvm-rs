@@ -53,7 +53,7 @@ impl FromStr for Seed {
 /// Random seed parsing failure.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParseSeedError {
-    /// String supplied when trying to parse random seed.
+    /// String random seed was parsed from.
     string: String,
 }
 
@@ -129,33 +129,65 @@ impl fmt::Display for ReplayToken {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParseReplayTokenError {
     /// The algorithm/seed separator is missing.
-    MissingSeparator,
+    MissingSeparator {
+        /// String replay token was parsed from.
+        string: String,
+    },
 
     /// The algorithm identifier is not supported.
-    UnsupportedAlgorithm,
+    UnsupportedAlgorithm {
+        /// String algorithm was parsed from.
+        algo: String,
+    },
 
     /// The hexadecimal seed is malformed.
-    InvalidSeed,
+    InvalidSeed {
+        /// String seed was parsed from.
+        seed: String,
+    },
 }
+
+impl fmt::Display for ParseReplayTokenError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::MissingSeparator { ref string } => {
+                write!(f, "`{string}` is missing `:` separator")
+            }
+            Self::UnsupportedAlgorithm { ref algo } => write!(
+                f,
+                "`{algo}` algorithm is not supported by VVM randomization"
+            ),
+            Self::InvalidSeed { ref seed } => write!(f, "`{seed}` is not a valid seed value"),
+        }
+    }
+}
+
+impl std::error::Error for ParseReplayTokenError {}
 
 impl FromStr for ReplayToken {
     type Err = ParseReplayTokenError;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         let Some((algorithm, seed)) = value.split_once(':') else {
-            return Err(ParseReplayTokenError::MissingSeparator);
+            return Err(ParseReplayTokenError::MissingSeparator {
+                string: value.to_owned(),
+            });
         };
 
         let algorithm = match algorithm {
             "chacha8-v1" => RandomAlgorithm::ChaCha8V1,
 
             _ => {
-                return Err(ParseReplayTokenError::UnsupportedAlgorithm);
+                return Err(ParseReplayTokenError::UnsupportedAlgorithm {
+                    algo: algorithm.to_owned(),
+                });
             }
         };
 
         let seed =
-            u64::from_str_radix(seed, 16).map_err(|_error| ParseReplayTokenError::InvalidSeed)?;
+            u64::from_str_radix(seed, 16).map_err(|_error| ParseReplayTokenError::InvalidSeed {
+                seed: seed.to_owned(),
+            })?;
 
         Ok(Self::from_parts(algorithm, Seed::new(seed)))
     }
@@ -297,5 +329,12 @@ mod tests {
         let token = ReplayToken::new(Seed::new(0x0123_4567_89ab_cdef));
 
         assert_eq!(token.to_string().parse::<ReplayToken>(), Ok(token));
+    }
+
+    #[test]
+    fn seed_display_and_parse() {
+        let seed = Seed::new(0x0123_4567_89ab_cdef);
+
+        assert_eq!(seed.to_string().parse::<Seed>(), Ok(seed));
     }
 }

@@ -1,7 +1,7 @@
 use thiserror::Error;
 use vvm::{
     Clock, Drive, Mismatch, RandomContext, ReferenceModel, ReplayToken, ReplayableSequence, Sample,
-    Seed, TestRegistryError, TestResult,
+    TestRegistryError, TestResult,
 };
 
 use crate::counter::CounterError;
@@ -12,10 +12,6 @@ pub enum Error {
     /// DUT access or lifecycle failure.
     #[error(transparent)]
     Dut(#[from] CounterError),
-
-    /// Expected and observed counter value differed.
-    #[error("counter verification failed")]
-    TestFailed,
 
     /// IO error.
     #[error(transparent)]
@@ -133,8 +129,8 @@ pub struct RandomCounterSequence {
 impl RandomCounterSequence {
     /// Creates a randomized sequence from a seed.
     #[must_use]
-    pub fn new(seed: Seed, cycles: u64) -> Self {
-        Self::from_replay(ReplayToken::new(seed), cycles)
+    pub fn new(replay: ReplayToken, cycles: u64) -> Self {
+        Self::from_replay(replay, cycles)
     }
 
     /// Reconstructs a randomized sequence.

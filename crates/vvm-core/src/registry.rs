@@ -64,6 +64,9 @@ pub struct TestRunConfig {
 
     /// Requested waveform output path.
     trace_path: Option<PathBuf>,
+
+    /// Requested number of cycles to run test for.
+    cycles: Option<u64>,
 }
 
 impl TestRunConfig {
@@ -71,6 +74,7 @@ impl TestRunConfig {
     pub const EMPTY: Self = Self {
         replay_token: None,
         trace_path: None,
+        cycles: None,
     };
 
     /// Creates an empty execution configuration.
@@ -93,13 +97,33 @@ impl TestRunConfig {
         self
     }
 
+    /// Overrides test's default cycle count.
+    #[must_use]
+    pub fn with_cycles(mut self, cycles: impl Into<u64>) -> Self {
+        self.cycles = Some(cycles.into());
+        self
+    }
+
     /// Defaults to a provided replay token if configured without replay.
     #[must_use]
-    pub const fn replay_token_or(&self, default: ReplayToken) -> ReplayToken {
-        match self.replay_token {
-            Some(replay) => replay,
-            None => default,
-        }
+    pub fn replay_token_or(&self, default: ReplayToken) -> ReplayToken {
+        self.replay_token
+            .as_ref()
+            .map_or(default, std::borrow::ToOwned::to_owned)
+    }
+
+    /// Defaults to a provided trace path if empty.
+    #[must_use]
+    pub fn trace_path_or(&self, default: PathBuf) -> PathBuf {
+        self.trace_path
+            .as_ref()
+            .map_or(default, std::borrow::ToOwned::to_owned)
+    }
+
+    /// Defaults to a provided cycle count if empty.
+    #[must_use]
+    pub fn cycles_or(&self, default: u64) -> u64 {
+        self.cycles.map_or(default, |cycles| cycles)
     }
 
     /// Returns configured replay token.
@@ -391,6 +415,23 @@ impl TestDescriptor {
     #[must_use]
     pub const fn is_traceable(&self) -> bool {
         self.traceable
+    }
+}
+
+impl fmt::Display for TestDescriptor {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}\t\t{}\t{} {}",
+            self.name(),
+            self.kind(),
+            if self.is_traceable() {
+                "trace"
+            } else {
+                "     "
+            },
+            self.description()
+        )
     }
 }
 

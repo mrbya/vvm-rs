@@ -16,16 +16,20 @@ pub struct TestCli {
     list: bool,
 
     /// Uses the current VVM random algorithm with this seed.
-    #[arg(long, value_name = "SEED", conflicts_with = "replay")]
+    #[arg(short, long, value_name = "SEED", conflicts_with = "replay")]
     seed: Option<Seed>,
 
     /// Replays the exact deterministic random stream.
-    #[arg(long, value_name = "TOKEN", conflicts_with = "seed")]
+    #[arg(short, long, value_name = "TOKEN", conflicts_with = "seed")]
     replay: Option<ReplayToken>,
 
     /// Writes waveform output to this path.
-    #[arg(long, value_name = "PATH")]
+    #[arg(short, long, value_name = "PATH")]
     trace: Option<PathBuf>,
+
+    /// Passes in requested number of cycles to test.
+    #[arg(short, long, value_name = "CYCLES")]
+    cycles: Option<u64>,
 }
 
 impl TestCli {
@@ -35,7 +39,9 @@ impl TestCli {
         let args = Self::parse();
 
         if args.list {
-            println!("list placeholder");
+            for test in tests {
+                println!("{test}");
+            }
             return ExitCode::SUCCESS;
         }
 
@@ -57,6 +63,10 @@ impl TestCli {
 
         if let Some(trace) = args.trace {
             config = config.with_trace_path(trace);
+        }
+
+        if let Some(cycles) = args.cycles {
+            config = config.with_cycles(cycles);
         }
 
         let mut result = ExitCode::SUCCESS;

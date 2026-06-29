@@ -38,9 +38,7 @@ fn run_counter_smoke(_config: &TestRunConfig) -> TestOutcome {
 
 /// Counter replayable random test wrapper.
 fn run_counter_random(config: &TestRunConfig) -> TestOutcome {
-    let replay = config.replay_token().unwrap_or(DEFAULT_REPLAY);
-
-    match run_random_counter(replay, RANDOM_CYCLES) {
+    match run_random_counter(config) {
         Ok(result) => TestOutcome::from_result(&result),
         Err(error) => TestOutcome::error(error),
     }
@@ -61,10 +59,13 @@ fn run_deterministic_counter() -> Result<CounterTestResult> {
 }
 
 /// Runs replayable random counter test.
-fn run_random_counter(replay: ReplayToken, cycles: u64) -> Result<CounterTestResult> {
+fn run_random_counter(config: &TestRunConfig) -> Result<CounterTestResult> {
     let dut = Counter::new()?;
 
-    let sequence = RandomCounterSequence::new(replay, cycles);
+    let sequence = RandomCounterSequence::new(
+        config.replay_token_or(DEFAULT_REPLAY),
+        config.cycles_or(RANDOM_CYCLES),
+    );
 
     let result = Testbench::new(dut)
         .with_replayable_sequence(sequence)

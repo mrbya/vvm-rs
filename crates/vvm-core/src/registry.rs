@@ -120,10 +120,22 @@ impl TestRunConfig {
             .map_or(default, std::borrow::ToOwned::to_owned)
     }
 
+    /// Returns configured trace path.
+    #[must_use]
+    pub fn trace_path(&self) -> Option<PathBuf> {
+        self.trace_path.clone()
+    }
+
     /// Defaults to a provided cycle count if empty.
     #[must_use]
     pub fn cycles_or(&self, default: u64) -> u64 {
         self.cycles.map_or(default, |cycles| cycles)
+    }
+
+    /// Returns configured cycles.
+    #[must_use]
+    pub const fn cycles(&self) -> Option<u64> {
+        self.cycles
     }
 
     /// Returns configured replay token.
@@ -422,7 +434,7 @@ impl fmt::Display for TestDescriptor {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{}\t\t{}\t{} {}",
+            "{}\t\t{}\t{}\t{}",
             self.name(),
             self.kind(),
             if self.is_traceable() {

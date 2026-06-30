@@ -20,17 +20,19 @@ pub static TESTS: &[TestDescriptor] = &[
         "counter-smoke",
         "Deterministic reset, count and hold test",
         run_counter_smoke,
-    ),
+    )
+    .traceable(),
     TestDescriptor::replayable(
         "counter-random",
         "10 000 cycles randomized counter regression",
         run_counter_random,
-    ),
+    )
+    .traceable(),
 ];
 
 /// Counter smoke test wrapper.
-fn run_counter_smoke(_config: &TestRunConfig) -> TestOutcome {
-    match run_deterministic_counter() {
+fn run_counter_smoke(config: &TestRunConfig) -> TestOutcome {
+    match run_deterministic_counter(config) {
         Ok(result) => TestOutcome::from_result(&result),
         Err(error) => TestOutcome::error(error),
     }
@@ -45,8 +47,15 @@ fn run_counter_random(config: &TestRunConfig) -> TestOutcome {
 }
 
 /// Runs deterministic counter test.
-fn run_deterministic_counter() -> Result<CounterTestResult> {
-    let dut = Counter::new()?;
+fn run_deterministic_counter(config: &TestRunConfig) -> Result<CounterTestResult> {
+    let mut dut = Counter::new()?;
+
+    let trace_dir = tempfile::tempdir()?;
+    let trace_path = config
+        .trace_path_or(trace_dir.path().to_path_buf())
+        .join("counter-smoke.vcd");
+
+    dut.open_trace(&trace_path)?;
 
     let result = Testbench::new(dut)
         .with_sequence(counter_sequence())
@@ -60,12 +69,19 @@ fn run_deterministic_counter() -> Result<CounterTestResult> {
 
 /// Runs replayable random counter test.
 fn run_random_counter(config: &TestRunConfig) -> Result<CounterTestResult> {
-    let dut = Counter::new()?;
+    let mut dut = Counter::new()?;
 
     let sequence = RandomCounterSequence::new(
         config.replay_token_or(DEFAULT_REPLAY),
         config.cycles_or(RANDOM_CYCLES),
     );
+
+    let trace_dir = tempfile::tempdir()?;
+    let trace_path = config
+        .trace_path_or(trace_dir.path().to_path_buf())
+        .join("counter-random.vcd");
+
+    dut.open_trace(&trace_path)?;
 
     let result = Testbench::new(dut)
         .with_replayable_sequence(sequence)

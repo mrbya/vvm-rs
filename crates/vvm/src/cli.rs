@@ -4,9 +4,7 @@ use std::process::ExitCode;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use clap::Parser;
-use vvm_core::{
-    ReplayToken, Seed, TestDescriptor, TestKind, TestRegistry, TestRegistryError, TestRunConfig,
-};
+use vvm_core::{ReplayToken, Seed, TestDescriptor, TestRegistry, TestRegistryError, TestRunConfig};
 
 /// Akafuka
 #[derive(Debug, Parser)]
@@ -106,7 +104,7 @@ impl TestCli {
         tests_to_run.iter().try_for_each(|test| {
             let mut config = TestRunConfig::new();
 
-            if test.kind() == TestKind::Replayable {
+            if test.capabilities().replay() {
                 if let Some(seed) = args.seed {
                     config = config.with_replay_token(ReplayToken::new(seed));
                 }
@@ -129,11 +127,13 @@ impl TestCli {
                 }
             }
 
-            if let Some(cycles) = args.cycles {
+            if test.capabilities().cycles()
+                && let Some(cycles) = args.cycles
+            {
                 config = config.with_cycles(cycles);
             }
 
-            if test.is_traceable()
+            if test.capabilities().trace()
                 && let Some(trace_dir) = args.trace_dir.as_ref()
             {
                 let trace_path = trace_dir.join(format!("{}.vcd", test.name()));

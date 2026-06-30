@@ -6,25 +6,6 @@ use crate::{ReplayToken, SimulationTime, TestResult};
 /// Function implementing one registered test.
 pub type TestFunction = fn(&TestRunConfig) -> TestOutcome;
 
-/// Classification of a registered test.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum TestKind {
-    /// Test with no randomized replay configuration.
-    Deterministic,
-
-    /// Test that accepts and reports a replay token.
-    Replayable,
-}
-
-impl fmt::Display for TestKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
-            Self::Deterministic => f.write_str("deterministic"),
-            Self::Replayable => f.write_str("replayable"),
-        }
-    }
-}
-
 /// High-level outcome of a registered test.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TestStatus {
@@ -346,6 +327,109 @@ pub trait IntoTestOutcome {
     fn into_test_outcome_with_replay(self, replay: ReplayToken) -> TestOutcome;
 }
 
+/// Test replay capability with its associated default replay token.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum ReplayCapability {
+    /// The test is deterministic and rejects replay configuration.
+    #[default]
+    None,
+
+    /// The test accepts replay configuration.
+    Supported {
+        /// Replay token used when no global override was supplied.
+        default: Option<ReplayToken>,
+    },
+}
+
+/// Capabilities of a VVM test.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct TestCapabilities {
+    /// Whether the test supports waveform tracing.
+    trace: bool,
+
+    /// Whether the test supports cycle count overrides.
+    cycles: bool,
+
+    /// Whether the test supports randomized replay.
+    replay: ReplayCapability,
+}
+
+impl TestCapabilities {
+    /// Constructs default capabilities.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            trace: false,
+            cycles: false,
+            replay: ReplayCapability::None,
+        }
+    }
+
+    /// Adds waveform tracing capability.
+    #[must_use]
+    pub const fn with_trace(mut self) -> Self {
+        self.trace = true;
+        self
+    }
+
+    /// Adds cycle override capability.
+    #[must_use]
+    pub const fn with_cycles(mut self) -> Self {
+        self.cycles = true;
+        self
+    }
+
+    /// Adds randomized replay capability.
+    #[must_use]
+    pub const fn with_replay(mut self) -> Self {
+        self.replay = ReplayCapability::Supported { default: None };
+        self
+    }
+
+    /// Adds randomized replay capability with a default replay token.
+    #[must_use]
+    pub const fn with_default_replay(mut self, replay: ReplayToken) -> Self {
+        self.replay = ReplayCapability::Supported {
+            default: Some(replay),
+        };
+        self
+    }
+
+    /// Returns whether trace capability supported.
+    #[must_use]
+    pub const fn trace(&self) -> bool {
+        self.trace
+    }
+
+    /// Returns whether cycle override capability supported.
+    #[must_use]
+    pub const fn cycles(&self) -> bool {
+        self.cycles
+    }
+
+    /// Returns whether randomized replay capability supported.
+    #[must_use]
+    pub const fn replay(&self) -> bool {
+        matches!(&self.replay, &ReplayCapability::Supported { .. })
+    }
+}
+
+impl fmt::Display for TestCapabilities {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}, {}, {},",
+            if self.replay() {
+                "replayable   "
+            } else {
+                "deterministic"
+            },
+            if self.trace() { "trace" } else { "    " },
+            if self.cycles() { "cycles" } else { "      " }
+        )
+    }
+}
+
 /// Metadata and entry point for one registered test.
 #[derive(Debug, Clone, Copy)]
 pub struct TestDescriptor {
@@ -355,17 +439,11 @@ pub struct TestDescriptor {
     /// Human-readable description.
     description: &'static str,
 
-    /// Test classification.
-    kind: TestKind,
-
     /// Execution entry point.
     function: TestFunction,
 
-    /// Whether the test supports waveform output.
-    traceable: bool,
-
-    /// Default replay token used by test.
-    default_replay_token: Option<ReplayToken>,
+    /// Supported test capabilities.
+    capabilities: TestCapabilities,
 }
 
 impl TestDescriptor {
@@ -379,10 +457,8 @@ impl TestDescriptor {
         Self {
             name,
             description,
-            kind: TestKind::Deterministic,
             function,
-            traceable: false,
-            default_replay_token: None,
+            capabilities: TestCapabilities::new(),
         }
     }
 
@@ -396,24 +472,22 @@ impl TestDescriptor {
         Self {
             name,
             description,
-            kind: TestKind::Replayable,
             function,
-            traceable: false,
-            default_replay_token: None,
+            capabilities: TestCapabilities::new().with_replay(),
         }
     }
 
     /// Enables waveform trace support for test.
     #[must_use]
     pub const fn with_trace(mut self) -> Self {
-        self.traceable = true;
+        self.capabilities = self.capabilities.with_trace();
         self
     }
 
     /// Configures test with a default replay token.
     #[must_use]
     pub const fn with_default_replay(mut self, replay: ReplayToken) -> Self {
-        self.default_replay_token = Some(replay);
+        self.capabilities = self.capabilities.with_default_replay(replay);
         self
     }
 
@@ -429,22 +503,19 @@ impl TestDescriptor {
         self.description
     }
 
-    /// Returns test kind.
+    /// Returns test capabilities.
     #[must_use]
-    pub const fn kind(&self) -> TestKind {
-        self.kind
-    }
-
-    /// Returns whether test supports waveform tracing.
-    #[must_use]
-    pub const fn is_traceable(&self) -> bool {
-        self.traceable
+    pub const fn capabilities(&self) -> TestCapabilities {
+        self.capabilities
     }
 
     /// Returns configured default replay token.
     #[must_use]
     pub const fn default_replay_token(&self) -> Option<ReplayToken> {
-        self.default_replay_token
+        match self.capabilities.replay {
+            ReplayCapability::None => None,
+            ReplayCapability::Supported { default } => default,
+        }
     }
 }
 
@@ -452,14 +523,9 @@ impl fmt::Display for TestDescriptor {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{}\t\t{}\t{}\t{}",
+            "{}\t\t{}\t{}",
             self.name(),
-            self.kind(),
-            if self.is_traceable() {
-                "trace"
-            } else {
-                "     "
-            },
+            self.capabilities(),
             self.description()
         )
     }
@@ -498,6 +564,12 @@ pub enum TestRegistryError {
         name: &'static str,
     },
 
+    /// Cycle override was supplied to a test that does not suppport cycle override.
+    CycleOverrideNotSupported {
+        /// Test name.
+        name: &'static str,
+    },
+
     /// Test failed with a test outcome report.
     TestFailed {
         /// Test name.
@@ -516,6 +588,9 @@ impl fmt::Display for TestRegistryError {
             Self::UnknownTest { ref name } => write!(f, "unknown registered test {name}"),
             Self::ReplayNotSupported { name } => {
                 write!(f, "test `{name}` does not accept replay configuration")
+            }
+            Self::CycleOverrideNotSupported { name } => {
+                write!(f, "test `{name}` does not accept cycle override")
             }
             Self::TraceNotSupported { name } => {
                 write!(f, "test `{name}` does not support waveform tracing")
@@ -600,12 +675,16 @@ impl<'a> TestRegistry<'a> {
                 name: name.to_owned(),
             })?;
 
-        if config.replay_token().is_some() && test.kind() == TestKind::Deterministic {
+        if config.replay_token().is_some() && !test.capabilities().replay() {
             return Err(TestRegistryError::ReplayNotSupported { name: test.name() });
         }
 
-        if config.trace_path.is_some() && !test.is_traceable() {
+        if config.trace_path.is_some() && !test.capabilities().trace() {
             return Err(TestRegistryError::TraceNotSupported { name: test.name() });
+        }
+
+        if config.cycles.is_some() && !test.capabilities().cycles() {
+            return Err(TestRegistryError::CycleOverrideNotSupported { name: test.name() });
         }
 
         let outcome = (test.function)(config);

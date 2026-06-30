@@ -447,6 +447,22 @@ pub struct TestDescriptor {
 }
 
 impl TestDescriptor {
+    /// Constructs a test descriptor from explicit metadata.
+    #[must_use]
+    pub const fn new(
+        name: &'static str,
+        description: &'static str,
+        function: TestFunction,
+        capabilities: TestCapabilities,
+    ) -> Self {
+        Self {
+            name,
+            description,
+            function,
+            capabilities,
+        }
+    }
+
     /// Creates a deterministic test descriptor.
     #[must_use]
     pub const fn deterministic(
@@ -454,12 +470,7 @@ impl TestDescriptor {
         description: &'static str,
         function: TestFunction,
     ) -> Self {
-        Self {
-            name,
-            description,
-            function,
-            capabilities: TestCapabilities::new(),
-        }
+        Self::new(name, description, function, TestCapabilities::new())
     }
 
     /// Creates a replayable test descriptor.
@@ -469,12 +480,12 @@ impl TestDescriptor {
         description: &'static str,
         function: TestFunction,
     ) -> Self {
-        Self {
+        Self::new(
             name,
             description,
             function,
-            capabilities: TestCapabilities::new().with_replay(),
-        }
+            TestCapabilities::new().with_replay(),
+        )
     }
 
     /// Enables waveform trace support for test.

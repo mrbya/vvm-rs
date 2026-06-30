@@ -4,8 +4,8 @@ use vvm::{
 
 use crate::counter::Counter;
 use crate::verification::{
-    counter_sequence, CounterClock, CounterObservation, CounterReferenceModel, CounterTestResult,
-    RandomCounterSequence, Result,
+    CounterClock, CounterObservation, CounterReferenceModel, CounterTestResult,
+    RandomCounterSequence, Result, counter_sequence,
 };
 
 /// Number of random regression cycles.

@@ -1,10 +1,11 @@
+use std::fs;
+use std::path::PathBuf;
+use std::process::ExitCode;
 use std::time::{SystemTime, UNIX_EPOCH};
-use std::{fs, path::PathBuf, process::ExitCode};
 
 use clap::Parser;
 use vvm_core::{
-    RandomContext, ReplayToken, Seed, TestDescriptor, TestKind, TestRegistry, TestRegistryError,
-    TestRunConfig,
+    ReplayToken, Seed, TestDescriptor, TestKind, TestRegistry, TestRegistryError, TestRunConfig,
 };
 
 /// Akafuka
@@ -118,14 +119,12 @@ impl TestCli {
                     if let Some(replay) = test.default_replay_token() {
                         config = config.with_replay_token(replay);
                     } else {
-                        let mut rng = RandomContext::new(Seed::from(
+                        config = config.with_replay_token(ReplayToken::new(Seed::from(
                             SystemTime::now()
                                 .duration_since(UNIX_EPOCH)
                                 .unwrap_or_default()
                                 .as_millis(),
-                        ));
-                        config =
-                            config.with_replay_token(ReplayToken::new(Seed::from(rng.next_u64())));
+                        )));
                     }
                 }
             }

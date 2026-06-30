@@ -1,18 +1,21 @@
-use std::path::PathBuf;
-use std::process::ExitCode;
+use std::time::{SystemTime, UNIX_EPOCH};
+use std::{fs, path::PathBuf, process::ExitCode};
 
 use clap::Parser;
-use vvm_core::{ReplayToken, Seed, TestDescriptor, TestRegistry, TestRegistryError, TestRunConfig};
+use vvm_core::{
+    RandomContext, ReplayToken, Seed, TestDescriptor, TestKind, TestRegistry, TestRegistryError,
+    TestRunConfig,
+};
 
 /// Akafuka
 #[derive(Debug, Parser)]
 pub struct TestCli {
-    /// Registered test to run.
-    #[arg(value_name = "TEST")]
-    test: Option<String>,
+    /// Filter registered tests to run.
+    #[arg(value_name = "FILTER")]
+    filter: Option<String>,
 
     /// Lists registered tests without executing one.
-    #[arg(short, long, conflicts_with_all = ["test", "seed", "replay", "trace"])]
+    #[arg(short, long, conflicts_with_all = ["filter", "seed", "replay", "trace_dir"])]
     list: bool,
 
     /// Uses the current VVM random algorithm with this seed.
@@ -25,7 +28,7 @@ pub struct TestCli {
 
     /// Writes waveform output to this path.
     #[arg(short, long, value_name = "PATH")]
-    trace: Option<PathBuf>,
+    trace_dir: Option<PathBuf>,
 
     /// Passes in requested number of cycles to test.
     #[arg(short, long, value_name = "CYCLES")]
@@ -45,63 +48,112 @@ impl TestCli {
             return ExitCode::SUCCESS;
         }
 
-        // Filter out test to run if provided using a cli arg
-        // This way if no test is provided, all tests are ran.
-        let tests_to_run = tests
-            .iter()
-            .filter(|test| args.test.clone().is_none_or(|name| name == test.name()));
-
-        let mut config = TestRunConfig::new();
-
-        if let Some(seed) = args.seed {
-            config = config.with_replay_token(ReplayToken::new(seed));
-        }
-
-        if let Some(replay) = args.replay {
-            config = config.with_replay_token(replay);
-        }
-
-        if let Some(trace) = args.trace {
-            config = config.with_trace_path(trace);
-        }
-
-        if let Some(cycles) = args.cycles {
-            config = config.with_cycles(cycles);
-        }
-
-        let mut result = ExitCode::SUCCESS;
-
-        for test in tests_to_run {
-            match Self::execute(test.name(), &config, tests) {
-                Ok(()) => {}
-                Err(error) => {
-                    eprintln!("{error}");
-                    result = ExitCode::FAILURE;
+        if let Some(trace_dir) = args.trace_dir.as_ref() {
+            if !trace_dir.is_dir() {
+                eprintln!(
+                    "Provided trace output dir `{}` is a file.",
+                    trace_dir.display()
+                );
+                return ExitCode::FAILURE;
+            }
+            if !trace_dir.exists() {
+                match fs::create_dir_all(trace_dir) {
+                    Ok(()) => {}
+                    Err(error) => {
+                        eprintln!(
+                            "I/O error when trying to create trace output dir `{}`:\n{error}",
+                            trace_dir.display()
+                        );
+                        return ExitCode::FAILURE;
+                    }
                 }
             }
         }
 
-        result
+        match Self::execute(args, tests) {
+            Ok(()) => {}
+            Err(error) => {
+                eprintln!("{error}");
+                return ExitCode::FAILURE;
+            }
+        }
+
+        ExitCode::SUCCESS
     }
 
     /// Execute helper placeholder.
-    fn execute(
-        test: &'static str,
-        config: &TestRunConfig,
-        tests: &'static [TestDescriptor],
-    ) -> Result<(), TestRegistryError> {
-        let run = TestRegistry::new(tests)?.run(test, config)?;
+    fn execute(args: Self, tests: &'static [TestDescriptor]) -> Result<(), TestRegistryError> {
+        let registry = TestRegistry::new(tests)?;
 
-        if run.passed() {
-            println!("{run}");
-            println!("test completed successfully");
+        // Filter out test to run if provided using a cli arg
+        // This way if no test is provided, all tests are ran.
+        let tests_to_run: Vec<&TestDescriptor> = tests
+            .iter()
+            .filter(|test| {
+                args.filter
+                    .as_deref()
+                    .is_none_or(|name| test.name().starts_with(name))
+            })
+            .collect();
 
-            return Ok(());
+        if let Some(name) = args.filter
+            && tests_to_run.is_empty()
+        {
+            return Err(TestRegistryError::UnknownTest { name });
         }
 
-        Err(TestRegistryError::TestFailed {
-            name: run.test().name(),
-            report: run.outcome().report().to_owned(),
+        tests_to_run.iter().try_for_each(|test| {
+            let mut config = TestRunConfig::new();
+
+            if test.kind() == TestKind::Replayable {
+                if let Some(seed) = args.seed {
+                    config = config.with_replay_token(ReplayToken::new(seed));
+                }
+
+                if let Some(replay) = args.replay {
+                    config = config.with_replay_token(replay);
+                }
+
+                if config.replay_token().is_none() {
+                    if let Some(replay) = test.default_replay_token() {
+                        config = config.with_replay_token(replay);
+                    } else {
+                        let mut rng = RandomContext::new(Seed::from(
+                            SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_millis(),
+                        ));
+                        config =
+                            config.with_replay_token(ReplayToken::new(Seed::from(rng.next_u64())));
+                    }
+                }
+            }
+
+            if let Some(cycles) = args.cycles {
+                config = config.with_cycles(cycles);
+            }
+
+            if test.is_traceable()
+                && let Some(trace_dir) = args.trace_dir.as_ref()
+            {
+                let trace_path = trace_dir.join(format!("{}.vcd", test.name()));
+                config = config.with_trace_path(trace_path);
+            }
+
+            let run = registry.run(test.name(), &config)?;
+
+            if run.passed() {
+                println!("{run}");
+                println!("test completed successfully");
+
+                return Ok(());
+            }
+
+            Err(TestRegistryError::TestFailed {
+                name: run.test().name(),
+                report: run.outcome().report().to_owned(),
+            })
         })
     }
 }

@@ -4,8 +4,8 @@ use vvm::{
 
 use crate::counter::Counter;
 use crate::verification::{
-    CounterClock, CounterObservation, CounterReferenceModel, CounterTestResult,
-    RandomCounterSequence, Result, counter_sequence,
+    counter_sequence, CounterClock, CounterObservation, CounterReferenceModel, CounterTestResult,
+    RandomCounterSequence, Result,
 };
 
 /// Number of random regression cycles.
@@ -21,13 +21,13 @@ pub static TESTS: &[TestDescriptor] = &[
         "Deterministic reset, count and hold test",
         run_counter_smoke,
     )
-    .traceable(),
+    .with_trace(),
     TestDescriptor::replayable(
         "counter-random",
         "10 000 cycles randomized counter regression",
         run_counter_random,
     )
-    .traceable(),
+    .with_trace(),
 ];
 
 /// Counter smoke test wrapper.
@@ -51,9 +51,7 @@ fn run_deterministic_counter(config: &TestRunConfig) -> Result<CounterTestResult
     let mut dut = Counter::new()?;
 
     let trace_dir = tempfile::tempdir()?;
-    let trace_path = config
-        .trace_path_or(trace_dir.path().to_path_buf())
-        .join("counter-smoke.vcd");
+    let trace_path = config.trace_path_or(trace_dir.path().to_path_buf().join("counter-smoke.vcd"));
 
     dut.open_trace(&trace_path)?;
 
@@ -77,9 +75,8 @@ fn run_random_counter(config: &TestRunConfig) -> Result<CounterTestResult> {
     );
 
     let trace_dir = tempfile::tempdir()?;
-    let trace_path = config
-        .trace_path_or(trace_dir.path().to_path_buf())
-        .join("counter-random.vcd");
+    let trace_path =
+        config.trace_path_or(trace_dir.path().to_path_buf().join("counter-random.vcd"));
 
     dut.open_trace(&trace_path)?;
 

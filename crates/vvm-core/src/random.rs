@@ -29,6 +29,14 @@ impl From<u64> for Seed {
     }
 }
 
+impl From<u128> for Seed {
+    fn from(value: u128) -> Self {
+        let bytes = value.to_le_bytes();
+        let (low, _) = bytes.split_at(8);
+        Self::new(u64::from_le_bytes(low.try_into().unwrap_or_default()))
+    }
+}
+
 impl fmt::Display for Seed {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "0x{:016x}", self.0)

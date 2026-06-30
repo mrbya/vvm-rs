@@ -363,6 +363,9 @@ pub struct TestDescriptor {
 
     /// Whether the test supports waveform output.
     traceable: bool,
+
+    /// Default replay token used by test.
+    default_replay_token: Option<ReplayToken>,
 }
 
 impl TestDescriptor {
@@ -379,6 +382,7 @@ impl TestDescriptor {
             kind: TestKind::Deterministic,
             function,
             traceable: false,
+            default_replay_token: None,
         }
     }
 
@@ -395,13 +399,21 @@ impl TestDescriptor {
             kind: TestKind::Replayable,
             function,
             traceable: false,
+            default_replay_token: None,
         }
     }
 
     /// Enables waveform trace support for test.
     #[must_use]
-    pub const fn traceable(mut self) -> Self {
+    pub const fn with_trace(mut self) -> Self {
         self.traceable = true;
+        self
+    }
+
+    /// Configures test with a default replay token.
+    #[must_use]
+    pub const fn with_default_replay(mut self, replay: ReplayToken) -> Self {
+        self.default_replay_token = Some(replay);
         self
     }
 
@@ -427,6 +439,12 @@ impl TestDescriptor {
     #[must_use]
     pub const fn is_traceable(&self) -> bool {
         self.traceable
+    }
+
+    /// Returns configured default replay token.
+    #[must_use]
+    pub const fn default_replay_token(&self) -> Option<ReplayToken> {
+        self.default_replay_token
     }
 }
 

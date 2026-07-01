@@ -93,6 +93,25 @@ impl ReferenceModel<CounterStimulus> for CounterReferenceModel {
     }
 }
 
+#[derive(Debug, Default)]
+pub struct FailingReferenceModel {
+    count: u8,
+}
+
+impl ReferenceModel<CounterStimulus> for FailingReferenceModel {
+    type Expected = CounterObservation;
+
+    fn predict(&mut self, stimulus: &CounterStimulus) -> Self::Expected {
+        if stimulus.reset_n {
+            self.count = 0;
+        } else if stimulus.enable {
+            self.count = self.count.wrapping_add(1);
+        }
+
+        CounterObservation { count: self.count }
+    }
+}
+
 /// Returns the deterministic counter stimulus sequence.
 ///
 /// The sequence covers reset assertion, reset release, enabled counting,
@@ -182,7 +201,7 @@ impl Iterator for RandomCounterSequence {
 mod tests {
     use vvm::{CheckFailure, ExactScoreboard, ReferenceModel, Scoreboard, Testbench};
 
-    use super::{CounterClock, CounterObservation, CounterReferenceModel, counter_sequence};
+    use super::{counter_sequence, CounterClock, CounterObservation, CounterReferenceModel};
     use crate::counter::{Counter, Result};
 
     impl CounterObservation {

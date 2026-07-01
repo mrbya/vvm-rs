@@ -653,7 +653,7 @@ impl fmt::Display for TestRegistryError {
                 write!(f, "test `{name}` does not support waveform tracing")
             }
             Self::TestFailed { name, ref report } => {
-                write!(f, "test `{name}` failed\n\n{report}")
+                write!(f, "{name}: {report}")
             }
             Self::TraceDirIsFile { name, ref path } => {
                 write!(

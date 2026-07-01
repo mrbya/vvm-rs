@@ -2,8 +2,8 @@ use vvm::{ExactScoreboard, ReplayToken, Seed, TestRunConfig, Testbench};
 
 use crate::counter::Counter;
 use crate::verification::{
-    CounterClock, CounterObservation, CounterReferenceModel, CounterTestResult,
-    RandomCounterSequence, Result, counter_sequence,
+    counter_sequence, CounterClock, CounterObservation, CounterReferenceModel, CounterTestResult,
+    FailingReferenceModel, RandomCounterSequence, Result,
 };
 
 /// Number of random regression cycles.
@@ -22,6 +22,23 @@ fn counter_smoke(config: &TestRunConfig) -> Result<CounterTestResult> {
     let result = Testbench::new(dut)
         .with_sequence(counter_sequence())
         .with_reference_model(CounterReferenceModel::default())
+        .with_scoreboard(ExactScoreboard)
+        .with_clock(CounterClock)
+        .run::<CounterObservation>();
+
+    Ok(result)
+}
+
+/// Intentionally failing counter test.
+#[vvm::test(trace)]
+fn counter_fail(config: &TestRunConfig) -> Result<CounterTestResult> {
+    let mut dut = Counter::new()?;
+
+    config.configure_trace(&mut dut)?;
+
+    let result = Testbench::new(dut)
+        .with_sequence(counter_sequence())
+        .with_reference_model(FailingReferenceModel::default())
         .with_scoreboard(ExactScoreboard)
         .with_clock(CounterClock)
         .run::<CounterObservation>();
@@ -59,6 +76,7 @@ vvm::test_registry! {
     /// Registry test descriptors.
     pub static TESTS = [
         counter_smoke,
+        counter_fail,
         counter_random,
     ];
 }

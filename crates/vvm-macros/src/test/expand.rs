@@ -1,7 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 
-use crate::test::attrs::ReplayAttribute;
 use crate::test::input::Input;
 use crate::test::names::{adapter_ident, descriptor_ident};
 
@@ -28,39 +27,44 @@ pub(super) fn expand(input: Input) -> TokenStream {
         quote!(#function())
     };
 
-    let adapter_body = match &replay {
-        ReplayAttribute::Disabled => quote! {
-            ::vvm::IntoTestOutcome::into_test_outcome(#call)
-        },
-        ReplayAttribute::Enabled {
-            default: Some(default),
-        } => quote! {
-            let __vvm_result = #call;
-            let __vvm_replay = __vvm_config
-                .replay_token()
-                .unwrap_or(#default);
+    let adapter_body = replay.default_expr().map_or_else(
+        || {
+            if replay.enabled() {
+                quote! {
+                    let __vvm_result = #call;
 
-            ::vvm::IntoTestOutcome::into_test_outcome_with_replay(
-                __vvm_result,
-                __vvm_replay,
-            )
-        },
-        ReplayAttribute::Enabled { default: None } => quote! {
-            let __vvm_result = #call;
-
-            match __vvm_config.replay_token() {
-                ::core::option::Option::Some(__vvm_replay) => {
-                    ::vvm::IntoTestOutcome::into_test_outcome_with_replay(
-                        __vvm_result,
-                        __vvm_replay,
-                    )
+                    match __vvm_config.replay_token() {
+                        ::core::option::Option::Some(__vvm_replay) => {
+                            ::vvm::IntoTestOutcome::into_test_outcome_with_replay(
+                                __vvm_result,
+                                __vvm_replay,
+                            )
+                        }
+                        ::core::option::Option::None => {
+                            ::vvm::IntoTestOutcome::into_test_outcome(__vvm_result)
+                        }
+                    }
                 }
-                ::core::option::Option::None => {
-                    ::vvm::IntoTestOutcome::into_test_outcome(__vvm_result)
+            } else {
+                quote! {
+                    ::vvm::IntoTestOutcome::into_test_outcome(#call)
                 }
             }
         },
-    };
+        |default| {
+            quote! {
+                let __vvm_result = #call;
+                let __vvm_replay = __vvm_config
+                    .replay_token()
+                    .unwrap_or(#default);
+
+                ::vvm::IntoTestOutcome::into_test_outcome_with_replay(
+                    __vvm_result,
+                    __vvm_replay,
+                )
+            }
+        },
+    );
 
     let mut capabilities = quote!(::vvm::TestCapabilities::new());
 
@@ -72,15 +76,11 @@ pub(super) fn expand(input: Input) -> TokenStream {
         capabilities = quote!((#capabilities).with_cycles());
     }
 
-    capabilities = match &replay {
-        ReplayAttribute::Disabled => capabilities,
-        ReplayAttribute::Enabled { default: None } => {
-            quote!((#capabilities).with_replay())
-        }
-        ReplayAttribute::Enabled {
-            default: Some(default),
-        } => quote!((#capabilities).with_default_replay(#default)),
-    };
+    if let Some(default) = replay.default_expr() {
+        capabilities = quote!((#capabilities).with_default_replay(#default));
+    } else if replay.enabled() {
+        capabilities = quote!((#capabilities).with_replay());
+    }
 
     quote! {
         #item

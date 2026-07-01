@@ -74,32 +74,32 @@ impl Input {
 fn validates_function_shape(item: &ItemFn) -> Result<()> {
     let signature = &item.sig;
 
-    if let Some(constness) = &signature.constness {
+    if let Some(constness) = signature.constness.as_ref() {
         return Err(Error::new_spanned(
             constness,
             "VVM tests must not be `const` functions",
         ));
     }
 
-    if let Some(asyncness) = &signature.asyncness {
+    if let Some(asyncness) = signature.asyncness.as_ref() {
         return Err(Error::new_spanned(
             asyncness,
             "VVM tests must be synchronous functions",
         ));
     }
 
-    if let Some(unsafety) = &signature.unsafety {
+    if let Some(unsafety) = signature.unsafety.as_ref() {
         return Err(Error::new_spanned(
             unsafety,
             "VVM tests must not be `unsafe` functions",
         ));
     }
 
-    if let Some(abi) = &signature.abi {
+    if let Some(abi) = signature.abi.as_ref() {
         return Err(Error::new_spanned(abi, "VVM tests must not use Rust ABI"));
     }
 
-    if let Some(variadic) = &signature.variadic {
+    if let Some(variadic) = signature.variadic.as_ref() {
         return Err(Error::new_spanned(
             variadic,
             "VVM tests must not be variadic",
@@ -146,14 +146,17 @@ fn validate_arguments(item: &ItemFn, configurable: bool) -> Result<bool> {
         return Ok(false);
     };
 
-    let FnArg::Typed(argument) = argument else {
-        return Err(Error::new_spanned(
-            argument,
-            "VVM test methods with a `self` receiver are not supported",
-        ));
+    let argument = match *argument {
+        FnArg::Typed(ref argument) => argument,
+        FnArg::Receiver(ref receiver) => {
+            return Err(Error::new_spanned(
+                receiver,
+                "VVM test methods with a `self` receiver are not supported",
+            ));
+        }
     };
 
-    let Type::Reference(reference) = argument.ty.as_ref() else {
+    let Type::Reference(ref reference) = *argument.ty else {
         return Err(Error::new_spanned(
             &argument.ty,
             "VVM test configuration must be passed as `&TestRunConfig`",
@@ -167,7 +170,7 @@ fn validate_arguments(item: &ItemFn, configurable: bool) -> Result<bool> {
         ));
     }
 
-    let Type::Path(path) = reference.elem.as_ref() else {
+    let Type::Path(ref path) = *reference.elem else {
         return Err(Error::new_spanned(
             &reference.elem,
             "VVM test configuration must be `&TestRunConfig`",
@@ -237,15 +240,15 @@ fn first_doc_paragraph(attributes: &[Attribute]) -> Option<String> {
         .iter()
         .filter(|attribute| attribute.path().is_ident("doc"))
     {
-        let Meta::NameValue(name_value) = &attribute.meta else {
+        let Meta::NameValue(name_value) = attribute.meta.clone() else {
             continue;
         };
 
-        let Expr::Lit(expression) = &name_value.value else {
+        let Expr::Lit(expression) = name_value.value else {
             continue;
         };
 
-        let Lit::Str(line) = &expression.lit else {
+        let Lit::Str(line) = expression.lit else {
             continue;
         };
 

@@ -676,7 +676,8 @@ impl fmt::Display for TestRegistryError {
             } => {
                 write!(
                     f,
-                    "I/O error while trying to create trace output dir `{}` for `{name}:\n{source}`",
+                    "I/O error while trying to create trace output dir `{}` for \
+                     `{name}:\n{source}`",
                     path.display()
                 )
             }

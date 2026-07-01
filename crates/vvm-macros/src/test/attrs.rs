@@ -12,7 +12,7 @@ pub(super) enum ReplayAttribute {
     /// Test supports replay, optionally with a default token.
     Enabled {
         /// Default replay ex[ression.]
-        default: Option<Expr>,
+        default: Box<Option<Expr>>,
     },
 }
 
@@ -20,6 +20,14 @@ impl ReplayAttribute {
     /// Returns whether replay support was requested.
     pub const fn enabled(&self) -> bool {
         matches!(self, Self::Enabled { .. })
+    }
+
+    /// Returns the configured default replay token expression, if any.
+    pub(super) fn default_expr(&self) -> Option<&Expr> {
+        match *self {
+            Self::Disabled => None,
+            Self::Enabled { ref default } => default.as_ref().as_ref(),
+        }
     }
 }
 
@@ -151,7 +159,9 @@ impl TestAttributes {
                     }
                 }
 
-                attributes.replay = ReplayAttribute::Enabled { default };
+                attributes.replay = ReplayAttribute::Enabled {
+                    default: Box::new(default),
+                };
                 return Ok(());
             }
 

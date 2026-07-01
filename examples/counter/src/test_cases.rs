@@ -1,6 +1,4 @@
-use vvm::{
-    ExactScoreboard, ReplayToken, Seed, TestDescriptor, TestOutcome, TestRunConfig, Testbench,
-};
+use vvm::{ExactScoreboard, ReplayToken, Seed, TestRunConfig, Testbench};
 
 use crate::counter::Counter;
 use crate::verification::{
@@ -14,40 +12,9 @@ pub const RANDOM_CYCLES: u64 = 10_000;
 /// Default replay stream.
 pub const DEFAULT_REPLAY: ReplayToken = ReplayToken::new(Seed::new(0x72d7_5a12_993e_8411));
 
-/// Registry test descriptors.
-pub static TESTS: &[TestDescriptor] = &[
-    TestDescriptor::deterministic(
-        "counter-smoke",
-        "Deterministic reset, count and hold test",
-        run_counter_smoke,
-    )
-    .with_trace(),
-    TestDescriptor::replayable(
-        "counter-random",
-        "10 000 cycles randomized counter regression",
-        run_counter_random,
-    )
-    .with_trace(),
-];
-
-/// Counter smoke test wrapper.
-fn run_counter_smoke(config: &TestRunConfig) -> TestOutcome {
-    match run_deterministic_counter(config) {
-        Ok(result) => TestOutcome::from_result(&result),
-        Err(error) => TestOutcome::error(error),
-    }
-}
-
-/// Counter replayable random test wrapper.
-fn run_counter_random(config: &TestRunConfig) -> TestOutcome {
-    match run_random_counter(config) {
-        Ok(result) => TestOutcome::from_result(&result),
-        Err(error) => TestOutcome::error(error),
-    }
-}
-
-/// Runs deterministic counter test.
-fn run_deterministic_counter(config: &TestRunConfig) -> Result<CounterTestResult> {
+/// Deterministic reset, count and hold test
+#[vvm::test(trace)]
+fn counter_smoke(config: &TestRunConfig) -> Result<CounterTestResult> {
     let mut dut = Counter::new()?;
 
     let trace_dir = tempfile::tempdir()?;
@@ -65,8 +32,13 @@ fn run_deterministic_counter(config: &TestRunConfig) -> Result<CounterTestResult
     Ok(result)
 }
 
-/// Runs replayable random counter test.
-fn run_random_counter(config: &TestRunConfig) -> Result<CounterTestResult> {
+/// 10 000 cycles randomized counter regression
+#[vvm::test(
+    trace,
+    cycles,
+    replay(default = DEFAULT_REPLAY),
+)]
+fn counter_random(config: &TestRunConfig) -> Result<CounterTestResult> {
     let mut dut = Counter::new()?;
 
     let sequence = RandomCounterSequence::new(
@@ -88,4 +60,12 @@ fn run_random_counter(config: &TestRunConfig) -> Result<CounterTestResult> {
         .run::<CounterObservation>();
 
     Ok(result)
+}
+
+vvm::test_registry! {
+    /// Registry test descriptors.
+    pub static TESTS = [
+        counter_smoke,
+        counter_random,
+    ];
 }

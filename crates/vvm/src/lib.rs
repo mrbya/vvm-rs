@@ -76,12 +76,12 @@ pub use vvm_core::{
     FailurePolicy, IntoTestOutcome, InvalidFailureLimit, InvalidTimeStep, Mismatch,
     ParseReplayTokenError, RandomAlgorithm, RandomContext, Randomize, ReferenceModel, ReplayToken,
     ReplayableSequence, Sample, Scoreboard, Seed, SimulationError, SimulationStage, SimulationTime,
-    TestDescriptor, TestFunction, TestOutcome, TestRegistry, TestRegistryError, TestResult,
-    TestRun, TestRunConfig, TestStatistics, TestStatus, TestSummary, Testbench, TimeStep,
-    TraceableDut,
+    TestCapabilities, TestDescriptor, TestFunction, TestOutcome, TestRegistry, TestRegistryError,
+    TestResult, TestRun, TestRunConfig, TestStatistics, TestStatus, TestSummary, Testbench,
+    TimeStep, TraceableDut,
 };
 #[doc(inline)]
-pub use vvm_macros::{Clock, Drive, Sample};
+pub use vvm_macros::{Clock, Drive, Sample, test, test_registry};
 
 /// Commonly used VVM traits, derives, and testbench types.
 ///

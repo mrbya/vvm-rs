@@ -1,7 +1,7 @@
 use std::fmt;
 use std::path::PathBuf;
 
-use crate::{ReplayToken, SimulationTime, TestResult};
+use crate::{ReplayToken, SimulationTime, TestResult, TraceableDut};
 
 /// Function implementing one registered test.
 pub type TestFunction = fn(&TestRunConfig) -> TestOutcome;
@@ -123,6 +123,22 @@ impl TestRunConfig {
     #[must_use]
     pub const fn replay_token(&self) -> Option<ReplayToken> {
         self.replay_token
+    }
+
+    /// Opens and configures waveform trace output.
+    ///
+    /// # Errors
+    ///
+    /// Returns associated [`TraceableDut`] error on trace opening failure.
+    pub fn configure_trace<D>(&self, dut: &mut D) -> Result<(), D::Error>
+    where
+        D: TraceableDut,
+    {
+        if let Some(path) = self.trace_path().as_deref() {
+            dut.open_trace(path)?;
+        }
+
+        Ok(())
     }
 }
 

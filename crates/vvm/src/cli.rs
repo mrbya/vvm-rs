@@ -6,7 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use clap::Parser;
 use vvm_core::{ReplayToken, Seed, TestDescriptor, TestRegistry, TestRegistryError, TestRunConfig};
 
-/// Akafuka
+/// VVM Test cli runner.
 #[derive(Debug, Parser)]
 pub struct TestCli {
     /// Filter registered tests to run.
@@ -39,6 +39,10 @@ impl TestCli {
     #[must_use]
     pub fn run(tests: &'static [TestDescriptor]) -> ExitCode {
         let args = Self::parse();
+        let time = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis();
 
         if args.list {
             for test in tests {
@@ -48,7 +52,7 @@ impl TestCli {
         }
 
         if let Some(trace_dir) = args.trace_dir.as_ref() {
-            if !trace_dir.is_dir() {
+            if trace_dir.exists() && !trace_dir.is_dir() {
                 eprintln!(
                     "Provided trace output dir `{}` is a file.",
                     trace_dir.display()
@@ -69,7 +73,7 @@ impl TestCli {
             }
         }
 
-        match Self::execute(args, tests) {
+        match Self::execute(args, tests, time) {
             Ok(()) => {}
             Err(error) => {
                 eprintln!("{error}");
@@ -81,7 +85,11 @@ impl TestCli {
     }
 
     /// Execute helper placeholder.
-    fn execute(args: Self, tests: &'static [TestDescriptor]) -> Result<(), TestRegistryError> {
+    fn execute(
+        args: Self,
+        tests: &'static [TestDescriptor],
+        time: u128,
+    ) -> Result<(), TestRegistryError> {
         let registry = TestRegistry::new(tests)?;
 
         // Filter out test to run if provided using a cli arg
@@ -117,12 +125,7 @@ impl TestCli {
                     if let Some(replay) = test.default_replay_token() {
                         config = config.with_replay_token(replay);
                     } else {
-                        config = config.with_replay_token(ReplayToken::new(Seed::from(
-                            SystemTime::now()
-                                .duration_since(UNIX_EPOCH)
-                                .unwrap_or_default()
-                                .as_millis(),
-                        )));
+                        config = config.with_replay_token(ReplayToken::new(Seed::from(time)));
                     }
                 }
             }

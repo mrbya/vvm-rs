@@ -1,7 +1,7 @@
 //! Procedural macros for VVM.
 
 use proc_macro::TokenStream;
-use syn::{DeriveInput, parse_macro_input};
+use syn::{DeriveInput, ItemFn, parse_macro_input};
 
 /// Shared VVM helper-attribute parsing.
 mod attrs;
@@ -11,8 +11,12 @@ mod clock;
 mod drive;
 /// Common derive-input diagnostics.
 mod error;
+/// Explicit VVM test registry.
+mod registry;
 /// Sample traits derives
 mod sample;
+/// VVM test attribute expansion.
+mod test;
 
 /// Derives [`vvm::Drive`] for a named-field stimulus structure.
 ///
@@ -56,6 +60,28 @@ pub fn derive_clock(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
     clock::derive(input)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+/// Registers a typed function as a VVM test.
+///
+/// The attribute preserves the original function and generates a hidden
+/// type-erasing adapter plus a descriptor consumed by [`test_registry`].
+#[proc_macro_attribute]
+pub fn test(attributes: TokenStream, item: TokenStream) -> TokenStream {
+    let item = parse_macro_input!(item as ItemFn);
+
+    test::expand(attributes.into(), item)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+/// Creates an explicit ordered registry from functions marked with
+/// [`test`].
+#[proc_macro]
+pub fn test_registry(input: TokenStream) -> TokenStream {
+    registry::expand(input.into())
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }

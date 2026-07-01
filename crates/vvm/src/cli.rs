@@ -161,7 +161,7 @@ impl TestCli {
 
             if run.passed() {
                 println!("{run}");
-                println!("test completed successfully");
+                println!("{} completed successfully", test.name());
 
                 return Ok(());
             }

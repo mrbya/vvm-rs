@@ -115,8 +115,8 @@ impl TestCli {
 
             if test.capabilities().trace() {
                 let mut trace_path = PathBuf::from(format!(
-                    "vvm-trace-{}/{}.vcd",
-                    time.format("%H-%M-%S"),
+                    "vvm-trace/{}/{}.vcd",
+                    time.format("%Y-%m-%d_%H-%M-%S"),
                     test.name()
                 ));
 

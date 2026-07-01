@@ -103,8 +103,8 @@ impl TestRunConfig {
 
     /// Returns configured trace path.
     #[must_use]
-    pub fn trace_path(&self) -> Option<PathBuf> {
-        self.trace_path.clone()
+    pub const fn trace_path(&self) -> Option<&PathBuf> {
+        self.trace_path.as_ref()
     }
 
     /// Defaults to a provided cycle count if empty.
@@ -134,7 +134,7 @@ impl TestRunConfig {
     where
         D: TraceableDut,
     {
-        if let Some(path) = self.trace_path().as_deref() {
+        if let Some(path) = self.trace_path() {
             dut.open_trace(path)?;
         }
 

@@ -17,10 +17,7 @@ pub const DEFAULT_REPLAY: ReplayToken = ReplayToken::new(Seed::new(0x72d7_5a12_9
 fn counter_smoke(config: &TestRunConfig) -> Result<CounterTestResult> {
     let mut dut = Counter::new()?;
 
-    let trace_dir = tempfile::tempdir()?;
-    let trace_path = config.trace_path_or(trace_dir.path().to_path_buf().join("counter-smoke.vcd"));
-
-    dut.open_trace(&trace_path)?;
+    config.configure_trace(&mut dut)?;
 
     let result = Testbench::new(dut)
         .with_sequence(counter_sequence())
@@ -46,11 +43,7 @@ fn counter_random(config: &TestRunConfig) -> Result<CounterTestResult> {
         config.cycles_or(RANDOM_CYCLES),
     );
 
-    let trace_dir = tempfile::tempdir()?;
-    let trace_path =
-        config.trace_path_or(trace_dir.path().to_path_buf().join("counter-random.vcd"));
-
-    dut.open_trace(&trace_path)?;
+    config.configure_trace(&mut dut)?;
 
     let result = Testbench::new(dut)
         .with_replayable_sequence(sequence)

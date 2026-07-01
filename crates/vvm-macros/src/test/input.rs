@@ -96,7 +96,10 @@ fn validates_function_shape(item: &ItemFn) -> Result<()> {
     }
 
     if let Some(abi) = signature.abi.as_ref() {
-        return Err(Error::new_spanned(abi, "VVM tests must not use Rust ABI"));
+        return Err(Error::new_spanned(
+            abi,
+            "VVM tests must not declare an extern ABI",
+        ));
     }
 
     if let Some(variadic) = signature.variadic.as_ref() {
@@ -289,7 +292,7 @@ fn valid_test_name(name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use quote::quote;
-    use syn::{ItemFn, parse_quote};
+    use syn::{parse_quote, ItemFn};
 
     use super::Input;
 

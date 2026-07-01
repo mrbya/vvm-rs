@@ -17,7 +17,7 @@ pub struct TestCli {
     filter: Option<String>,
 
     /// Lists registered tests without executing one.
-    #[arg(short, long, conflicts_with_all = ["filter", "seed", "replay", "trace_dir"])]
+    #[arg(short, long, conflicts_with_all = ["filter", "seed", "replay", "trace_dir", "cycles"])]
     list: bool,
 
     /// Uses the current VVM random algorithm with this seed.

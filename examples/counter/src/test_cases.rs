@@ -1,3 +1,4 @@
+use cxx::FailurePolicy;
 use vvm::{ExactScoreboard, ReplayToken, Seed, TestRunConfig, Testbench};
 
 use crate::counter::Counter;
@@ -41,6 +42,9 @@ fn counter_fail(config: &TestRunConfig) -> Result<CounterTestResult> {
         .with_reference_model(FailingReferenceModel::default())
         .with_scoreboard(ExactScoreboard)
         .with_clock(CounterClock)
+        .with_failure_policy(
+            FailurePolicy::collect_up_to(10).expect("hard-coded failure policy should build"),
+        )
         .run::<CounterObservation>();
 
     Ok(result)

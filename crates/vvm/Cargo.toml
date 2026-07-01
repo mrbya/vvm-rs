@@ -26,4 +26,5 @@ workspace = true
 vvm-core.workspace = true
 vvm-macros.workspace = true
 cxx.workspace = true
+chrono.workspace = true
 clap = { workspace = true, optional = true }

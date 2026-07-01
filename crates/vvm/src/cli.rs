@@ -1,8 +1,8 @@
 use std::fs;
 use std::path::PathBuf;
 use std::process::ExitCode;
-use std::time::{SystemTime, UNIX_EPOCH};
 
+use chrono::{DateTime, Local};
 use clap::Parser;
 use vvm_core::{ReplayToken, Seed, TestDescriptor, TestRegistry, TestRegistryError, TestRunConfig};
 
@@ -39,38 +39,13 @@ impl TestCli {
     #[must_use]
     pub fn run(tests: &'static [TestDescriptor]) -> ExitCode {
         let args = Self::parse();
-        let time = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis();
+        let time = Local::now();
 
         if args.list {
             for test in tests {
                 println!("{test}");
             }
             return ExitCode::SUCCESS;
-        }
-
-        if let Some(trace_dir) = args.trace_dir.as_ref() {
-            if trace_dir.exists() && !trace_dir.is_dir() {
-                eprintln!(
-                    "Provided trace output dir `{}` is a file.",
-                    trace_dir.display()
-                );
-                return ExitCode::FAILURE;
-            }
-            if !trace_dir.exists() {
-                match fs::create_dir_all(trace_dir) {
-                    Ok(()) => {}
-                    Err(error) => {
-                        eprintln!(
-                            "I/O error when trying to create trace output dir `{}`:\n{error}",
-                            trace_dir.display()
-                        );
-                        return ExitCode::FAILURE;
-                    }
-                }
-            }
         }
 
         match Self::execute(args, tests, time) {
@@ -88,7 +63,7 @@ impl TestCli {
     fn execute(
         args: Self,
         tests: &'static [TestDescriptor],
-        time: u128,
+        time: DateTime<Local>,
     ) -> Result<(), TestRegistryError> {
         let registry = TestRegistry::new(tests)?;
 
@@ -125,7 +100,9 @@ impl TestCli {
                     if let Some(replay) = test.default_replay_token() {
                         config = config.with_replay_token(replay);
                     } else {
-                        config = config.with_replay_token(ReplayToken::new(Seed::from(time)));
+                        config = config.with_replay_token(ReplayToken::new(Seed::from(
+                            time.timestamp_millis(),
+                        )));
                     }
                 }
             }
@@ -136,11 +113,48 @@ impl TestCli {
                 config = config.with_cycles(cycles);
             }
 
-            if test.capabilities().trace()
-                && let Some(trace_dir) = args.trace_dir.as_ref()
-            {
-                let trace_path = trace_dir.join(format!("{}.vcd", test.name()));
-                config = config.with_trace_path(trace_path);
+            if test.capabilities().trace() {
+                let mut trace_path = PathBuf::from(format!(
+                    "vvm-trace-{}/{}.vcd",
+                    time.format("%H-%M-%S"),
+                    test.name()
+                ));
+
+                if let Some(trace_dir) = args.trace_dir.as_ref() {
+                    trace_path = trace_dir.join(format!("{}.vcd", test.name()));
+                    config = config.with_trace_path(&trace_path);
+                }
+
+                if config.trace_path().is_none() {
+                    config = config.with_trace_path(&trace_path);
+                }
+
+                let Some(trace_dir) = trace_path.parent() else {
+                    return Err(TestRegistryError::InvalidTracePath {
+                        name: test.name(),
+                        path: trace_path,
+                    });
+                };
+
+                if trace_dir.exists() && !trace_dir.is_dir() {
+                    return Err(TestRegistryError::TraceDirIsFile {
+                        name: test.name(),
+                        path: trace_dir.to_path_buf(),
+                    });
+                }
+
+                if !trace_dir.exists() {
+                    match fs::create_dir_all(trace_dir) {
+                        Ok(()) => {}
+                        Err(error) => {
+                            return Err(TestRegistryError::Io {
+                                name: test.name(),
+                                path: trace_dir.to_path_buf(),
+                                source: error.to_string(),
+                            });
+                        }
+                    }
+                }
             }
 
             let run = registry.run(test.name(), &config)?;

@@ -29,6 +29,12 @@ impl From<u64> for Seed {
     }
 }
 
+impl From<i64> for Seed {
+    fn from(value: i64) -> Self {
+        Self::new(u64::from_le_bytes(value.to_le_bytes()))
+    }
+}
+
 impl From<u128> for Seed {
     fn from(value: u128) -> Self {
         let bytes = value.to_le_bytes();

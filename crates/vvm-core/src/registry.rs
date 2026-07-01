@@ -605,6 +605,36 @@ pub enum TestRegistryError {
         /// Test outcome report.
         report: String,
     },
+
+    /// Provided trace output dir is a file.
+    TraceDirIsFile {
+        /// Test name.
+        name: &'static str,
+
+        /// Provided trace output path.
+        path: PathBuf,
+    },
+
+    /// Invalid trace output path.
+    InvalidTracePath {
+        /// Test name.
+        name: &'static str,
+
+        /// Configured
+        path: PathBuf,
+    },
+
+    /// I/O error while creating trace output dir.
+    Io {
+        /// Test name.
+        name: &'static str,
+
+        /// Trace output dir.
+        path: PathBuf,
+
+        /// Underlying I/O error.
+        source: String,
+    },
 }
 
 impl fmt::Display for TestRegistryError {
@@ -624,6 +654,31 @@ impl fmt::Display for TestRegistryError {
             }
             Self::TestFailed { name, ref report } => {
                 write!(f, "test `{name}` failed\n\n{report}")
+            }
+            Self::TraceDirIsFile { name, ref path } => {
+                write!(
+                    f,
+                    "trace output dir `{}` of test `{name}` is a file",
+                    path.display()
+                )
+            }
+            Self::InvalidTracePath { name, ref path } => {
+                write!(
+                    f,
+                    "invalid trace output path `{}` for `{name}`",
+                    path.display()
+                )
+            }
+            Self::Io {
+                name,
+                ref path,
+                ref source,
+            } => {
+                write!(
+                    f,
+                    "I/O error while trying to create trace output dir `{}` for `{name}:\n{source}`",
+                    path.display()
+                )
             }
         }
     }

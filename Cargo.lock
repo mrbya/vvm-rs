@@ -494,7 +494,7 @@ checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
 
 [[package]]
 name = "vvm-build"
-version = "0.0.1"
+version = "0.1.0-alpha.1"
 dependencies = [
  "cxx-build",
  "serde_json",
@@ -504,7 +504,7 @@ dependencies = [
 
 [[package]]
 name = "vvm-core"
-version = "0.0.1"
+version = "0.1.0-alpha.1"
 dependencies = [
  "rand_chacha",
  "rand_core",
@@ -512,7 +512,7 @@ dependencies = [
 
 [[package]]
 name = "vvm-example-counter"
-version = "0.0.1"
+version = "0.1.0-alpha.1"
 dependencies = [
  "tempfile",
  "thiserror",
@@ -522,7 +522,7 @@ dependencies = [
 
 [[package]]
 name = "vvm-macros"
-version = "0.0.1"
+version = "0.1.0-alpha.1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -533,7 +533,7 @@ dependencies = [
 
 [[package]]
 name = "vvm-rs"
-version = "0.0.1"
+version = "0.1.0-alpha.1"
 dependencies = [
  "cxx",
  "tempfile",

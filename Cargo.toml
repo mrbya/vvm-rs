@@ -18,7 +18,7 @@ repository              = "https://gitlab.com/byacrates/vvm-rs"
 license                 = "MIT OR Apache-2.0"
 keywords                = ["verilator", "verification", "hdl", "testbench", "simulation"]
 categories              = ["development-tools::testing"]
-version                 = "0.0.1"
+version                 = "0.1.0-alpha.1"
 
 [workspace.dependencies]
 # vvm crates

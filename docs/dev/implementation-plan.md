@@ -175,7 +175,7 @@ Removed. Shared ABI support should only return once concrete cross-DUT native fu
 | 7 | Testbench runner | Complete |
 | 8 | Derive macros | Complete |
 | 9 | Public facade | Complete |
-| 10 | Tracing, reporting, and CLI | Not started |
+| 10 | Tracing, reporting, and standard test harness | Complete |
 | 11 | Wider HDL feature support | Backlog |
 
 ---
@@ -1226,7 +1226,7 @@ vvm::include_dut!(counter);
 
 ---
 
-# 15. Milestone 10 — Tracing, reporting, and CLI
+# 15. Milestone 10 — Tracing, reporting, and standard test harness
 
 ## Waveform tracing
 
@@ -1273,42 +1273,47 @@ Implement VCD first, then FST.
 
 - [ ] Define a test descriptor.
 - [ ] Define a registry.
-- [ ] Support listing tests.
-- [ ] Support selecting one test.
-- [ ] Support a default test.
 - [ ] Reject duplicate names.
 - [ ] Decide whether registration uses a procedural macro.
-- [ ] Keep registration independent of the run loop.
+- [ ] Keep registry use independent of Cargo test discovery.
 
-## CLI
+## Standard Rust test integration
 
 Target:
 
 ```text
-cargo run -- \
-    --test counter_random \
-    --seed 1234 \
-    --cycles 10000 \
-    --trace counter.fst
+cargo test counter_random
+
+VVM_SEED=0x1234 cargo test counter_random
+
+VVM_CYCLES=10000 cargo nextest run counter_random
+
+VVM_TRACE_DIR=target/custom-vvm-traces cargo test counter_smoke
 ```
 
-- [ ] Select a CLI parsing crate.
-- [ ] Add `--list`.
-- [ ] Add `--test`.
-- [ ] Add `--seed`.
-- [ ] Add `--cycles`.
-- [ ] Add `--trace`.
-- [ ] Add stop-on-failure controls.
-- [ ] Define useful exit codes.
-- [ ] Keep CLI support optional.
+- [ ] Make `#[vvm::test]` expand to an ordinary Rust `#[test]`.
+- [ ] Keep the source function name as the visible test name.
+- [ ] Move the typed implementation into a hidden helper.
+- [ ] Preserve `cfg`/`cfg_attr` gating across generated items.
+- [ ] Propagate `#[ignore]` to the visible wrapper.
+- [ ] Reject `#[should_panic]`.
+- [ ] Reject manual `#[test]` on `#[vvm::test]` functions.
+- [ ] Execute descriptors through one shared runtime path.
+- [ ] Replace CLI flags with environment configuration.
+- [ ] Support `VVM_SEED`, `VVM_REPLAY`, `VVM_CYCLES`, and `VVM_TRACE_DIR`.
+- [ ] Generate default trace paths under one per-run root.
+- [ ] Remove the dedicated CLI runner from the facade.
+- [ ] Remove the registry macro from standard example usage.
 
 ## Acceptance criteria
 
-- [ ] A test can be selected by name.
-- [ ] A deterministic seed is displayed and replayable.
-- [ ] A waveform is generated.
+- [ ] `cargo test` discovers VVM tests directly.
+- [ ] `cargo nextest run` discovers the same VVM tests directly.
+- [ ] A test can be filtered by its original Rust function name.
+- [ ] A deterministic replay token is displayed and replayable.
+- [ ] A waveform is generated for trace-capable tests.
 - [ ] Failure reports are reproducible.
-- [ ] Library users can opt out of the CLI layer.
+- [ ] The facade no longer exposes a dedicated CLI runner.
 
 ---
 
@@ -1427,7 +1432,7 @@ Implement only after the MVP is stable.
 - [ ] FIFO.
 - [ ] Randomized sequential model.
 - [ ] Tracing.
-- [ ] Multiple-test registry.
+- [ ] Multiple independently discoverable Rust tests.
 
 ---
 
@@ -1452,8 +1457,9 @@ Implement only after the MVP is stable.
 - [ ] Transactions and derives.
 - [ ] Reference models.
 - [ ] Scoreboards.
-- [ ] Testbench runner.
+- [ ] Standard Rust test integration.
 - [ ] Tracing.
+- [ ] Environment-based test configuration.
 - [ ] Native-build troubleshooting.
 - [ ] Unsupported HDL constructs.
 - [ ] FFI and safety explanation.

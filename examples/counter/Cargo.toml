@@ -16,7 +16,7 @@ description = "Minimal VVM generated DUT integration example"
 [lints]
 workspace = true
 
-[dependencies]
+[dev-dependencies]
 vvm.workspace = true
 thiserror.workspace = true
 tempfile.workspace = true

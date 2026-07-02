@@ -1,5 +1,6 @@
 use std::fmt;
 use std::path::PathBuf;
+use std::time::{Duration, SystemTime};
 
 use crate::{ReplayToken, SimulationTime, TestResult, TraceableDut};
 
@@ -544,6 +545,48 @@ impl TestDescriptor {
             ReplayCapability::Supported { default } => default,
         }
     }
+
+    /// Executes this descriptor through the shared validation and defaulting path.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the supplied configuration is incompatible with the
+    /// descriptor.
+    pub fn run(&self, config: &TestRunConfig) -> Result<TestRun<'_>, TestRegistryError> {
+        let effective_config = self.resolve_config(config)?;
+        let outcome = (self.function)(&effective_config);
+
+        Ok(TestRun {
+            test: self,
+            outcome,
+        })
+    }
+
+    /// Resolves the effective execution configuration for this descriptor.
+    fn resolve_config(&self, config: &TestRunConfig) -> Result<TestRunConfig, TestRegistryError> {
+        if config.replay_token().is_some() && !self.capabilities().replay() {
+            return Err(TestRegistryError::ReplayNotSupported { name: self.name() });
+        }
+
+        if config.trace_path().is_some() && !self.capabilities().trace() {
+            return Err(TestRegistryError::TraceNotSupported { name: self.name() });
+        }
+
+        if config.cycles().is_some() && !self.capabilities().cycles() {
+            return Err(TestRegistryError::CycleOverrideNotSupported { name: self.name() });
+        }
+
+        let mut effective_config = config.clone();
+
+        if self.capabilities().replay() && effective_config.replay_token().is_none() {
+            let replay_token = self
+                .default_replay_token()
+                .unwrap_or_else(generated_replay_token);
+            effective_config = effective_config.with_replay_token(replay_token);
+        }
+
+        Ok(effective_config)
+    }
 }
 
 impl fmt::Display for TestDescriptor {
@@ -596,45 +639,6 @@ pub enum TestRegistryError {
         /// Test name.
         name: &'static str,
     },
-
-    /// Test failed with a test outcome report.
-    TestFailed {
-        /// Test name.
-        name: &'static str,
-
-        /// Test outcome report.
-        report: String,
-    },
-
-    /// Provided trace output dir is a file.
-    TraceDirIsFile {
-        /// Test name.
-        name: &'static str,
-
-        /// Provided trace output path.
-        path: PathBuf,
-    },
-
-    /// Invalid trace output path.
-    InvalidTracePath {
-        /// Test name.
-        name: &'static str,
-
-        /// Configured
-        path: PathBuf,
-    },
-
-    /// I/O error while creating trace output dir.
-    Io {
-        /// Test name.
-        name: &'static str,
-
-        /// Trace output dir.
-        path: PathBuf,
-
-        /// Underlying I/O error.
-        source: String,
-    },
 }
 
 impl fmt::Display for TestRegistryError {
@@ -651,35 +655,6 @@ impl fmt::Display for TestRegistryError {
             }
             Self::TraceNotSupported { name } => {
                 write!(f, "test `{name}` does not support waveform tracing")
-            }
-            Self::TestFailed { name, ref report } => {
-                writeln!(f, "{name}: {report}")
-            }
-            Self::TraceDirIsFile { name, ref path } => {
-                write!(
-                    f,
-                    "trace output dir `{}` of test `{name}` is a file",
-                    path.display()
-                )
-            }
-            Self::InvalidTracePath { name, ref path } => {
-                write!(
-                    f,
-                    "invalid trace output path `{}` for `{name}`",
-                    path.display()
-                )
-            }
-            Self::Io {
-                name,
-                ref path,
-                ref source,
-            } => {
-                write!(
-                    f,
-                    "I/O error while trying to create trace output dir `{}` for \
-                     `{name}:\n{source}`",
-                    path.display()
-                )
             }
         }
     }
@@ -758,22 +733,19 @@ impl<'a> TestRegistry<'a> {
                 name: name.to_owned(),
             })?;
 
-        if config.replay_token().is_some() && !test.capabilities().replay() {
-            return Err(TestRegistryError::ReplayNotSupported { name: test.name() });
-        }
-
-        if config.trace_path.is_some() && !test.capabilities().trace() {
-            return Err(TestRegistryError::TraceNotSupported { name: test.name() });
-        }
-
-        if config.cycles.is_some() && !test.capabilities().cycles() {
-            return Err(TestRegistryError::CycleOverrideNotSupported { name: test.name() });
-        }
-
-        let outcome = (test.function)(config);
-
-        Ok(TestRun { test, outcome })
+        test.run(config)
     }
+}
+
+/// Creates one replay token for executions that need a generated fallback.
+fn generated_replay_token() -> ReplayToken {
+    let elapsed = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap_or(Duration::ZERO)
+        .as_nanos();
+    let entropy = elapsed ^ (u128::from(std::process::id()) << 64);
+
+    ReplayToken::new(crate::Seed::from(entropy))
 }
 
 /// Validates test name.
@@ -847,5 +819,140 @@ impl fmt::Display for TestRun<'_> {
             self.test.name(),
             self.outcome.summary(),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{Mutex, OnceLock, PoisonError};
+
+    use super::{
+        TestCapabilities, TestDescriptor, TestOutcome, TestRegistry, TestRegistryError,
+        TestRunConfig,
+    };
+    use crate::{ReplayToken, Seed};
+
+    static CAPTURED_CONFIGS: OnceLock<Mutex<Vec<TestRunConfig>>> = OnceLock::new();
+
+    fn captured_configs() -> &'static Mutex<Vec<TestRunConfig>> {
+        CAPTURED_CONFIGS.get_or_init(|| Mutex::new(Vec::new()))
+    }
+
+    fn with_captured_configs<T>(f: impl FnOnce(&mut Vec<TestRunConfig>) -> T) -> T {
+        let mut guard = captured_configs()
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+
+        f(&mut guard)
+    }
+
+    fn capture_config(config: &TestRunConfig) -> TestOutcome {
+        with_captured_configs(|configs| configs.push(config.clone()));
+        TestOutcome::error("captured")
+    }
+
+    fn clear_captured_configs() {
+        with_captured_configs(Vec::clear);
+    }
+
+    fn first_captured_config() -> Option<TestRunConfig> {
+        with_captured_configs(|configs| configs.first().cloned())
+    }
+
+    #[test]
+    fn descriptor_run_rejects_unsupported_replay() {
+        let descriptor =
+            TestDescriptor::new("smoke", "Smoke", capture_config, TestCapabilities::new());
+        let config = TestRunConfig::new().with_replay_token(ReplayToken::new(Seed::new(7)));
+
+        assert!(matches!(
+            descriptor.run(&config),
+            Err(TestRegistryError::ReplayNotSupported { name: "smoke" })
+        ));
+    }
+
+    #[test]
+    fn descriptor_run_applies_default_replay_before_adapter_call() -> Result<(), TestRegistryError>
+    {
+        clear_captured_configs();
+
+        let default_replay = ReplayToken::new(Seed::new(0x1234));
+        let descriptor = TestDescriptor::new(
+            "random",
+            "Random",
+            capture_config,
+            TestCapabilities::new().with_default_replay(default_replay),
+        );
+
+        let _run = descriptor.run(&TestRunConfig::new())?;
+
+        assert_eq!(
+            first_captured_config().and_then(|config| config.replay_token()),
+            Some(default_replay)
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn descriptor_run_generates_replay_for_replayable_tests_without_default()
+    -> Result<(), TestRegistryError> {
+        clear_captured_configs();
+
+        let descriptor = TestDescriptor::new(
+            "random",
+            "Random",
+            capture_config,
+            TestCapabilities::new().with_replay(),
+        );
+
+        let _run = descriptor.run(&TestRunConfig::new())?;
+
+        assert!(
+            first_captured_config()
+                .and_then(|config| config.replay_token())
+                .is_some()
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn registry_run_delegates_to_descriptor_execution() -> Result<(), TestRegistryError> {
+        clear_captured_configs();
+
+        let default_replay = ReplayToken::new(Seed::new(0x55aa));
+        let descriptor = TestDescriptor::new(
+            "random",
+            "Random",
+            capture_config,
+            TestCapabilities::new().with_default_replay(default_replay),
+        );
+        let descriptors = [descriptor];
+        let registry = TestRegistry::new(&descriptors)?;
+
+        let _run = registry.run("random", &TestRunConfig::new())?;
+
+        assert_eq!(
+            first_captured_config().and_then(|config| config.replay_token()),
+            Some(default_replay)
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn registry_still_reports_unknown_tests() -> Result<(), TestRegistryError> {
+        let descriptor =
+            TestDescriptor::new("smoke", "Smoke", capture_config, TestCapabilities::new());
+        let descriptors = [descriptor];
+        let registry = TestRegistry::new(&descriptors)?;
+
+        assert!(matches!(
+            registry.run("missing", &TestRunConfig::new()),
+            Err(TestRegistryError::UnknownTest { ref name }) if name == "missing"
+        ));
+
+        Ok(())
     }
 }

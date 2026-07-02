@@ -1,10 +1,9 @@
-use cxx::FailurePolicy;
-use vvm::{ExactScoreboard, ReplayToken, Seed, TestRunConfig, Testbench};
+use vvm::{ExactScoreboard, FailurePolicy, ReplayToken, Seed, TestRunConfig, Testbench};
 
 use crate::counter::Counter;
 use crate::verification::{
-    counter_sequence, CounterClock, CounterObservation, CounterReferenceModel, CounterTestResult,
-    FailingReferenceModel, RandomCounterSequence, Result,
+    CounterClock, CounterObservation, CounterReferenceModel, CounterTestResult,
+    FailingReferenceModel, RandomCounterSequence, Result, counter_sequence,
 };
 
 /// Number of random regression cycles.
@@ -31,6 +30,7 @@ fn counter_smoke(config: &TestRunConfig) -> Result<CounterTestResult> {
 }
 
 /// Intentionally failing counter test.
+#[ignore = "intentional VVM failure-reporting example"]
 #[vvm::test(trace)]
 fn counter_fail(config: &TestRunConfig) -> Result<CounterTestResult> {
     let mut dut = Counter::new()?;
@@ -42,9 +42,7 @@ fn counter_fail(config: &TestRunConfig) -> Result<CounterTestResult> {
         .with_reference_model(FailingReferenceModel::default())
         .with_scoreboard(ExactScoreboard)
         .with_clock(CounterClock)
-        .with_failure_policy(
-            FailurePolicy::collect_up_to(10).expect("hard-coded failure policy should build"),
-        )
+        .with_failure_policy(FailurePolicy::collect_up_to(10)?)
         .run::<CounterObservation>();
 
     Ok(result)
@@ -74,13 +72,4 @@ fn counter_random(config: &TestRunConfig) -> Result<CounterTestResult> {
         .run::<CounterObservation>();
 
     Ok(result)
-}
-
-vvm::test_registry! {
-    /// Registry test descriptors.
-    pub static TESTS = [
-        counter_smoke,
-        counter_fail,
-        counter_random,
-    ];
 }

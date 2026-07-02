@@ -19,7 +19,7 @@
 ## Verification Shortcuts
 - Facade integration target: `cargo test -p vvm-rs --test public_api`.
 - Repository integration target: `cargo test -p vvm-rs --test integration_tests`.
-- Counter example smoke test: `cargo run -p vvm-example-counter`.
+- Counter example smoke test: `cargo test -p vvm-example-counter counter_smoke`.
 - HDL-only lint for the example DUT: `verilator --lint-only examples/counter/rtl/counter.sv`.
 
 ## Toolchain Gotchas

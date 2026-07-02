@@ -1,21 +1,14 @@
-//! Counter verification using the synchronous VVM runner.
+//! Counter verification example with standard Rust test discovery.
 
-use std::process::ExitCode;
-
-use vvm::TestCli;
-
-use crate::test_cases::TESTS;
-
+#[cfg(test)]
 vvm::include_dut!(counter);
 
 /// Simulation test cases.
+#[cfg(test)]
 mod test_cases;
 /// Counter-specific verification setup.
+#[cfg(test)]
 mod verification;
-
-fn main() -> ExitCode {
-    TestCli::run(TESTS)
-}
 
 #[cfg(test)]
 mod tests {

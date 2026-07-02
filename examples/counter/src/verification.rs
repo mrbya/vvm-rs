@@ -1,7 +1,7 @@
 use thiserror::Error;
 use vvm::{
-    Clock, Drive, Mismatch, RandomContext, ReferenceModel, ReplayToken, ReplayableSequence, Sample,
-    TestRegistryError, TestResult,
+    Clock, Drive, InvalidFailureLimit, Mismatch, RandomContext, ReferenceModel, ReplayToken,
+    ReplayableSequence, Sample, TestResult,
 };
 
 use crate::counter::CounterError;
@@ -17,9 +17,9 @@ pub enum Error {
     #[error(transparent)]
     Io(#[from] std::io::Error),
 
-    /// Registered test failed.
+    /// Invalid failure-policy configuration.
     #[error(transparent)]
-    Registry(#[from] TestRegistryError),
+    FailurePolicy(#[from] InvalidFailureLimit),
 }
 
 /// Counter simulation result.
@@ -201,7 +201,7 @@ impl Iterator for RandomCounterSequence {
 mod tests {
     use vvm::{CheckFailure, ExactScoreboard, ReferenceModel, Scoreboard, Testbench};
 
-    use super::{counter_sequence, CounterClock, CounterObservation, CounterReferenceModel};
+    use super::{CounterClock, CounterObservation, CounterReferenceModel, counter_sequence};
     use crate::counter::{Counter, Result};
 
     impl CounterObservation {

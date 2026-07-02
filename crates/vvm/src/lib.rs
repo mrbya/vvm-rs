@@ -3,6 +3,12 @@
 //! VVM provides strongly typed Rust testbenches for Verilator-generated HDL
 //! models.
 //!
+//! Tests marked with `#[vvm::test]` become ordinary Rust `#[test]` functions.
+//! Place unit-style VVM tests inside an explicit `#[cfg(test)]` module. Cargo
+//! integration tests under `tests/` do not need an additional `cfg(test)`.
+//! Standard Rust tooling such as `cargo test` and `cargo nextest run` owns test
+//! discovery, filtering, and execution.
+//!
 //! The runtime facade exposes:
 //!
 //! - generated DUT integration;
@@ -33,43 +39,57 @@
 //! The generated DUT can then be included and verified:
 //!
 //! ```ignore
-//! use vvm::prelude::*;
+//! #[cfg(test)]
+//! mod vvm_tests {
+//!     use vvm::prelude::*;
 //!
-//! vvm::include_dut!(counter);
+//!     vvm::include_dut!(counter);
 //!
-//! use counter::Counter;
+//!     use counter::Counter;
 //!
-//! #[derive(Clone, Copy, Debug, Drive)]
-//! #[vvm(dut = Counter)]
-//! struct CounterStimulus {
-//!     #[vvm(port)]
-//!     reset_n: bool,
+//!     #[derive(Clone, Copy, Debug, Drive)]
+//!     #[vvm(dut = Counter)]
+//!     struct CounterStimulus {
+//!         #[vvm(port)]
+//!         reset_n: bool,
 //!
-//!     #[vvm(port)]
-//!     enable: bool,
+//!         #[vvm(port)]
+//!         enable: bool,
+//!     }
+//!
+//!     #[derive(Clone, Copy, Debug, PartialEq, Eq, Sample)]
+//!     #[vvm(dut = Counter)]
+//!     struct CounterObservation {
+//!         #[vvm(port)]
+//!         count: u8,
+//!     }
+//!
+//!     #[derive(Clone, Copy, Debug, Default, Clock)]
+//!     #[vvm(
+//!         dut = Counter,
+//!         clock = "clk"
+//!     )]
+//!     struct CounterClock;
+//!
+//!     /// Counter smoke verification.
+//!     #[vvm::test(trace)]
+//!     fn counter_smoke(config: &vvm::TestRunConfig) -> Result<CounterTestResult> {
+//!         let mut dut = Counter::new()?;
+//!
+//!         config.configure_trace(&mut dut)?;
+//!
+//!         Ok(
+//!             Testbench::new(dut)
+//!                 // ...
+//!                 .run::<CounterObservation>(),
+//!         )
+//!     }
 //! }
-//!
-//! #[derive(Clone, Copy, Debug, PartialEq, Eq, Sample)]
-//! #[vvm(dut = Counter)]
-//! struct CounterObservation {
-//!     #[vvm(port)]
-//!     count: u8,
-//! }
-//!
-//! #[derive(Clone, Copy, Debug, Default, Clock)]
-//! #[vvm(
-//!     dut = Counter,
-//!     clock = "clk"
-//! )]
-//! struct CounterClock;
 //! ```
 
-/// VVM cli.
-#[cfg(feature = "cli")]
-pub(crate) mod cli;
+/// Standard Rust test harness integration support.
+pub(crate) mod test;
 
-#[doc(inline)]
-pub use cli::TestCli;
 #[doc(inline)]
 pub use vvm_core::{
     CheckFailure, Clock, CycleTiming, DetailedTestReport, Drive, Dut, ExactScoreboard,
@@ -81,7 +101,7 @@ pub use vvm_core::{
     TimeStep, TraceableDut,
 };
 #[doc(inline)]
-pub use vvm_macros::{Clock, Drive, Sample, test, test_registry};
+pub use vvm_macros::{Clock, Drive, Sample, test};
 
 /// Commonly used VVM traits, derives, and testbench types.
 ///
@@ -94,7 +114,7 @@ pub use vvm_macros::{Clock, Drive, Sample, test, test_registry};
 pub mod prelude {
     pub use crate::{
         Clock, CycleTiming, Drive, Dut, ExactScoreboard, FailurePolicy, RandomContext, Randomize,
-        ReferenceModel, ReplayableSequence, Sample, Scoreboard, Seed, SimulationTime, TestCli,
+        ReferenceModel, ReplayableSequence, Sample, Scoreboard, Seed, SimulationTime,
         TestDescriptor, TestRegistryError, TestRunConfig, Testbench, TimeStep,
     };
 }
@@ -168,6 +188,8 @@ macro_rules! include_dut {
 #[doc(hidden)]
 pub mod __private {
     pub use cxx;
+
+    pub use crate::test::{TestFailure, run_test};
 }
 
 #[doc(hidden)]

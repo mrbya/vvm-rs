@@ -15,7 +15,7 @@ fn counter_example_assets_exist() {
         "examples/counter/Cargo.toml",
         "examples/counter/build.rs",
         "examples/counter/rtl/counter.sv",
-        "examples/counter/src/main.rs",
+        "examples/counter/src/lib.rs",
     ] {
         assert!(
             root.join(relative_path).is_file(),

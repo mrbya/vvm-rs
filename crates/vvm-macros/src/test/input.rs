@@ -1,16 +1,28 @@
 use proc_macro2::TokenStream;
 use syn::ext::IdentExt;
+use syn::parse::Parser;
+use syn::punctuated::Punctuated;
 use syn::{
     Attribute, Error, Expr, FnArg, ItemFn, Lit, LitStr, Meta, PathArguments, Result, ReturnType,
-    Type,
+    Token, Type, parse_quote,
 };
 
 use crate::test::attrs::{ReplayAttribute, TestAttributes};
+use crate::test::names::implementation_ident;
 
 /// Validated input for `#[vvm::test]` expansion.
 pub(super) struct Input {
-    /// Original typed test function.
-    pub(super) item: ItemFn,
+    /// Hidden typed implementation function.
+    pub(super) implementation: ItemFn,
+
+    /// Visible Rust test function name.
+    pub(super) function: syn::Ident,
+
+    /// Attributes preserved on the visible Rust test wrapper.
+    pub(super) wrapper_attributes: Vec<Attribute>,
+
+    /// Conditional-compilation attributes copied to helper items.
+    pub(super) helper_attributes: Vec<Attribute>,
 
     /// Stable registry name.
     pub(super) name: LitStr,
@@ -29,9 +41,6 @@ pub(super) struct Input {
 
     /// Whether the original function accepts `&TestRunConfig`.
     pub(super) accepts_config: bool,
-
-    /// Conditional-compilation attributes copied to generated items.
-    pub(super) cfg_attributes: Vec<Attribute>,
 }
 
 impl Input {
@@ -43,31 +52,86 @@ impl Input {
     /// malformed configuration argument.
     pub(super) fn parse(attributes: TokenStream, item: ItemFn) -> Result<Self> {
         let attributes = TestAttributes::parse(attributes)?;
+        validate_function_attributes(&item.attrs)?;
         validates_function_shape(&item)?;
 
         let accepts_config = validate_arguments(&item, attributes.configurable())?;
         let name = resolve_name(&attributes, &item)?;
         let description = resolve_description(&attributes, &item)?;
-        let cfg_attributes = item
-            .attrs
-            .iter()
-            .filter(|attribute| {
-                attribute.path().is_ident("cfg") || attribute.path().is_ident("cfg_attr")
-            })
-            .cloned()
-            .collect();
+        let (wrapper_attributes, implementation_attributes, helper_attributes) =
+            partition_attributes(&item.attrs)?;
+
+        let function = item.sig.ident.clone();
+        let mut implementation = item;
+        implementation.sig.ident = implementation_ident(&function);
+        implementation.vis = parse_quote!();
+        implementation.attrs = implementation_attributes;
 
         Ok(Self {
-            item,
+            implementation,
+            function,
+            wrapper_attributes,
+            helper_attributes,
             name,
             description,
             trace: attributes.trace,
             cycles: attributes.cycles,
             replay: attributes.replay,
             accepts_config,
-            cfg_attributes,
         })
     }
+}
+
+/// Validates unsupported source-level test attributes.
+fn validate_function_attributes(attributes: &[Attribute]) -> Result<()> {
+    for attribute in attributes {
+        reject_incompatible_attribute(attribute)?;
+    }
+
+    Ok(())
+}
+
+/// Rejects attributes that conflict with VVM's standard-test integration.
+fn reject_incompatible_attribute(attribute: &Attribute) -> Result<()> {
+    if attribute.path().is_ident("test") {
+        return Err(Error::new_spanned(
+            attribute,
+            "VVM tests must not also declare `#[test]`; `#[vvm::test]` generates the Rust test \
+             wrapper",
+        ));
+    }
+
+    if attribute.path().is_ident("should_panic") {
+        return Err(Error::new_spanned(
+            attribute,
+            "VVM tests do not support `#[should_panic]`; use structured VVM outcomes instead",
+        ));
+    }
+
+    if !attribute.path().is_ident("cfg_attr") {
+        return Ok(());
+    }
+
+    let (_, metas) = split_cfg_attr(attribute)?;
+
+    for meta in metas {
+        if meta_path_is_ident(&meta, "test") {
+            return Err(Error::new_spanned(
+                &meta,
+                "VVM tests must not also declare `#[test]`; `#[vvm::test]` generates the Rust \
+                 test wrapper",
+            ));
+        }
+
+        if meta_path_is_ident(&meta, "should_panic") {
+            return Err(Error::new_spanned(
+                &meta,
+                "VVM tests do not support `#[should_panic]`; use structured VVM outcomes instead",
+            ));
+        }
+    }
+
+    Ok(())
 }
 
 /// Validates function modifiers and return syntax.
@@ -234,6 +298,46 @@ fn resolve_description(attributes: &TestAttributes, item: &ItemFn) -> Result<Lit
     Ok(LitStr::new(&description, item.sig.ident.span()))
 }
 
+/// Partitions source attributes between the visible wrapper and hidden helpers.
+fn partition_attributes(
+    attributes: &[Attribute],
+) -> Result<(Vec<Attribute>, Vec<Attribute>, Vec<Attribute>)> {
+    let mut wrapper = Vec::new();
+    let mut implementation = Vec::new();
+    let mut helper = Vec::new();
+
+    for attribute in attributes {
+        wrapper.push(attribute.clone());
+
+        if attribute.path().is_ident("cfg") {
+            implementation.push(attribute.clone());
+            helper.push(attribute.clone());
+            continue;
+        }
+
+        if is_lint_attribute(attribute) {
+            implementation.push(attribute.clone());
+            continue;
+        }
+
+        if attribute.path().is_ident("cfg_attr") {
+            let implementation_attribute =
+                filtered_cfg_attr(attribute, meta_is_cfg_or_lint_attribute)?;
+            let helper_attribute = filtered_cfg_attr(attribute, meta_is_cfg_attribute)?;
+
+            if let Some(filtered_attribute) = implementation_attribute {
+                implementation.push(filtered_attribute);
+            }
+
+            if let Some(filtered_attribute) = helper_attribute {
+                helper.push(filtered_attribute);
+            }
+        }
+    }
+
+    Ok((wrapper, implementation, helper))
+}
+
 /// Returns the first nonempty rustdoc paragraph.
 fn first_doc_paragraph(attributes: &[Attribute]) -> Option<String> {
     let mut lines = Vec::new();
@@ -289,10 +393,101 @@ fn valid_test_name(name: &str) -> bool {
         })
 }
 
+/// Returns whether this is one of Rust's lint-control attributes.
+fn is_lint_attribute(attribute: &Attribute) -> bool {
+    attribute.path().is_ident("allow")
+        || attribute.path().is_ident("warn")
+        || attribute.path().is_ident("deny")
+        || attribute.path().is_ident("forbid")
+        || attribute.path().is_ident("expect")
+}
+
+/// Returns whether one nested meta is a `cfg(...)` attribute.
+fn meta_is_cfg_attribute(meta: &Meta) -> bool {
+    meta_path_is_ident(meta, "cfg")
+}
+
+/// Returns whether one nested meta is suitable for hidden implementation items.
+fn meta_is_cfg_or_lint_attribute(meta: &Meta) -> bool {
+    meta_is_cfg_attribute(meta)
+        || meta_path_is_ident(meta, "allow")
+        || meta_path_is_ident(meta, "warn")
+        || meta_path_is_ident(meta, "deny")
+        || meta_path_is_ident(meta, "forbid")
+        || meta_path_is_ident(meta, "expect")
+}
+
+/// Returns whether one meta path matches an identifier.
+fn meta_path_is_ident(meta: &Meta, ident: &str) -> bool {
+    match *meta {
+        Meta::Path(ref path) => path.is_ident(ident),
+        Meta::List(ref list) => list.path.is_ident(ident),
+        Meta::NameValue(ref name_value) => name_value.path.is_ident(ident),
+    }
+}
+
+/// Filters a `cfg_attr` to only the nested metas relevant to one target item.
+fn filtered_cfg_attr(attribute: &Attribute, keep: fn(&Meta) -> bool) -> Result<Option<Attribute>> {
+    let (condition, metas) = split_cfg_attr(attribute)?;
+    let metas = metas.into_iter().filter(keep).collect::<Vec<_>>();
+
+    if metas.is_empty() {
+        return Ok(None);
+    }
+
+    Ok(Some(parse_quote!(#[cfg_attr(#condition, #(#metas),*)])))
+}
+
+/// Splits a `cfg_attr` into its condition tokens and nested metas.
+fn split_cfg_attr(attribute: &Attribute) -> Result<(TokenStream, Vec<Meta>)> {
+    let tokens = match attribute.meta.clone() {
+        Meta::List(list) => list.tokens,
+        _ => {
+            return Err(Error::new_spanned(
+                attribute,
+                "malformed `cfg_attr` on VVM test",
+            ));
+        }
+    };
+
+    let mut condition = TokenStream::new();
+    let mut nested = TokenStream::new();
+    let mut found_separator = false;
+
+    for token in tokens {
+        let is_separator =
+            matches!(&token, proc_macro2::TokenTree::Punct(punct) if punct.as_char() == ',');
+
+        if !found_separator && is_separator {
+            found_separator = true;
+            continue;
+        }
+
+        if found_separator {
+            nested.extend(std::iter::once(token));
+        } else {
+            condition.extend(std::iter::once(token));
+        }
+    }
+
+    if !found_separator {
+        return Err(Error::new_spanned(
+            attribute,
+            "malformed `cfg_attr` on VVM test",
+        ));
+    }
+
+    let parser = Punctuated::<Meta, Token![,]>::parse_terminated;
+    let metas = parser.parse2(nested)?.into_iter().collect();
+
+    Ok((condition, metas))
+}
+
 #[cfg(test)]
 mod tests {
+    use proc_macro2::TokenStream;
     use quote::quote;
-    use syn::{parse_quote, ItemFn};
+    use syn::{ItemFn, parse_quote};
 
     use super::Input;
 
@@ -327,5 +522,31 @@ mod tests {
         };
 
         assert!(Input::parse(quote!(trace), item).is_err());
+    }
+
+    #[test]
+    fn rejects_should_panic() {
+        let item: ItemFn = parse_quote! {
+            /// Smoke test.
+            #[should_panic]
+            fn smoke() -> ResultType {
+                run()
+            }
+        };
+
+        assert!(Input::parse(TokenStream::new(), item).is_err());
+    }
+
+    #[test]
+    fn rejects_manual_test_attribute() {
+        let item: ItemFn = parse_quote! {
+            /// Smoke test.
+            #[test]
+            fn smoke() -> ResultType {
+                run()
+            }
+        };
+
+        assert!(Input::parse(TokenStream::new(), item).is_err());
     }
 }

@@ -22,10 +22,10 @@ version                 = "0.1.0-alpha.1"
 
 [workspace.dependencies]
 # vvm crates
-vvm                     = { package = "vvm-rs", path = "crates/vvm" }
-vvm-build               = { path = "crates/vvm-build" }
-vvm-core                = { path = "crates/vvm-core" }
-vvm-macros              = { path = "crates/vvm-macros" }
+vvm                     = { package = "vvm-rs", path = "crates/vvm", version = "0.1.0-alpha.1" }
+vvm-build               = { path = "crates/vvm-build", version = "0.1.0-alpha.1" }
+vvm-core                = { path = "crates/vvm-core", version = "0.1.0-alpha.1" }
+vvm-macros              = { path = "crates/vvm-macros", version = "0.1.0-alpha.1" }
 
 # Runtime and build dependencies
 cxx                     = { version = "1" }

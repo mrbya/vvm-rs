@@ -443,7 +443,7 @@ Initial scheduling sequence:
 
 ## Acceptance criteria
 
-- [x] `cargo run -p vvm-example-counter` succeeds.
+- [x] `cargo test -p vvm-example-counter counter_smoke` succeeds.
 - [x] Count remains zero during reset.
 - [x] Count increments on rising edges while enabled.
 - [x] Count does not increment while disabled.

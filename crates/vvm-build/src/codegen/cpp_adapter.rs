@@ -1,9 +1,9 @@
 use super::names::DutNames;
 use super::types::SignalType;
-use crate::TraceOptions;
 use crate::codegen::GENERATED_NOTICE;
 use crate::metadata::{DutMetadata, Port, PortDirection};
 use crate::trace::TraceFormat;
+use crate::TraceOptions;
 
 /// Complete generated C++ adapter text.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -232,6 +232,7 @@ fn render_impl_class(
     }
 
     render_input_initializers(output, metadata, names);
+    render_signed_output_decoder(output, metadata);
 
     push_line(output, "    }");
     push_line(output, "");
@@ -308,6 +309,152 @@ fn render_input_initializers(output: &mut String, metadata: &DutMetadata, names:
         );
         push_line(output, "        }");
     }
+}
+
+/// Renders the signed-output decoding helper when required.
+fn render_signed_output_decoder(output: &mut String, metadata: &DutMetadata) {
+    let required = metadata
+        .ports
+        .iter()
+        .any(|port| port.signed && port.direction == PortDirection::Output);
+
+    if !required {
+        return;
+    }
+
+    push_line(output, "");
+    push_line(
+        output,
+        "    template <typename Signed, \
+         std::uint32_t Width, typename Raw>",
+    );
+    push_line(output, "    [[nodiscard]]");
+    push_line(output, "    static constexpr Signed sign_extend(");
+    push_line(output, "        const Raw raw");
+    push_line(output, "    ) noexcept {");
+    push_line(
+        output,
+        "        static_assert(\
+         std::is_integral_v<Signed>);",
+    );
+    push_line(
+        output,
+        "        static_assert(\
+         std::is_signed_v<Signed>);",
+    );
+    push_line(
+        output,
+        "        static_assert(\
+         std::is_integral_v<Raw>);",
+    );
+    push_line(output, "");
+    push_line(
+        output,
+        "        using Unsigned = \
+         std::make_unsigned_t<Signed>;",
+    );
+    push_line(output, "");
+    push_line(output, "        constexpr auto storage_width =");
+    push_line(output, "            static_cast<std::uint32_t>(");
+    push_line(
+        output,
+        "                std::numeric_limits<\
+         Unsigned>::digits",
+    );
+    push_line(output, "            );");
+    push_line(output, "");
+    push_line(output, "        static_assert(Width > 0);");
+    push_line(
+        output,
+        "        static_assert(\
+         Width <= storage_width);",
+    );
+    push_line(output, "");
+    push_line(output, "        Unsigned mask{");
+    push_line(
+        output,
+        "            std::numeric_limits<\
+         Unsigned>::max()",
+    );
+    push_line(output, "        };");
+    push_line(output, "");
+    push_line(
+        output,
+        "        if constexpr (\
+         Width < storage_width) {",
+    );
+    push_line(output, "            mask = static_cast<Unsigned>(");
+    push_line(output, "                static_cast<Unsigned>(");
+    push_line(output, "                    Unsigned{1} << Width");
+    push_line(output, "                ) - Unsigned{1}");
+    push_line(output, "            );");
+    push_line(output, "        }");
+    push_line(output, "");
+    push_line(
+        output,
+        "        const auto value = \
+         static_cast<Unsigned>(",
+    );
+    push_line(
+        output,
+        "            static_cast<Unsigned>(raw) \
+         & mask",
+    );
+    push_line(output, "        );");
+    push_line(output, "");
+    push_line(output, "        constexpr auto sign_bit =");
+    push_line(output, "            static_cast<Unsigned>(");
+    push_line(
+        output,
+        "                Unsigned{1} \
+         << (Width - 1U)",
+    );
+    push_line(output, "            );");
+    push_line(output, "");
+    push_line(
+        output,
+        "        if ((value & sign_bit) \
+         == Unsigned{0}) {",
+    );
+    push_line(
+        output,
+        "            return \
+         static_cast<Signed>(value);",
+    );
+    push_line(output, "        }");
+    push_line(output, "");
+    push_line(output, "        const auto magnitude =");
+    push_line(output, "            static_cast<Unsigned>(");
+    push_line(output, "                static_cast<Unsigned>(");
+    push_line(
+        output,
+        "                    static_cast<Unsigned>(\
+         ~value) & mask",
+    );
+    push_line(output, "                ) + Unsigned{1}");
+    push_line(output, "            );");
+    push_line(output, "");
+    push_line(output, "        if (");
+    push_line(output, "            magnitude");
+    push_line(output, "            > static_cast<Unsigned>(");
+    push_line(
+        output,
+        "                std::numeric_limits<\
+         Signed>::max()",
+    );
+    push_line(output, "            )");
+    push_line(output, "        ) {");
+    push_line(
+        output,
+        "            return \
+         std::numeric_limits<Signed>::min();",
+    );
+    push_line(output, "        }");
+    push_line(output, "");
+    push_line(output, "        return static_cast<Signed>(");
+    push_line(output, "            -static_cast<Signed>(magnitude)");
+    push_line(output, "        );");
+    push_line(output, "    }");
 }
 
 /// Renders constructor, destructor, and simulation lifecycle methods.
@@ -487,27 +634,67 @@ fn render_source_epilogue(output: &mut String, names: &DutNames) {
 fn render_setter(output: &mut String, port: &Port, method: &str, accessor: &str, cpp_type: &str) {
     let signal_type = SignalType::from_port(port);
 
-    let value_expression = signal_type
-        .mask_literal(port.width)
-        .map_or_else(|| "value".to_owned(), |mask| format!("value & {mask}"));
-
     push_line(output, "");
     push_line(
         output,
         &format!(
-            "void {cpp_type}::{method}(const {} value) noexcept {{",
+            "void {cpp_type}::{method}(\
+             const {} value) noexcept {{",
             signal_type.cpp_type()
         ),
     );
     push_line(
         output,
-        &format!("    using RawType = std::decay_t<decltype(impl_->model->{accessor}())>;"),
+        &format!(
+            "    using RawType = \
+             std::decay_t<decltype(\
+             impl_->model->{accessor}())>;"
+        ),
     );
-    push_line(output, "");
-    push_line(
-        output,
-        &format!("    RawType raw_value{{static_cast<RawType>({value_expression})}};"),
-    );
+
+    if port.signed {
+        push_line(
+            output,
+            &format!(
+                "    using UnsignedType = {};",
+                signal_type.unsigned_cpp_type()
+            ),
+        );
+        push_line(output, "");
+        push_line(
+            output,
+            "    const auto bits = \
+             static_cast<UnsignedType>(value);",
+        );
+
+        let value_expression = signal_type
+            .mask_literal(port.width)
+            .map_or_else(|| "bits".to_owned(), |mask| format!("bits & {mask}"));
+
+        push_line(
+            output,
+            &format!(
+                "    RawType raw_value{{\
+                 static_cast<RawType>(\
+                 {value_expression})}};"
+            ),
+        );
+    } else {
+        let value_expression = signal_type
+            .mask_literal(port.width)
+            .map_or_else(|| "value".to_owned(), |mask| format!("value & {mask}"));
+
+        push_line(output, "");
+        push_line(
+            output,
+            &format!(
+                "    RawType raw_value{{\
+                 static_cast<RawType>(\
+                 {value_expression})}};"
+            ),
+        );
+    }
+
     push_line(output, &format!("    impl_->model->{accessor}(raw_value);"));
     push_line(output, "}");
 }
@@ -520,7 +707,8 @@ fn render_getter(output: &mut String, port: &Port, method: &str, accessor: &str,
     push_line(
         output,
         &format!(
-            "{} {cpp_type}::{method}() const noexcept {{",
+            "{} {cpp_type}::{method}() \
+             const noexcept {{",
             signal_type.cpp_type()
         ),
     );
@@ -528,13 +716,30 @@ fn render_getter(output: &mut String, port: &Port, method: &str, accessor: &str,
     if signal_type == SignalType::Bool {
         push_line(
             output,
-            &format!("    return impl_->model->{accessor}() != 0;"),
+            &format!(
+                "    return \
+                 impl_->model->{accessor}() != 0;"
+            ),
         );
+    } else if port.signed {
+        push_line(
+            output,
+            &format!(
+                "    return \
+                 Impl::sign_extend<{}, {}>(",
+                signal_type.cpp_type(),
+                port.width.get(),
+            ),
+        );
+        push_line(output, &format!("        impl_->model->{accessor}()"));
+        push_line(output, "    );");
     } else if let Some(mask) = signal_type.mask_literal(port.width) {
         push_line(
             output,
             &format!(
-                "    return static_cast<{}>(impl_->model->{accessor}() & {mask});",
+                "    return static_cast<{}>(\
+                 impl_->model->{accessor}() \
+                 & {mask});",
                 signal_type.cpp_type()
             ),
         );
@@ -542,7 +747,8 @@ fn render_getter(output: &mut String, port: &Port, method: &str, accessor: &str,
         push_line(
             output,
             &format!(
-                "    return static_cast<{}>(impl_->model->{accessor}());",
+                "    return static_cast<{}>(\
+                 impl_->model->{accessor}());",
                 signal_type.cpp_type()
             ),
         );
@@ -555,4 +761,127 @@ fn render_getter(output: &mut String, port: &Port, method: &str, accessor: &str,
 fn push_line(output: &mut String, line: &str) {
     output.push_str(line);
     output.push('\n');
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io;
+    use std::num::NonZeroU32;
+
+    use super::{render_getter, render_setter, render_signed_output_decoder};
+    use crate::metadata::{BitWidth, DutMetadata, Port, PortDirection};
+
+    fn width(value: u32) -> Result<BitWidth, io::Error> {
+        NonZeroU32::new(value).map(BitWidth::new).ok_or_else(|| {
+            io::Error::new(io::ErrorKind::InvalidInput, "test width must be non-zero")
+        })
+    }
+
+    fn port(direction: PortDirection, bits: u32, signed: bool) -> Result<Port, io::Error> {
+        Ok(Port {
+            name: String::from("value"),
+            direction,
+            width: width(bits)?,
+            signed,
+        })
+    }
+
+    #[test]
+    fn signed_setter_converts_to_unsigned_before_masking() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let mut output = String::new();
+        let port = port(PortDirection::Input, 5, true)?;
+
+        render_setter(&mut output, &port, "set_value", "value", "Dut");
+
+        assert!(output.contains("using UnsignedType = std::uint8_t;"));
+
+        assert!(output.contains(
+            "const auto bits = \
+             static_cast<UnsignedType>(value);"
+        ));
+
+        assert!(output.contains(
+            "bits & \
+             static_cast<std::uint8_t>(0x1FULL)"
+        ));
+
+        assert!(!output.contains("value &"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn full_width_signed_setter_uses_all_bits() -> Result<(), Box<dyn std::error::Error>> {
+        let mut output = String::new();
+        let port = port(PortDirection::Input, 64, true)?;
+
+        render_setter(&mut output, &port, "set_value", "value", "Dut");
+
+        assert!(output.contains("using UnsignedType = std::uint64_t;"));
+
+        assert!(output.contains(
+            "RawType raw_value{\
+             static_cast<RawType>(bits)};"
+        ));
+
+        Ok(())
+    }
+
+    #[test]
+    fn signed_getter_uses_declared_width() -> Result<(), Box<dyn std::error::Error>> {
+        let mut output = String::new();
+        let port = port(PortDirection::Output, 5, true)?;
+
+        render_getter(&mut output, &port, "value", "value", "Dut");
+
+        assert!(output.contains("Impl::sign_extend<std::int8_t, 5>"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn signed_sixty_four_bit_getter_uses_sign_extension() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let mut output = String::new();
+        let port = port(PortDirection::Output, 64, true)?;
+
+        render_getter(&mut output, &port, "value", "value", "Dut");
+
+        assert!(output.contains("Impl::sign_extend<std::int64_t, 64>"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn emits_signed_decoder_only_for_signed_outputs() -> Result<(), Box<dyn std::error::Error>> {
+        let signed = DutMetadata {
+            name: String::from("signed"),
+            top_module: String::from("signed"),
+            ports: vec![port(PortDirection::Output, 5, true)?],
+        };
+
+        let unsigned = DutMetadata {
+            name: String::from("unsigned"),
+            top_module: String::from("unsigned"),
+            ports: vec![port(PortDirection::Output, 5, false)?],
+        };
+
+        let mut signed_output = String::new();
+        let mut unsigned_output = String::new();
+
+        render_signed_output_decoder(&mut signed_output, &signed);
+
+        render_signed_output_decoder(&mut unsigned_output, &unsigned);
+
+        assert!(signed_output.contains("static constexpr Signed sign_extend"));
+
+        assert!(signed_output.contains("if constexpr (Width < storage_width)"));
+
+        assert!(signed_output.contains("std::numeric_limits<Signed>::min()"));
+
+        assert!(unsigned_output.is_empty());
+
+        Ok(())
+    }
 }

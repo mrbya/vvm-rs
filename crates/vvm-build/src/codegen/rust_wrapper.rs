@@ -638,7 +638,7 @@ fn render_timing(output: &mut String, names: &DutNames) {
 
 /// Renders one typed input setter.
 fn render_input(output: &mut String, port: &Port, method: &str) {
-    let signal_type = SignalType::from_width(port.width);
+    let signal_type = SignalType::from_port(port);
 
     push_line(output, "");
     push_line(
@@ -671,7 +671,7 @@ fn render_input(output: &mut String, port: &Port, method: &str) {
 
 /// Renders one typed output getter.
 fn render_output(output: &mut String, port: &Port, method: &str) {
-    let signal_type = SignalType::from_width(port.width);
+    let signal_type = SignalType::from_port(port);
 
     push_line(output, "");
     push_line(

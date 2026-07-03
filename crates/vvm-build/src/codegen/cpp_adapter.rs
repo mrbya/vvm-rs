@@ -126,7 +126,7 @@ fn render_header_prelude(output: &mut String, names: &DutNames, traced: bool) {
 /// Renders per-port method declarations in the public header.
 fn render_header_port_methods(output: &mut String, metadata: &DutMetadata, names: &DutNames) {
     for (port, port_names) in metadata.ports.iter().zip(&names.ports) {
-        let signal_type = SignalType::from_width(port.width);
+        let signal_type = SignalType::from_port(port);
 
         match port.direction {
             PortDirection::Input => push_line(
@@ -485,7 +485,7 @@ fn render_source_epilogue(output: &mut String, names: &DutNames) {
 
 /// Renders one generated input setter.
 fn render_setter(output: &mut String, port: &Port, method: &str, accessor: &str, cpp_type: &str) {
-    let signal_type = SignalType::from_width(port.width);
+    let signal_type = SignalType::from_port(port);
 
     let value_expression = signal_type
         .mask_literal(port.width)
@@ -514,7 +514,7 @@ fn render_setter(output: &mut String, port: &Port, method: &str, accessor: &str,
 
 /// Renders one generated output getter.
 fn render_getter(output: &mut String, port: &Port, method: &str, accessor: &str, cpp_type: &str) {
-    let signal_type = SignalType::from_width(port.width);
+    let signal_type = SignalType::from_port(port);
 
     push_line(output, "");
     push_line(

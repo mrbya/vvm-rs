@@ -18,7 +18,7 @@ pub(super) fn render(
     render_bridge_lifecycle(&mut output, names, traced);
 
     for (port, port_names) in metadata.ports.iter().zip(&names.ports) {
-        let signal_type = SignalType::from_width(port.width);
+        let signal_type = SignalType::from_port(port);
 
         match port.direction {
             PortDirection::Input => {

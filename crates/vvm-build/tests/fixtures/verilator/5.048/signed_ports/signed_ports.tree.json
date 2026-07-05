@@ -1,0 +1,43 @@
+{
+  "type": "NETLIST",
+  "name": "$root",
+  "addr": "(A)",
+  "modulesp": [
+    {
+      "type": "MODULE",
+      "name": "signed_ports",
+      "origName": "signed_ports",
+      "verilogName": "signed_ports",
+      "addr": "(B)",
+      "stmtsp": [
+        {"type":"VAR","name":"input_i1","verilogName":"input_i1","addr":"(D1)","dtypep":"(T1)","direction":"INPUT","varType":"PORT"},
+        {"type":"VAR","name":"input_i5","verilogName":"input_i5","addr":"(D2)","dtypep":"(T5)","direction":"INPUT","varType":"PORT"},
+        {"type":"VAR","name":"input_i9","verilogName":"input_i9","addr":"(D3)","dtypep":"(T9)","direction":"INPUT","varType":"PORT"},
+        {"type":"VAR","name":"input_i17","verilogName":"input_i17","addr":"(D4)","dtypep":"(T17)","direction":"INPUT","varType":"PORT"},
+        {"type":"VAR","name":"input_i33","verilogName":"input_i33","addr":"(D5)","dtypep":"(T33)","direction":"INPUT","varType":"PORT"},
+        {"type":"VAR","name":"input_i64","verilogName":"input_i64","addr":"(D6)","dtypep":"(T64)","direction":"INPUT","varType":"PORT"},
+        {"type":"VAR","name":"output_i1","verilogName":"output_i1","addr":"(D7)","dtypep":"(T1)","direction":"OUTPUT","varType":"PORT"},
+        {"type":"VAR","name":"output_i5","verilogName":"output_i5","addr":"(D8)","dtypep":"(T5)","direction":"OUTPUT","varType":"PORT"},
+        {"type":"VAR","name":"output_i9","verilogName":"output_i9","addr":"(D9)","dtypep":"(T9)","direction":"OUTPUT","varType":"PORT"},
+        {"type":"VAR","name":"output_i17","verilogName":"output_i17","addr":"(D10)","dtypep":"(T17)","direction":"OUTPUT","varType":"PORT"},
+        {"type":"VAR","name":"output_i33","verilogName":"output_i33","addr":"(D11)","dtypep":"(T33)","direction":"OUTPUT","varType":"PORT"},
+        {"type":"VAR","name":"output_i64","verilogName":"output_i64","addr":"(D12)","dtypep":"(T64)","direction":"OUTPUT","varType":"PORT"}
+      ]
+    }
+  ],
+  "miscsp": [
+    {
+      "type": "TYPETABLE",
+      "name": "",
+      "addr": "(C)",
+      "typesp": [
+        {"type":"BASICDTYPE","name":"logic","keyword":"logic","signed":"SIGNED","addr":"(T1)"},
+        {"type":"BASICDTYPE","name":"logic","keyword":"logic","range":"4:0","signed":"SIGNED","addr":"(T5)"},
+        {"type":"BASICDTYPE","name":"logic","keyword":"logic","range":"8:0","signed":"SIGNED","addr":"(T9)"},
+        {"type":"BASICDTYPE","name":"logic","keyword":"logic","range":"16:0","signed":"SIGNED","addr":"(T17)"},
+        {"type":"BASICDTYPE","name":"logic","keyword":"logic","range":"32:0","signed":"SIGNED","addr":"(T33)"},
+        {"type":"BASICDTYPE","name":"logic","keyword":"logic","range":"63:0","signed":"SIGNED","addr":"(T64)"}
+      ]
+    }
+  ]
+}

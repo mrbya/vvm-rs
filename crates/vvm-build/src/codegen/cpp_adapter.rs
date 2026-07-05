@@ -1,9 +1,9 @@
 use super::names::DutNames;
 use super::types::SignalType;
+use crate::TraceOptions;
 use crate::codegen::GENERATED_NOTICE;
 use crate::metadata::{DutMetadata, Port, PortDirection};
 use crate::trace::TraceFormat;
-use crate::TraceOptions;
 
 /// Complete generated C++ adapter text.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -232,9 +232,9 @@ fn render_impl_class(
     }
 
     render_input_initializers(output, metadata, names);
-    render_signed_output_decoder(output, metadata);
 
     push_line(output, "    }");
+    render_signed_output_decoder(output, metadata);
     push_line(output, "");
     if traced {
         push_line(output, "    void dump_trace() noexcept {");
@@ -325,64 +325,37 @@ fn render_signed_output_decoder(output: &mut String, metadata: &DutMetadata) {
     push_line(output, "");
     push_line(
         output,
-        "    template <typename Signed, \
-         std::uint32_t Width, typename Raw>",
+        "    template <typename Signed, std::uint32_t Width, typename Raw>",
     );
     push_line(output, "    [[nodiscard]]");
     push_line(output, "    static constexpr Signed sign_extend(");
     push_line(output, "        const Raw raw");
     push_line(output, "    ) noexcept {");
-    push_line(
-        output,
-        "        static_assert(\
-         std::is_integral_v<Signed>);",
-    );
-    push_line(
-        output,
-        "        static_assert(\
-         std::is_signed_v<Signed>);",
-    );
-    push_line(
-        output,
-        "        static_assert(\
-         std::is_integral_v<Raw>);",
-    );
+    push_line(output, "        static_assert(std::is_integral_v<Signed>);");
+    push_line(output, "        static_assert(std::is_signed_v<Signed>);");
+    push_line(output, "        static_assert(std::is_integral_v<Raw>);");
     push_line(output, "");
     push_line(
         output,
-        "        using Unsigned = \
-         std::make_unsigned_t<Signed>;",
+        "        using Unsigned = std::make_unsigned_t<Signed>;",
     );
     push_line(output, "");
     push_line(output, "        constexpr auto storage_width =");
     push_line(output, "            static_cast<std::uint32_t>(");
     push_line(
         output,
-        "                std::numeric_limits<\
-         Unsigned>::digits",
+        "                std::numeric_limits<Unsigned>::digits",
     );
     push_line(output, "            );");
     push_line(output, "");
     push_line(output, "        static_assert(Width > 0);");
-    push_line(
-        output,
-        "        static_assert(\
-         Width <= storage_width);",
-    );
+    push_line(output, "        static_assert(Width <= storage_width);");
     push_line(output, "");
     push_line(output, "        Unsigned mask{");
-    push_line(
-        output,
-        "            std::numeric_limits<\
-         Unsigned>::max()",
-    );
+    push_line(output, "            std::numeric_limits<Unsigned>::max()");
     push_line(output, "        };");
     push_line(output, "");
-    push_line(
-        output,
-        "        if constexpr (\
-         Width < storage_width) {",
-    );
+    push_line(output, "        if constexpr (Width < storage_width) {");
     push_line(output, "            mask = static_cast<Unsigned>(");
     push_line(output, "                static_cast<Unsigned>(");
     push_line(output, "                    Unsigned{1} << Width");
@@ -390,37 +363,17 @@ fn render_signed_output_decoder(output: &mut String, metadata: &DutMetadata) {
     push_line(output, "            );");
     push_line(output, "        }");
     push_line(output, "");
-    push_line(
-        output,
-        "        const auto value = \
-         static_cast<Unsigned>(",
-    );
-    push_line(
-        output,
-        "            static_cast<Unsigned>(raw) \
-         & mask",
-    );
+    push_line(output, "        const auto value = static_cast<Unsigned>(");
+    push_line(output, "            static_cast<Unsigned>(raw) & mask");
     push_line(output, "        );");
     push_line(output, "");
     push_line(output, "        constexpr auto sign_bit =");
     push_line(output, "            static_cast<Unsigned>(");
-    push_line(
-        output,
-        "                Unsigned{1} \
-         << (Width - 1U)",
-    );
+    push_line(output, "                Unsigned{1} << (Width - 1U)");
     push_line(output, "            );");
     push_line(output, "");
-    push_line(
-        output,
-        "        if ((value & sign_bit) \
-         == Unsigned{0}) {",
-    );
-    push_line(
-        output,
-        "            return \
-         static_cast<Signed>(value);",
-    );
+    push_line(output, "        if ((value & sign_bit) == Unsigned{0}) {");
+    push_line(output, "            return static_cast<Signed>(value);");
     push_line(output, "        }");
     push_line(output, "");
     push_line(output, "        const auto magnitude =");
@@ -428,8 +381,7 @@ fn render_signed_output_decoder(output: &mut String, metadata: &DutMetadata) {
     push_line(output, "                static_cast<Unsigned>(");
     push_line(
         output,
-        "                    static_cast<Unsigned>(\
-         ~value) & mask",
+        "                    static_cast<Unsigned>(~value) & mask",
     );
     push_line(output, "                ) + Unsigned{1}");
     push_line(output, "            );");
@@ -437,17 +389,12 @@ fn render_signed_output_decoder(output: &mut String, metadata: &DutMetadata) {
     push_line(output, "        if (");
     push_line(output, "            magnitude");
     push_line(output, "            > static_cast<Unsigned>(");
-    push_line(
-        output,
-        "                std::numeric_limits<\
-         Signed>::max()",
-    );
+    push_line(output, "                std::numeric_limits<Signed>::max()");
     push_line(output, "            )");
     push_line(output, "        ) {");
     push_line(
         output,
-        "            return \
-         std::numeric_limits<Signed>::min();",
+        "            return std::numeric_limits<Signed>::min();",
     );
     push_line(output, "        }");
     push_line(output, "");
@@ -638,18 +585,13 @@ fn render_setter(output: &mut String, port: &Port, method: &str, accessor: &str,
     push_line(
         output,
         &format!(
-            "void {cpp_type}::{method}(\
-             const {} value) noexcept {{",
+            "void {cpp_type}::{method}(const {} value) noexcept {{",
             signal_type.cpp_type()
         ),
     );
     push_line(
         output,
-        &format!(
-            "    using RawType = \
-             std::decay_t<decltype(\
-             impl_->model->{accessor}())>;"
-        ),
+        &format!("    using RawType = std::decay_t<decltype(impl_->model->{accessor}())>;"),
     );
 
     if port.signed {
@@ -663,8 +605,7 @@ fn render_setter(output: &mut String, port: &Port, method: &str, accessor: &str,
         push_line(output, "");
         push_line(
             output,
-            "    const auto bits = \
-             static_cast<UnsignedType>(value);",
+            "    const auto bits = static_cast<UnsignedType>(value);",
         );
 
         let value_expression = signal_type
@@ -673,11 +614,7 @@ fn render_setter(output: &mut String, port: &Port, method: &str, accessor: &str,
 
         push_line(
             output,
-            &format!(
-                "    RawType raw_value{{\
-                 static_cast<RawType>(\
-                 {value_expression})}};"
-            ),
+            &format!("    RawType raw_value{{static_cast<RawType>({value_expression})}};"),
         );
     } else {
         let value_expression = signal_type
@@ -687,11 +624,7 @@ fn render_setter(output: &mut String, port: &Port, method: &str, accessor: &str,
         push_line(output, "");
         push_line(
             output,
-            &format!(
-                "    RawType raw_value{{\
-                 static_cast<RawType>(\
-                 {value_expression})}};"
-            ),
+            &format!("    RawType raw_value{{static_cast<RawType>({value_expression})}};"),
         );
     }
 
@@ -707,8 +640,7 @@ fn render_getter(output: &mut String, port: &Port, method: &str, accessor: &str,
     push_line(
         output,
         &format!(
-            "{} {cpp_type}::{method}() \
-             const noexcept {{",
+            "{} {cpp_type}::{method}() const noexcept {{",
             signal_type.cpp_type()
         ),
     );
@@ -716,17 +648,13 @@ fn render_getter(output: &mut String, port: &Port, method: &str, accessor: &str,
     if signal_type == SignalType::Bool {
         push_line(
             output,
-            &format!(
-                "    return \
-                 impl_->model->{accessor}() != 0;"
-            ),
+            &format!("    return impl_->model->{accessor}() != 0;"),
         );
     } else if port.signed {
         push_line(
             output,
             &format!(
-                "    return \
-                 Impl::sign_extend<{}, {}>(",
+                "    return Impl::sign_extend<{}, {}>(",
                 signal_type.cpp_type(),
                 port.width.get(),
             ),
@@ -737,9 +665,7 @@ fn render_getter(output: &mut String, port: &Port, method: &str, accessor: &str,
         push_line(
             output,
             &format!(
-                "    return static_cast<{}>(\
-                 impl_->model->{accessor}() \
-                 & {mask});",
+                "    return static_cast<{}>(impl_->model->{accessor}() & {mask});",
                 signal_type.cpp_type()
             ),
         );
@@ -747,8 +673,7 @@ fn render_getter(output: &mut String, port: &Port, method: &str, accessor: &str,
         push_line(
             output,
             &format!(
-                "    return static_cast<{}>(\
-                 impl_->model->{accessor}());",
+                "    return static_cast<{}>(impl_->model->{accessor}());",
                 signal_type.cpp_type()
             ),
         );
@@ -796,15 +721,9 @@ mod tests {
 
         assert!(output.contains("using UnsignedType = std::uint8_t;"));
 
-        assert!(output.contains(
-            "const auto bits = \
-             static_cast<UnsignedType>(value);"
-        ));
+        assert!(output.contains("const auto bits = static_cast<UnsignedType>(value);"));
 
-        assert!(output.contains(
-            "bits & \
-             static_cast<std::uint8_t>(0x1FULL)"
-        ));
+        assert!(output.contains("bits & static_cast<std::uint8_t>(0x1FULL)"));
 
         assert!(!output.contains("value &"));
 
@@ -820,10 +739,7 @@ mod tests {
 
         assert!(output.contains("using UnsignedType = std::uint64_t;"));
 
-        assert!(output.contains(
-            "RawType raw_value{\
-             static_cast<RawType>(bits)};"
-        ));
+        assert!(output.contains("RawType raw_value{static_cast<RawType>(bits)};"));
 
         Ok(())
     }

@@ -11,6 +11,7 @@ repos:
     files: ^(?!\.gitlab-ci\.yml$).*\.ya?ml$
 
   - id: pretty-format-json
+    files: ^(?!crates/vvm-build/tests/fixtures/.*).*\.json$
   - id: check-added-large-files
 
 - repo: https://github.com/matthorgan/pre-commit-conventional-commits

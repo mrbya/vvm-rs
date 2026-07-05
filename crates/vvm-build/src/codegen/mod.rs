@@ -111,6 +111,25 @@ mod tests {
         Ok(normalize("counter", "counter", &raw)?)
     }
 
+    fn signed_ports_metadata() -> Result<crate::metadata::DutMetadata, Box<dyn std::error::Error>> {
+        let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+
+        let metadata_fixture = manifest
+            .join("tests")
+            .join("fixtures")
+            .join("verilator")
+            .join("5.048")
+            .join("signed_ports");
+
+        let raw = RawMetadata::from_paths(
+            VerilatorVersion::new(5, 48),
+            &metadata_fixture.join("signed_ports.tree.json"),
+            &metadata_fixture.join("signed_ports.tree.meta.json"),
+        )?;
+
+        Ok(normalize("signed_ports", "signed_ports", &raw)?)
+    }
+
     fn expected_codegen_directory(name: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("tests")
@@ -224,6 +243,56 @@ mod tests {
         assert!(wrapper.contains("impl ::vvm::Dut for Counter"));
         assert!(wrapper.contains("impl Drop for Counter"));
         assert!(wrapper.contains("impl std::fmt::Debug for Counter"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn generates_signed_port_artifacts_from_fixture() -> Result<(), Box<dyn std::error::Error>> {
+        let metadata = signed_ports_metadata()?;
+        let output = tempdir()?;
+        let generated = generate(&metadata, "Vsigned_ports", output.path(), None)?;
+
+        let header = std::fs::read_to_string(&generated.cpp_header)?;
+        let source = std::fs::read_to_string(&generated.cpp_source)?;
+        let bridge = std::fs::read_to_string(&generated.cxx_bridge)?;
+        let wrapper = std::fs::read_to_string(&generated.rust_wrapper)?;
+
+        assert!(header.contains("void set_input_i1(std::int8_t value) noexcept;"));
+        assert!(header.contains("void set_input_i5(std::int8_t value) noexcept;"));
+        assert!(header.contains("void set_input_i9(std::int16_t value) noexcept;"));
+        assert!(header.contains("void set_input_i17(std::int32_t value) noexcept;"));
+        assert!(header.contains("void set_input_i33(std::int64_t value) noexcept;"));
+        assert!(header.contains("void set_input_i64(std::int64_t value) noexcept;"));
+        assert!(header.contains("std::int8_t output_i1() const noexcept;"));
+        assert!(header.contains("std::int64_t output_i64() const noexcept;"));
+
+        assert!(source.contains("    }\n\n    template <typename Signed,"));
+        assert!(source.contains("using UnsignedType = std::uint8_t;"));
+        assert!(source.contains("using UnsignedType = std::uint16_t;"));
+        assert!(source.contains("using UnsignedType = std::uint32_t;"));
+        assert!(source.contains("using UnsignedType = std::uint64_t;"));
+        assert!(source.contains("static_cast<std::uint8_t>(0x1FULL)"));
+        assert!(source.contains("Impl::sign_extend<std::int8_t, 1>("));
+        assert!(source.contains("Impl::sign_extend<std::int8_t, 5>("));
+        assert!(source.contains("Impl::sign_extend<std::int16_t, 9>("));
+        assert!(source.contains("Impl::sign_extend<std::int32_t, 17>("));
+        assert!(source.contains("Impl::sign_extend<std::int64_t, 33>("));
+        assert!(source.contains("Impl::sign_extend<std::int64_t, 64>("));
+
+        assert!(bridge.contains("fn set_input_i1(self: Pin<&mut SignedPorts>, value: i8);"));
+        assert!(bridge.contains("fn set_input_i9(self: Pin<&mut SignedPorts>, value: i16);"));
+        assert!(bridge.contains("fn set_input_i17(self: Pin<&mut SignedPorts>, value: i32);"));
+        assert!(bridge.contains("fn set_input_i33(self: Pin<&mut SignedPorts>, value: i64);"));
+        assert!(bridge.contains("fn output_i1(self: &SignedPorts) -> i8;"));
+        assert!(bridge.contains("fn output_i64(self: &SignedPorts) -> i64;"));
+
+        assert!(wrapper.contains("pub fn set_input_i1(&mut self, value: i8) -> Result<()> {"));
+        assert!(wrapper.contains("pub fn set_input_i9(&mut self, value: i16) -> Result<()> {"));
+        assert!(wrapper.contains("pub fn set_input_i17(&mut self, value: i32) -> Result<()> {"));
+        assert!(wrapper.contains("pub fn set_input_i33(&mut self, value: i64) -> Result<()> {"));
+        assert!(wrapper.contains("pub fn output_i1(&self) -> Result<i8> {"));
+        assert!(wrapper.contains("pub fn output_i64(&self) -> Result<i64> {"));
 
         Ok(())
     }

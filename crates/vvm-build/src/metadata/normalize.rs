@@ -496,6 +496,15 @@ mod tests {
             .join("counter")
     }
 
+    fn signed_ports_fixture() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("verilator")
+            .join("5.048")
+            .join("signed_ports")
+    }
+
     #[test]
     fn normalizes_counter_fixture() -> Result<(), Box<dyn std::error::Error>> {
         let fixture = counter_fixture();
@@ -541,6 +550,58 @@ mod tests {
 
         assert_eq!(actual, expected);
         validate_supported(&actual)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn normalizes_signed_ports_fixture() -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = signed_ports_fixture();
+
+        let raw = RawMetadata::from_paths(
+            VerilatorVersion::new(5, 48),
+            &fixture.join("signed_ports.tree.json"),
+            &fixture.join("signed_ports.tree.meta.json"),
+        )?;
+
+        let actual = normalize("signed_ports", "signed_ports", &raw)?;
+        let expected_ports = [
+            ("input_i1", PortDirection::Input, 1),
+            ("input_i5", PortDirection::Input, 5),
+            ("input_i9", PortDirection::Input, 9),
+            ("input_i17", PortDirection::Input, 17),
+            ("input_i33", PortDirection::Input, 33),
+            ("input_i64", PortDirection::Input, 64),
+            ("output_i1", PortDirection::Output, 1),
+            ("output_i5", PortDirection::Output, 5),
+            ("output_i9", PortDirection::Output, 9),
+            ("output_i17", PortDirection::Output, 17),
+            ("output_i33", PortDirection::Output, 33),
+            ("output_i64", PortDirection::Output, 64),
+        ]
+        .into_iter()
+        .map(|(name, direction, bit_width)| Port {
+            name: name.to_owned(),
+            direction,
+            width: width(bit_width),
+            signed: true,
+        })
+        .collect();
+
+        let expected = DutMetadata {
+            name: "signed_ports".to_owned(),
+            top_module: "signed_ports".to_owned(),
+            ports: expected_ports,
+        };
+
+        assert_eq!(actual, expected);
+
+        // The public builder gate intentionally remains closed until 11.1.4.
+        assert!(matches!(
+            validate_supported(&actual),
+            Err(BuildError::UnsupportedSignedPort { port })
+                if port == "input_i1"
+        ));
 
         Ok(())
     }

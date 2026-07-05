@@ -360,13 +360,6 @@ pub enum BuildError {
         port: String,
     },
 
-    /// Signed ports are not currently supported.
-    #[error("port `{port}` is signed; signed ports are not supported")]
-    UnsupportedSignedPort {
-        /// HDL port name.
-        port: String,
-    },
-
     /// Port width exceeds the current VVM limit.
     #[error("port `{port}` is {width} bits wide; the current maximum is {maximum}")]
     UnsupportedPortWidth {

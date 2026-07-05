@@ -98,17 +98,11 @@ pub fn normalize(dut_name: &str, top_module: &str, raw: &RawMetadata) -> BuildRe
 ///
 /// # Errors
 ///
-/// Returns an error for inout ports, signed ports, or widths above 64 bits.
+/// Returns an error for inout ports or widths above 64 bits.
 pub fn validate_supported(metadata: &DutMetadata) -> BuildResult<()> {
     for port in &metadata.ports {
         if port.direction == PortDirection::Inout {
             return Err(BuildError::UnsupportedInoutPort {
-                port: port.name.clone(),
-            });
-        }
-
-        if port.signed {
-            return Err(BuildError::UnsupportedSignedPort {
                 port: port.name.clone(),
             });
         }
@@ -596,12 +590,7 @@ mod tests {
 
         assert_eq!(actual, expected);
 
-        // The public builder gate intentionally remains closed until 11.1.4.
-        assert!(matches!(
-            validate_supported(&actual),
-            Err(BuildError::UnsupportedSignedPort { port })
-                if port == "input_i1"
-        ));
+        validate_supported(&actual)?;
 
         Ok(())
     }
@@ -661,23 +650,92 @@ mod tests {
     }
 
     #[test]
-    fn rejects_currently_unsupported_signed_port() {
+    fn rejects_signed_port_wider_than_sixty_four_bits() {
         let metadata = DutMetadata {
             name: "dut".to_owned(),
             top_module: "dut".to_owned(),
             ports: vec![Port {
                 name: "value".to_owned(),
-                direction: PortDirection::Input,
-                width: width(8),
+                direction: PortDirection::Output,
+                width: width(65),
                 signed: true,
             }],
         };
 
         assert!(matches!(
             validate_supported(&metadata),
-            Err(BuildError::UnsupportedSignedPort { port })
-                if port == "value"
+            Err(BuildError::UnsupportedPortWidth {
+                port,
+                width: 65,
+                maximum: 64,
+            }) if port == "value"
         ));
+    }
+
+    #[test]
+    fn accepts_signed_ports_up_to_sixty_four_bits() -> Result<(), BuildError> {
+        let metadata = DutMetadata {
+            name: "dut".to_owned(),
+            top_module: "dut".to_owned(),
+            ports: vec![
+                Port {
+                    name: "signed_i1".to_owned(),
+                    direction: PortDirection::Input,
+                    width: width(1),
+                    signed: true,
+                },
+                Port {
+                    name: "signed_i5".to_owned(),
+                    direction: PortDirection::Input,
+                    width: width(5),
+                    signed: true,
+                },
+                Port {
+                    name: "signed_i8".to_owned(),
+                    direction: PortDirection::Input,
+                    width: width(8),
+                    signed: true,
+                },
+                Port {
+                    name: "signed_i9".to_owned(),
+                    direction: PortDirection::Input,
+                    width: width(9),
+                    signed: true,
+                },
+                Port {
+                    name: "signed_i16".to_owned(),
+                    direction: PortDirection::Input,
+                    width: width(16),
+                    signed: true,
+                },
+                Port {
+                    name: "signed_i17".to_owned(),
+                    direction: PortDirection::Output,
+                    width: width(17),
+                    signed: true,
+                },
+                Port {
+                    name: "signed_i32".to_owned(),
+                    direction: PortDirection::Output,
+                    width: width(32),
+                    signed: true,
+                },
+                Port {
+                    name: "signed_i33".to_owned(),
+                    direction: PortDirection::Output,
+                    width: width(33),
+                    signed: true,
+                },
+                Port {
+                    name: "signed_i64".to_owned(),
+                    direction: PortDirection::Output,
+                    width: width(64),
+                    signed: true,
+                },
+            ],
+        };
+
+        validate_supported(&metadata)
     }
 
     #[test]

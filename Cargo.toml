@@ -5,6 +5,7 @@ members = [
     "crates/vvm-core",
     "crates/vvm-macros",
     "examples/counter",
+    "examples/signed-adder",
 ]
 resolver = "2"
 

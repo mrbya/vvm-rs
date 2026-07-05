@@ -10,8 +10,8 @@
 /target
 /coverage
 /release
-*.log
-*.vcd
+*/**/*.log
+*/**/*.vcd
 
 # Docs
 /docs-page

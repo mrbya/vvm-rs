@@ -4,7 +4,6 @@
 // clippy WARN level lints
 #![warn(
     missing_docs,
-    //clippy::cargo,
     clippy::pedantic,
     clippy::nursery,
     clippy::dbg_macro,
@@ -62,6 +61,8 @@
     clippy::verbose_file_reads
 )]
 
+/// Arbitrary-width packed bit values.
+pub(crate) mod bits;
 /// Synchronous clock-driving abstraction.
 pub(crate) mod clock;
 /// Stimulus driving abstraction.
@@ -90,6 +91,7 @@ pub(crate) mod testbench;
 pub(crate) mod time;
 
 // Re-exports
+pub use bits::{Bits, InvalidBitVectorWordCount, SignedBits};
 pub use clock::Clock;
 pub use drive::Drive;
 pub use dut::{Dut, TraceableDut};

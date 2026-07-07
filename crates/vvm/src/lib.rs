@@ -92,13 +92,13 @@ pub(crate) mod test;
 
 #[doc(inline)]
 pub use vvm_core::{
-    CheckFailure, Clock, CycleTiming, DetailedTestReport, Drive, Dut, ExactScoreboard,
-    FailurePolicy, IntoTestOutcome, InvalidFailureLimit, InvalidTimeStep, Mismatch,
-    ParseReplayTokenError, RandomAlgorithm, RandomContext, Randomize, ReferenceModel, ReplayToken,
-    ReplayableSequence, Sample, Scoreboard, Seed, SimulationError, SimulationStage, SimulationTime,
-    TestCapabilities, TestDescriptor, TestFunction, TestOutcome, TestRegistry, TestRegistryError,
-    TestResult, TestRun, TestRunConfig, TestStatistics, TestStatus, TestSummary, Testbench,
-    TimeStep, TraceableDut,
+    Bits, CheckFailure, Clock, CycleTiming, DetailedTestReport, Drive, Dut, ExactScoreboard,
+    FailurePolicy, IntoTestOutcome, InvalidBitVectorWordCount, InvalidFailureLimit,
+    InvalidTimeStep, Mismatch, ParseReplayTokenError, RandomAlgorithm, RandomContext, Randomize,
+    ReferenceModel, ReplayToken, ReplayableSequence, Sample, Scoreboard, Seed, SignedBits,
+    SimulationError, SimulationStage, SimulationTime, TestCapabilities, TestDescriptor,
+    TestFunction, TestOutcome, TestRegistry, TestRegistryError, TestResult, TestRun, TestRunConfig,
+    TestStatistics, TestStatus, TestSummary, Testbench, TimeStep, TraceableDut,
 };
 #[doc(inline)]
 pub use vvm_macros::{Clock, Drive, Sample, test};
@@ -113,9 +113,9 @@ pub use vvm_macros::{Clock, Drive, Sample, test};
 /// ```
 pub mod prelude {
     pub use crate::{
-        Clock, CycleTiming, Drive, Dut, ExactScoreboard, FailurePolicy, RandomContext, Randomize,
-        ReferenceModel, ReplayableSequence, Sample, Scoreboard, Seed, SimulationTime,
-        TestDescriptor, TestRegistryError, TestRunConfig, Testbench, TimeStep,
+        Bits, Clock, CycleTiming, Drive, Dut, ExactScoreboard, FailurePolicy, RandomContext,
+        Randomize, ReferenceModel, ReplayableSequence, Sample, Scoreboard, Seed, SignedBits,
+        SimulationTime, TestDescriptor, TestRegistryError, TestRunConfig, Testbench, TimeStep,
     };
 }
 

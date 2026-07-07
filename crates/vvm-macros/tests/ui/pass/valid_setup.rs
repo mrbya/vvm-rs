@@ -56,11 +56,17 @@ impl vvm::Dut for MockDut {
 }
 
 impl MockDut {
-    pub fn set_enable(&mut self, _value: bool) -> Result<(), Infallible> {
+    pub fn set_enable(
+        &mut self,
+        _value: impl ::core::borrow::Borrow<bool>,
+    ) -> Result<(), Infallible> {
         Ok(())
     }
 
-    pub fn set_reset_n(&mut self, _value: bool) -> Result<(), Infallible> {
+    pub fn set_reset_n(
+        &mut self,
+        _value: impl ::core::borrow::Borrow<bool>,
+    ) -> Result<(), Infallible> {
         Ok(())
     }
 

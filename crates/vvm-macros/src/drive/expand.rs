@@ -29,7 +29,7 @@ pub(super) fn expand(input: Input) -> TokenStream {
         let span = setter.span();
 
         quote_spanned! {span=>
-            __vvm_dut.#setter(self.#field_ident)?;
+            __vvm_dut.#setter(&self.#field_ident)?;
         }
     });
 
@@ -80,7 +80,10 @@ mod tests {
         assert!(tokens.contains("set_enable"));
         assert!(tokens.contains("set_reset_n"));
         assert!(tokens.contains("vvm :: Drive"));
-        assert!(tokens.contains("Drive"));
+
+        assert!(tokens.contains("set_enable (& self . enable)",),);
+
+        assert!(tokens.contains("set_reset_n (& self . reset)",),);
 
         Ok(())
     }

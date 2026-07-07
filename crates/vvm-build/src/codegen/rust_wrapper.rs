@@ -640,10 +640,17 @@ fn render_timing(output: &mut String, names: &DutNames) {
 fn render_input(output: &mut String, port: &Port, method: &str) {
     let signal_type = SignalType::from_port(port);
 
+    let rust_type = signal_type.rust_type();
+
     push_line(output, "");
     push_line(
         output,
-        &format!("    /// Drives the `{}` DUT input.", port.name),
+        &format!("    /// Drives the `{}` DUT input.", port.name,),
+    );
+    push_line(output, "    ///");
+    push_line(
+        output,
+        "    /// The value may be supplied by value or by reference.",
     );
     push_line(output, "    ///");
     push_line(output, "    /// # Errors");
@@ -652,18 +659,32 @@ fn render_input(output: &mut String, port: &Port, method: &str) {
         output,
         "    /// Returns an error if the DUT has already been finished.",
     );
+
+    push_line(output, "    #[allow(clippy::needless_pass_by_value)]");
+
+    push_line(output, &format!("    pub fn {method}(",));
+    push_line(output, "        &mut self,");
     push_line(
         output,
-        &format!(
-            "    pub fn {method}(&mut self, value: {}) -> Result<()> {{",
-            signal_type.rust_type()
-        ),
+        &format!("        value: impl ::core::borrow::Borrow<{rust_type}>,",),
     );
+    push_line(output, "    ) -> Result<()> {");
+
     push_line(output, "        self.ensure_running()?;");
+    push_line(output, "");
+
+    push_line(output, &format!("        let value: {rust_type} =",));
     push_line(
         output,
-        &format!("        self.inner_mut()?.{method}(value);"),
+        "            *::core::borrow::Borrow::borrow(&value);",
     );
+    push_line(output, "");
+
+    push_line(
+        output,
+        &format!("        self.inner_mut()?.{method}(value);",),
+    );
+
     push_line(output, "");
     push_line(output, "        Ok(())");
     push_line(output, "    }");

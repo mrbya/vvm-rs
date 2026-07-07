@@ -1,5 +1,7 @@
 //! Public facade integration coverage.
 
+use std::borrow::Borrow;
+
 use vvm::TraceableDut;
 use vvm::prelude::*;
 
@@ -42,21 +44,23 @@ impl MockDut {
         Ok(())
     }
 
-    fn set_reset_n(&mut self, value: bool) -> Result<(), MockError> {
+    #[allow(clippy::needless_pass_by_value)]
+    fn set_reset_n(&mut self, value: impl Borrow<bool>) -> Result<(), MockError> {
         if self.lifecycle == Lifecycle::Finalized {
             return Err(MockError::Finalized);
         }
 
-        self.reset_n = value;
+        self.reset_n = *value.borrow();
         Ok(())
     }
 
-    fn set_enable(&mut self, value: bool) -> Result<(), MockError> {
+    #[allow(clippy::needless_pass_by_value)]
+    fn set_enable(&mut self, value: impl Borrow<bool>) -> Result<(), MockError> {
         if self.lifecycle == Lifecycle::Finalized {
             return Err(MockError::Finalized);
         }
 
-        self.enable = value;
+        self.enable = *value.borrow();
         Ok(())
     }
 

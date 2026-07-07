@@ -287,10 +287,11 @@ mod tests {
         assert!(bridge.contains("fn output_i1(self: &SignedPorts) -> i8;"));
         assert!(bridge.contains("fn output_i64(self: &SignedPorts) -> i64;"));
 
-        assert!(wrapper.contains("pub fn set_input_i1(&mut self, value: i8) -> Result<()> {"));
-        assert!(wrapper.contains("pub fn set_input_i9(&mut self, value: i16) -> Result<()> {"));
-        assert!(wrapper.contains("pub fn set_input_i17(&mut self, value: i32) -> Result<()> {"));
-        assert!(wrapper.contains("pub fn set_input_i33(&mut self, value: i64) -> Result<()> {"));
+        assert!(wrapper.contains("value: impl ::core::borrow::Borrow<i8>"));
+        assert!(wrapper.contains("value: impl ::core::borrow::Borrow<i16>"));
+        assert!(wrapper.contains("value: impl ::core::borrow::Borrow<i32>"));
+        assert!(wrapper.contains("value: impl ::core::borrow::Borrow<i64>"));
+        assert!(wrapper.contains("*::core::borrow::Borrow::borrow(&value)"));
         assert!(wrapper.contains("pub fn output_i1(&self) -> Result<i8> {"));
         assert!(wrapper.contains("pub fn output_i64(&self) -> Result<i64> {"));
 

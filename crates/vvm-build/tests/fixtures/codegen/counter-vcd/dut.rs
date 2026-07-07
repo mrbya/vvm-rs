@@ -273,11 +273,21 @@ impl Counter {
 
     /// Drives the `clk` DUT input.
     ///
+    /// The value may be supplied by value or by reference.
+    ///
     /// # Errors
     ///
     /// Returns an error if the DUT has already been finished.
-    pub fn set_clk(&mut self, value: bool) -> Result<()> {
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn set_clk(
+        &mut self,
+        value: impl ::core::borrow::Borrow<bool>,
+    ) -> Result<()> {
         self.ensure_running()?;
+
+        let value: bool =
+            *::core::borrow::Borrow::borrow(&value);
+
         self.inner_mut()?.set_clk(value);
 
         Ok(())
@@ -285,11 +295,21 @@ impl Counter {
 
     /// Drives the `reset_n` DUT input.
     ///
+    /// The value may be supplied by value or by reference.
+    ///
     /// # Errors
     ///
     /// Returns an error if the DUT has already been finished.
-    pub fn set_reset_n(&mut self, value: bool) -> Result<()> {
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn set_reset_n(
+        &mut self,
+        value: impl ::core::borrow::Borrow<bool>,
+    ) -> Result<()> {
         self.ensure_running()?;
+
+        let value: bool =
+            *::core::borrow::Borrow::borrow(&value);
+
         self.inner_mut()?.set_reset_n(value);
 
         Ok(())
@@ -297,11 +317,21 @@ impl Counter {
 
     /// Drives the `enable` DUT input.
     ///
+    /// The value may be supplied by value or by reference.
+    ///
     /// # Errors
     ///
     /// Returns an error if the DUT has already been finished.
-    pub fn set_enable(&mut self, value: bool) -> Result<()> {
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn set_enable(
+        &mut self,
+        value: impl ::core::borrow::Borrow<bool>,
+    ) -> Result<()> {
         self.ensure_running()?;
+
+        let value: bool =
+            *::core::borrow::Borrow::borrow(&value);
+
         self.inner_mut()?.set_enable(value);
 
         Ok(())

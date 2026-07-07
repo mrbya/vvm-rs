@@ -135,6 +135,7 @@ struct MockClock;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Drive)]
 #[vvm(dut = MockDut)]
+#[allow(clippy::needless_pass_by_value)]
 struct Stimulus {
     #[vvm(port)]
     reset_n: bool,

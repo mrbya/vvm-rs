@@ -645,7 +645,7 @@ fn render_input(output: &mut String, port: &Port, method: &str) {
     push_line(output, "");
     push_line(
         output,
-        &format!("    /// Drives the `{}` DUT input.", port.name,),
+        &format!("    /// Drives the `{}` DUT input.", port.name),
     );
     push_line(output, "    ///");
     push_line(
@@ -662,18 +662,18 @@ fn render_input(output: &mut String, port: &Port, method: &str) {
 
     push_line(output, "    #[allow(clippy::needless_pass_by_value)]");
 
-    push_line(output, &format!("    pub fn {method}(",));
+    push_line(output, &format!("    pub fn {method}("));
     push_line(output, "        &mut self,");
     push_line(
         output,
-        &format!("        value: impl ::core::borrow::Borrow<{rust_type}>,",),
+        &format!("        value: impl ::core::borrow::Borrow<{rust_type}>,"),
     );
     push_line(output, "    ) -> Result<()> {");
 
     push_line(output, "        self.ensure_running()?;");
     push_line(output, "");
 
-    push_line(output, &format!("        let value: {rust_type} =",));
+    push_line(output, &format!("        let value: {rust_type} ="));
     push_line(
         output,
         "            *::core::borrow::Borrow::borrow(&value);",
@@ -682,7 +682,7 @@ fn render_input(output: &mut String, port: &Port, method: &str) {
 
     push_line(
         output,
-        &format!("        self.inner_mut()?.{method}(value);",),
+        &format!("        self.inner_mut()?.{method}(value);"),
     );
 
     push_line(output, "");

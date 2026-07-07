@@ -34,6 +34,8 @@ pub(super) fn expand(input: Input) -> TokenStream {
     });
 
     quote! {
+        #[allow(clippy::needless_pass_by_value)]
+        #[allow(clippy::needless_borrows_for_generic_args)]
         impl #impl_generics
             ::vvm::Drive<#dut>
             for #ident #type_generics

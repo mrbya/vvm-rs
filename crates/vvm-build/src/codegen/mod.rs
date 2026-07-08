@@ -83,14 +83,57 @@ pub fn generate(
 
 #[cfg(test)]
 mod tests {
+    use std::num::NonZeroU32;
     use std::path::{Path, PathBuf};
 
     use tempfile::tempdir;
 
     use super::generate;
     use crate::TraceOptions;
-    use crate::metadata::{RawMetadata, normalize};
+    use crate::metadata::{BitWidth, DutMetadata, Port, PortDirection, RawMetadata, normalize};
     use crate::verilator::VerilatorVersion;
+
+    fn width(value: u32) -> Result<BitWidth, Box<dyn std::error::Error>> {
+        Ok(BitWidth::new(NonZeroU32::new(value).ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "test width must be non-zero",
+            )
+        })?))
+    }
+
+    fn wide_ports_metadata() -> Result<DutMetadata, Box<dyn std::error::Error>> {
+        Ok(DutMetadata {
+            name: "wide_ports".to_owned(),
+            top_module: "wide_ports".to_owned(),
+            ports: vec![
+                Port {
+                    name: "input_u65".to_owned(),
+                    direction: PortDirection::Input,
+                    width: width(65)?,
+                    signed: false,
+                },
+                Port {
+                    name: "input_i129".to_owned(),
+                    direction: PortDirection::Input,
+                    width: width(129)?,
+                    signed: true,
+                },
+                Port {
+                    name: "output_u96".to_owned(),
+                    direction: PortDirection::Output,
+                    width: width(96)?,
+                    signed: false,
+                },
+                Port {
+                    name: "output_i129".to_owned(),
+                    direction: PortDirection::Output,
+                    width: width(129)?,
+                    signed: true,
+                },
+            ],
+        })
+    }
 
     fn counter_metadata() -> Result<crate::metadata::DutMetadata, Box<dyn std::error::Error>> {
         let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -441,11 +484,68 @@ mod tests {
     }
 
     #[test]
+    fn wide_codegen_generates_slice_based_artifacts() -> Result<(), Box<dyn std::error::Error>> {
+        let metadata = wide_ports_metadata()?;
+        let output = tempdir()?;
+        let generated = generate(&metadata, "Vwide_ports", output.path(), None)?;
+
+        let header = std::fs::read_to_string(&generated.cpp_header)?;
+        let source = std::fs::read_to_string(&generated.cpp_source)?;
+        let bridge = std::fs::read_to_string(&generated.cxx_bridge)?;
+        let wrapper = std::fs::read_to_string(&generated.rust_wrapper)?;
+
+        assert!(header.contains("#include \"rust/cxx.h\""));
+        assert!(
+            header.contains("bool set_input_u65(rust::Slice<const std::uint32_t> words) noexcept;")
+        );
+        assert!(
+            header
+                .contains("bool set_input_i129(rust::Slice<const std::uint32_t> words) noexcept;")
+        );
+        assert!(
+            header.contains("bool output_u96(rust::Slice<std::uint32_t> words) const noexcept;")
+        );
+        assert!(
+            header.contains("bool output_i129(rust::Slice<std::uint32_t> words) const noexcept;")
+        );
+        assert!(!header.contains("set_input_u65(std::uint64_t value) noexcept"));
+        assert!(!header.contains("output_u96() const noexcept"));
+
+        assert!(source.contains("constexpr std::size_t expected_words{3};"));
+        assert!(source.contains("constexpr std::size_t expected_words{5};"));
+        assert!(source.contains("static_assert(RawType::Words == expected_words);"));
+        assert!(source.contains("if (words.size() != expected_words) {"));
+        assert!(source.contains("return false;"));
+        assert!(source.contains("raw_value[index] = words[index];"));
+        assert!(source.contains("words[index] = raw_value[index];"));
+        assert!(source.contains("raw_value[2] &= 0x1U;"));
+        assert!(source.contains("raw_value[4] &= 0x1U;"));
+        assert!(source.contains("words[4] &= 0x1U;"));
+        assert!(!source.contains("words[2] &= 0xFFFFFFFFU;"));
+
+        assert!(
+            bridge.contains("fn set_input_u65(self: Pin<&mut WidePorts>, words: &[u32]) -> bool;")
+        );
+        assert!(
+            bridge.contains("fn set_input_i129(self: Pin<&mut WidePorts>, words: &[u32]) -> bool;")
+        );
+        assert!(bridge.contains("fn output_u96(self: &WidePorts, words: &mut [u32]) -> bool;"));
+        assert!(bridge.contains("fn output_i129(self: &WidePorts, words: &mut [u32]) -> bool;"));
+
+        assert!(wrapper.contains("value: impl ::core::borrow::Borrow<::vvm::Bits<65>>"));
+        assert!(wrapper.contains("value: impl ::core::borrow::Borrow<::vvm::SignedBits<129>>"));
+        assert!(wrapper.contains("pub fn output_u96(&self) -> Result<::vvm::Bits<96>> {"));
+        assert!(wrapper.contains("pub fn output_i129(&self) -> Result<::vvm::SignedBits<129>> {"));
+        assert!(wrapper.contains("vec![0_u32; ::vvm::Bits::<96>::WORDS];"));
+        assert!(wrapper.contains("vec![0_u32; ::vvm::SignedBits::<129>::WORDS];"));
+        assert!(wrapper.contains("WidePortTransferFailed"));
+        assert!(wrapper.contains(".map_err(|_error| {"));
+
+        Ok(())
+    }
+
+    #[test]
     fn preserves_metadata_port_order() -> Result<(), Box<dyn std::error::Error>> {
-        use std::num::NonZeroU32;
-
-        use crate::metadata::{BitWidth, DutMetadata, Port, PortDirection};
-
         let width = BitWidth::new(NonZeroU32::MIN);
 
         let metadata = DutMetadata {

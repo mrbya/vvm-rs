@@ -2,7 +2,7 @@
 
 use super::GENERATED_NOTICE;
 use super::names::DutNames;
-use super::types::SignalType;
+use super::types::{PortType, SignalType, WideType, contains_wide_ports};
 use crate::TraceOptions;
 use crate::metadata::{DutMetadata, Port, PortDirection};
 use crate::trace::TraceFormat;
@@ -65,10 +65,10 @@ pub(super) fn render(
     for (port, port_names) in metadata.ports.iter().zip(&names.ports) {
         match port.direction {
             PortDirection::Input => {
-                render_input(&mut output, port, &port_names.method);
+                render_input(&mut output, port, &port_names.method, names);
             }
             PortDirection::Output => {
-                render_output(&mut output, port, &port_names.method);
+                render_output(&mut output, port, &port_names.method, names);
             }
             PortDirection::Inout => {}
         }
@@ -101,7 +101,7 @@ fn render_error(output: &mut String, metadata: &DutMetadata, names: &DutNames, t
     push_line(output, "#[allow(dead_code)]");
     push_line(output, "#[derive(Debug, Clone, Copy, PartialEq, Eq)]");
     push_line(output, &format!("pub enum {} {{", names.rust_error_type));
-    render_error_variants(output, traced);
+    render_error_variants(output, metadata, traced);
     push_line(output, "}");
     push_line(output, "");
 
@@ -115,7 +115,7 @@ fn render_error(output: &mut String, metadata: &DutMetadata, names: &DutNames, t
 }
 
 /// Renders the generated DUT error variants.
-fn render_error_variants(output: &mut String, traced: bool) {
+fn render_error_variants(output: &mut String, metadata: &DutMetadata, traced: bool) {
     push_line(
         output,
         "    /// The native Verilated model could not be constructed.",
@@ -136,6 +136,14 @@ fn render_error_variants(output: &mut String, traced: bool) {
     push_line(output, "");
     push_line(output, "    /// Simulation time would overflow.");
     push_line(output, "    TimeOverflow,");
+    if contains_wide_ports(metadata) {
+        push_line(output, "");
+        push_line(
+            output,
+            "    /// The generated wide-port transfer was rejected by the native adapter.",
+        );
+        push_line(output, "    WidePortTransferFailed,");
+    }
     if traced {
         push_line(output, "");
         push_line(
@@ -210,6 +218,13 @@ fn render_error_display(
             metadata.name
         ),
     );
+    if contains_wide_ports(metadata) {
+        push_line(
+            output,
+            "            Self::WidePortTransferFailed => {\"the native adapter rejected a \
+             wide-port transfer\"},",
+        );
+    }
     if traced {
         push_line(
             output,
@@ -637,9 +652,15 @@ fn render_timing(output: &mut String, names: &DutNames) {
 }
 
 /// Renders one typed input setter.
-fn render_input(output: &mut String, port: &Port, method: &str) {
-    let signal_type = SignalType::from_port(port);
+fn render_input(output: &mut String, port: &Port, method: &str, names: &DutNames) {
+    match PortType::from_port(port) {
+        PortType::Scalar(signal_type) => render_scalar_input(output, port, method, signal_type),
+        PortType::Wide(wide_type) => render_wide_input(output, port, method, wide_type, names),
+    }
+}
 
+/// Renders one scalar typed input setter.
+fn render_scalar_input(output: &mut String, port: &Port, method: &str, signal_type: SignalType) {
     let rust_type = signal_type.rust_type();
 
     push_line(output, "");
@@ -691,9 +712,15 @@ fn render_input(output: &mut String, port: &Port, method: &str) {
 }
 
 /// Renders one typed output getter.
-fn render_output(output: &mut String, port: &Port, method: &str) {
-    let signal_type = SignalType::from_port(port);
+fn render_output(output: &mut String, port: &Port, method: &str, names: &DutNames) {
+    match PortType::from_port(port) {
+        PortType::Scalar(signal_type) => render_scalar_output(output, port, method, signal_type),
+        PortType::Wide(wide_type) => render_wide_output(output, port, method, wide_type, names),
+    }
+}
 
+/// Renders one scalar typed output getter.
+fn render_scalar_output(output: &mut String, port: &Port, method: &str, signal_type: SignalType) {
     push_line(output, "");
     push_line(
         output,
@@ -716,6 +743,141 @@ fn render_output(output: &mut String, port: &Port, method: &str) {
     push_line(output, "        self.ensure_running()?;");
     push_line(output, "");
     push_line(output, &format!("        Ok(self.inner_ref()?.{method}())"));
+    push_line(output, "    }");
+}
+
+/// Renders one wide typed input setter.
+fn render_wide_input(
+    output: &mut String,
+    port: &Port,
+    method: &str,
+    wide_type: WideType,
+    names: &DutNames,
+) {
+    let rust_type = wide_type.rust_value_type();
+
+    push_line(output, "");
+    push_line(
+        output,
+        &format!("    /// Drives the `{}` DUT input.", port.name),
+    );
+    push_line(output, "    ///");
+    push_line(
+        output,
+        "    /// The value may be supplied by value or by reference.",
+    );
+    push_line(output, "    ///");
+    push_line(output, "    /// # Errors");
+    push_line(output, "    ///");
+    push_line(
+        output,
+        "    /// Returns an error if the DUT has already been finished or the native",
+    );
+    push_line(output, "    /// wide-port transfer is rejected.");
+    push_line(output, "    #[allow(clippy::needless_pass_by_value)]");
+    push_line(output, &format!("    pub fn {method}("));
+    push_line(output, "        &mut self,");
+    push_line(
+        output,
+        &format!("        value: impl ::core::borrow::Borrow<{rust_type}>,"),
+    );
+    push_line(output, "    ) -> Result<()> {");
+    push_line(output, "        self.ensure_running()?;");
+    push_line(output, "");
+    push_line(output, "        let value =");
+    push_line(
+        output,
+        "            ::core::borrow::Borrow::borrow(&value);",
+    );
+    push_line(output, "");
+    push_line(output, "        let transferred =");
+    push_line(output, &format!("            self.inner_mut()?.{method}("));
+    push_line(output, "                value.words_le(),");
+    push_line(output, "            );");
+    push_line(output, "");
+    push_line(output, "        if !transferred {");
+    push_line(output, "            return Err(");
+    push_line(
+        output,
+        &format!(
+            "                {}::WidePortTransferFailed,",
+            names.rust_error_type
+        ),
+    );
+    push_line(output, "            );");
+    push_line(output, "        }");
+    push_line(output, "");
+    push_line(output, "        Ok(())");
+    push_line(output, "    }");
+}
+
+/// Renders one wide typed output getter.
+fn render_wide_output(
+    output: &mut String,
+    port: &Port,
+    method: &str,
+    wide_type: WideType,
+    names: &DutNames,
+) {
+    let rust_type = wide_type.rust_value_type();
+    let constructor_type = wide_type.rust_constructor_type();
+
+    push_line(output, "");
+    push_line(
+        output,
+        &format!("    /// Samples the `{}` DUT output.", port.name),
+    );
+    push_line(output, "    ///");
+    push_line(output, "    /// # Errors");
+    push_line(output, "    ///");
+    push_line(
+        output,
+        "    /// Returns an error if the DUT has already been finished or the native",
+    );
+    push_line(output, "    /// wide-port transfer is rejected.");
+    push_line(
+        output,
+        &format!("    pub fn {method}(&self) -> Result<{rust_type}> {{"),
+    );
+    push_line(output, "        self.ensure_running()?;");
+    push_line(output, "");
+    push_line(output, "        let mut words =");
+    push_line(
+        output,
+        &format!("            vec![0_u32; {constructor_type}::WORDS];"),
+    );
+    push_line(output, "");
+    push_line(output, "        let transferred =");
+    push_line(
+        output,
+        &format!("            self.inner_ref()?.{method}(&mut words);"),
+    );
+    push_line(output, "");
+    push_line(output, "        if !transferred {");
+    push_line(output, "            return Err(");
+    push_line(
+        output,
+        &format!(
+            "                {}::WidePortTransferFailed,",
+            names.rust_error_type
+        ),
+    );
+    push_line(output, "            );");
+    push_line(output, "        }");
+    push_line(output, "");
+    push_line(
+        output,
+        &format!("        {constructor_type}::from_words_le(words)"),
+    );
+    push_line(output, "            .map_err(|_error| {");
+    push_line(
+        output,
+        &format!(
+            "                {}::WidePortTransferFailed",
+            names.rust_error_type
+        ),
+    );
+    push_line(output, "            })");
     push_line(output, "    }");
 }
 

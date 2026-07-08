@@ -1,4 +1,116 @@
-use crate::metadata::{BitWidth, Port};
+use crate::metadata::{BitWidth, DutMetadata, Port};
+
+/// Public generated type used by adapter methods.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PortType {
+    /// Scalar port represented by a primitive integer or bool.
+    Scalar(SignalType),
+
+    /// Wide port represented by VVM bit-vector wrappers.
+    Wide(WideType),
+}
+
+impl PortType {
+    /// Selects the generated type for a normalized port.
+    pub const fn from_port(port: &Port) -> Self {
+        if port.width.get() <= 64 {
+            Self::Scalar(SignalType::from_scalar_port(port))
+        } else {
+            Self::Wide(WideType::new(port.width, port.signed))
+        }
+    }
+
+    /// Returns whether the selected generated type is wide.
+    pub const fn is_wide(self) -> bool {
+        matches!(self, Self::Wide(_))
+    }
+}
+
+/// Public wide type used by generated adapter methods.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WideType {
+    /// Total packed width in bits.
+    width: BitWidth,
+
+    /// Whether the public Rust wrapper uses a signed bit-vector type.
+    signed: bool,
+}
+
+impl WideType {
+    /// Creates a wide type description.
+    pub const fn new(width: BitWidth, signed: bool) -> Self {
+        Self { width, signed }
+    }
+
+    /// Returns the packed bit width.
+    pub const fn width(self) -> BitWidth {
+        self.width
+    }
+
+    /// Returns whether the wide type is signed.
+    pub const fn signed(self) -> bool {
+        self.signed
+    }
+
+    /// Returns the number of little-endian transfer words.
+    pub const fn word_count(self) -> u32 {
+        self.width.get().div_ceil(32)
+    }
+
+    /// Returns the generated Rust value type.
+    pub fn rust_value_type(self) -> String {
+        let width = self.width().get();
+
+        if self.signed() {
+            format!("::vvm::SignedBits<{width}>")
+        } else {
+            format!("::vvm::Bits<{width}>")
+        }
+    }
+
+    /// Returns the generated Rust constructor type.
+    pub fn rust_constructor_type(self) -> String {
+        let width = self.width().get();
+
+        if self.signed() {
+            format!("::vvm::SignedBits::<{width}>")
+        } else {
+            format!("::vvm::Bits::<{width}>")
+        }
+    }
+
+    /// Returns the mask for the final transfer word.
+    pub const fn final_word_mask(self) -> u32 {
+        let remainder = self.width().get() % 32;
+
+        if remainder == 0 {
+            u32::MAX
+        } else {
+            match u32::MAX.checked_shr(u32::BITS.saturating_sub(remainder)) {
+                Some(mask) => mask,
+                None => 0,
+            }
+        }
+    }
+
+    /// Returns whether the final transfer word needs masking.
+    pub const fn requires_final_word_mask(self) -> bool {
+        !self.width().get().is_multiple_of(32)
+    }
+
+    /// Returns the C++ literal for the final word mask.
+    pub fn final_word_mask_literal(self) -> String {
+        format!("0x{:X}U", self.final_word_mask())
+    }
+}
+
+/// Returns whether any generated DUT port needs wide transfer support.
+pub fn contains_wide_ports(metadata: &DutMetadata) -> bool {
+    metadata
+        .ports
+        .iter()
+        .any(|port| PortType::from_port(port).is_wide())
+}
 
 /// Public scalar type used by generated adapter method.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -33,7 +145,7 @@ pub enum SignalType {
 
 impl SignalType {
     /// Selects the public scalar type for a normalized port.
-    pub const fn from_port(port: &Port) -> Self {
+    pub const fn from_scalar_port(port: &Port) -> Self {
         match (port.signed, port.width.get()) {
             (false, 1) => Self::Bool,
             (false, 2..=8) => Self::U8,
@@ -126,7 +238,7 @@ mod tests {
     use std::io;
     use std::num::NonZeroU32;
 
-    use super::SignalType;
+    use super::{PortType, SignalType, WideType, contains_wide_ports};
     use crate::metadata::{BitWidth, Port, PortDirection};
 
     fn width(value: u32) -> Result<BitWidth, io::Error> {
@@ -143,7 +255,28 @@ mod tests {
             signed,
         };
 
-        Ok(SignalType::from_port(&port))
+        Ok(SignalType::from_scalar_port(&port))
+    }
+
+    fn port_type(bits: u32, signed: bool) -> Result<PortType, io::Error> {
+        let port = Port {
+            name: String::from("value"),
+            direction: PortDirection::Input,
+            width: width(bits)?,
+            signed,
+        };
+
+        Ok(PortType::from_port(&port))
+    }
+
+    fn wide_type(bits: u32, signed: bool) -> Result<WideType, io::Error> {
+        match port_type(bits, signed)? {
+            PortType::Wide(wide) => Ok(wide),
+            PortType::Scalar(_) => Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "expected wide test type",
+            )),
+        }
     }
 
     #[test]
@@ -246,6 +379,123 @@ mod tests {
         assert_eq!(SignalType::I8.mask_literal(width(8)?), None,);
 
         assert_eq!(SignalType::I64.mask_literal(width(64)?), None,);
+
+        Ok(())
+    }
+
+    #[test]
+    fn sixty_four_bit_ports_remain_scalar() -> Result<(), Box<dyn std::error::Error>> {
+        assert_eq!(port_type(64, false)?, PortType::Scalar(SignalType::U64));
+        assert_eq!(port_type(64, true)?, PortType::Scalar(SignalType::I64));
+
+        Ok(())
+    }
+
+    #[test]
+    fn sixty_five_bit_ports_become_wide() -> Result<(), Box<dyn std::error::Error>> {
+        assert!(port_type(65, false)?.is_wide());
+        assert!(port_type(65, true)?.is_wide());
+
+        Ok(())
+    }
+
+    #[test]
+    fn unsigned_wide_maps_to_bits() -> Result<(), Box<dyn std::error::Error>> {
+        let wide = wide_type(65, false)?;
+
+        assert_eq!(wide.rust_value_type(), "::vvm::Bits<65>");
+        assert_eq!(wide.rust_constructor_type(), "::vvm::Bits::<65>");
+
+        Ok(())
+    }
+
+    #[test]
+    fn signed_wide_maps_to_signed_bits() -> Result<(), Box<dyn std::error::Error>> {
+        let wide = wide_type(129, true)?;
+
+        assert_eq!(wide.rust_value_type(), "::vvm::SignedBits<129>");
+        assert_eq!(wide.rust_constructor_type(), "::vvm::SignedBits::<129>");
+
+        Ok(())
+    }
+
+    #[test]
+    fn sixty_five_bit_wide_type_uses_three_words_and_single_bit_mask()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let wide = wide_type(65, false)?;
+
+        assert_eq!(wide.word_count(), 3);
+        assert_eq!(wide.final_word_mask(), 0x0000_0001);
+        assert!(wide.requires_final_word_mask());
+        assert_eq!(wide.final_word_mask_literal(), "0x1U");
+
+        Ok(())
+    }
+
+    #[test]
+    fn ninety_six_bit_wide_type_uses_full_final_word() -> Result<(), Box<dyn std::error::Error>> {
+        let wide = wide_type(96, false)?;
+
+        assert_eq!(wide.word_count(), 3);
+        assert_eq!(wide.final_word_mask(), 0xffff_ffff);
+        assert!(!wide.requires_final_word_mask());
+        assert_eq!(wide.final_word_mask_literal(), "0xFFFFFFFFU");
+
+        Ok(())
+    }
+
+    #[test]
+    fn one_hundred_twenty_nine_bit_wide_type_uses_five_words()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let wide = wide_type(129, true)?;
+
+        assert_eq!(wide.word_count(), 5);
+        assert_eq!(wide.final_word_mask(), 0x0000_0001);
+        assert!(wide.requires_final_word_mask());
+
+        Ok(())
+    }
+
+    #[test]
+    fn signedness_does_not_change_wide_word_layout() -> Result<(), Box<dyn std::error::Error>> {
+        let unsigned = wide_type(129, false)?;
+        let signed = wide_type(129, true)?;
+
+        assert_eq!(unsigned.word_count(), signed.word_count());
+        assert_eq!(unsigned.final_word_mask(), signed.final_word_mask());
+        assert_eq!(
+            unsigned.requires_final_word_mask(),
+            signed.requires_final_word_mask()
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn detects_metadata_with_wide_ports() -> Result<(), Box<dyn std::error::Error>> {
+        let scalar = crate::metadata::DutMetadata {
+            name: "scalar".to_owned(),
+            top_module: "scalar".to_owned(),
+            ports: vec![Port {
+                name: "value".to_owned(),
+                direction: PortDirection::Input,
+                width: width(64)?,
+                signed: false,
+            }],
+        };
+        let wide = crate::metadata::DutMetadata {
+            name: "wide".to_owned(),
+            top_module: "wide".to_owned(),
+            ports: vec![Port {
+                name: "value".to_owned(),
+                direction: PortDirection::Input,
+                width: width(65)?,
+                signed: false,
+            }],
+        };
+
+        assert!(!contains_wide_ports(&scalar));
+        assert!(contains_wide_ports(&wide));
 
         Ok(())
     }

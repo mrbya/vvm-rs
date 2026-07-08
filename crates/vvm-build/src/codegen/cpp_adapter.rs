@@ -1,5 +1,5 @@
 use super::names::DutNames;
-use super::types::SignalType;
+use super::types::{PortType, SignalType, WideType, contains_wide_ports};
 use crate::TraceOptions;
 use crate::codegen::GENERATED_NOTICE;
 use crate::metadata::{DutMetadata, Port, PortDirection};
@@ -22,18 +22,25 @@ pub(super) fn render(
     trace: Option<TraceOptions>,
 ) -> CppAdapterText {
     let trace = trace.filter(|options| options.format == TraceFormat::Vcd);
+    let requires_rust_cxx = trace.is_some() || contains_wide_ports(metadata);
+    let traced = trace.is_some();
 
     CppAdapterText {
-        header: render_header(metadata, names, trace.is_some()),
+        header: render_header(metadata, names, traced, requires_rust_cxx),
         source: render_source(metadata, names, trace),
     }
 }
 
 /// Renders the generated public adapter header.
-fn render_header(metadata: &DutMetadata, names: &DutNames, traced: bool) -> String {
+fn render_header(
+    metadata: &DutMetadata,
+    names: &DutNames,
+    traced: bool,
+    include_rust_cxx: bool,
+) -> String {
     let mut output = String::new();
 
-    render_header_prelude(&mut output, names, traced);
+    render_header_prelude(&mut output, names, traced, include_rust_cxx);
     render_header_port_methods(&mut output, metadata, names);
 
     push_line(&mut output, "");
@@ -59,12 +66,17 @@ fn render_header(metadata: &DutMetadata, names: &DutNames, traced: bool) -> Stri
 }
 
 /// Renders the header prelude and lifecycle declarations.
-fn render_header_prelude(output: &mut String, names: &DutNames, traced: bool) {
+fn render_header_prelude(
+    output: &mut String,
+    names: &DutNames,
+    traced: bool,
+    include_rust_cxx: bool,
+) {
     push_line(output, GENERATED_NOTICE);
     push_line(output, "");
     push_line(output, "#pragma once");
     push_line(output, "");
-    if traced {
+    if include_rust_cxx {
         push_line(output, "#include \"rust/cxx.h\"");
     }
     push_line(output, "#include <cstdint>");
@@ -126,27 +138,51 @@ fn render_header_prelude(output: &mut String, names: &DutNames, traced: bool) {
 /// Renders per-port method declarations in the public header.
 fn render_header_port_methods(output: &mut String, metadata: &DutMetadata, names: &DutNames) {
     for (port, port_names) in metadata.ports.iter().zip(&names.ports) {
-        let signal_type = SignalType::from_port(port);
+        let port_type = PortType::from_port(port);
 
         match port.direction {
             PortDirection::Input => push_line(
                 output,
-                &format!(
-                    "    void {}({} value) noexcept;",
-                    port_names.method,
-                    signal_type.cpp_type()
-                ),
+                &render_header_input_method(port_type, &port_names.method),
             ),
-            PortDirection::Output => push_line(
-                output,
-                &format!(
-                    "    [[nodiscard]] {} {}() const noexcept;",
-                    signal_type.cpp_type(),
-                    port_names.method
-                ),
-            ),
+            PortDirection::Output => {
+                push_line(
+                    output,
+                    &render_header_output_method(port_type, &port_names.method),
+                );
+            }
             PortDirection::Inout => {}
         }
+    }
+}
+
+/// Renders one generated input declaration in the public header.
+fn render_header_input_method(port_type: PortType, method: &str) -> String {
+    match port_type {
+        PortType::Scalar(signal_type) => {
+            format!(
+                "    void {method}({} value) noexcept;",
+                signal_type.cpp_type()
+            )
+        }
+        PortType::Wide(_) => format!(
+            "    [[nodiscard]] bool {method}(rust::Slice<const std::uint32_t> words) noexcept;"
+        ),
+    }
+}
+
+/// Renders one generated output declaration in the public header.
+fn render_header_output_method(port_type: PortType, method: &str) -> String {
+    match port_type {
+        PortType::Scalar(signal_type) => {
+            format!(
+                "    [[nodiscard]] {} {method}() const noexcept;",
+                signal_type.cpp_type()
+            )
+        }
+        PortType::Wide(_) => format!(
+            "    [[nodiscard]] bool {method}(rust::Slice<std::uint32_t> words) const noexcept;"
+        ),
     }
 }
 
@@ -155,8 +191,9 @@ fn render_source(metadata: &DutMetadata, names: &DutNames, trace: Option<TraceOp
     let mut output = String::new();
     let traced = trace.is_some();
     let trace_depth = trace.map(|options| options.depth);
+    let has_wide_ports = contains_wide_ports(metadata);
 
-    render_source_prelude(&mut output, names, traced);
+    render_source_prelude(&mut output, names, traced, has_wide_ports);
     render_impl_class(&mut output, metadata, names, trace);
     render_lifecycle_methods(&mut output, names, trace_depth);
     render_port_methods(&mut output, metadata, names);
@@ -168,7 +205,12 @@ fn render_source(metadata: &DutMetadata, names: &DutNames, trace: Option<TraceOp
 }
 
 /// Renders the source-file prelude and namespace opening.
-fn render_source_prelude(output: &mut String, names: &DutNames, traced: bool) {
+fn render_source_prelude(
+    output: &mut String,
+    names: &DutNames,
+    traced: bool,
+    has_wide_ports: bool,
+) {
     push_line(output, GENERATED_NOTICE);
     push_line(output, "");
     push_line(output, &format!("#include \"{}.hpp\"", names.file_stem));
@@ -179,6 +221,9 @@ fn render_source_prelude(output: &mut String, names: &DutNames, traced: bool) {
         push_line(output, "#include \"verilated_vcd_c.h\"");
     }
     push_line(output, "");
+    if has_wide_ports {
+        push_line(output, "#include <cstddef>");
+    }
     push_line(output, "#include <cstdint>");
     if traced {
         push_line(output, "#include <string>");
@@ -579,8 +624,25 @@ fn render_source_epilogue(output: &mut String, names: &DutNames) {
 
 /// Renders one generated input setter.
 fn render_setter(output: &mut String, port: &Port, method: &str, accessor: &str, cpp_type: &str) {
-    let signal_type = SignalType::from_port(port);
+    match PortType::from_port(port) {
+        PortType::Scalar(signal_type) => {
+            render_scalar_setter(output, port, method, accessor, cpp_type, signal_type);
+        }
+        PortType::Wide(wide_type) => {
+            render_wide_setter(output, method, accessor, cpp_type, wide_type);
+        }
+    }
+}
 
+/// Renders one scalar input setter.
+fn render_scalar_setter(
+    output: &mut String,
+    port: &Port,
+    method: &str,
+    accessor: &str,
+    cpp_type: &str,
+    signal_type: SignalType,
+) {
     push_line(output, "");
     push_line(
         output,
@@ -632,10 +694,90 @@ fn render_setter(output: &mut String, port: &Port, method: &str, accessor: &str,
     push_line(output, "}");
 }
 
+/// Renders one wide input setter.
+fn render_wide_setter(
+    output: &mut String,
+    method: &str,
+    accessor: &str,
+    cpp_type: &str,
+    wide_type: WideType,
+) {
+    let expected_words = wide_type.word_count();
+    let final_index = wide_type.word_count().saturating_sub(1);
+
+    push_line(output, "");
+    push_line(
+        output,
+        &format!("bool {cpp_type}::{method}(rust::Slice<const std::uint32_t> words) noexcept {{"),
+    );
+    push_line(
+        output,
+        &format!("    constexpr std::size_t expected_words{{{expected_words}}};"),
+    );
+    push_line(output, "");
+    push_line(output, "    if (words.size() != expected_words) {");
+    push_line(output, "        return false;");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(output, "    using RawType =");
+    push_line(output, "        std::decay_t<decltype(");
+    push_line(output, &format!("            impl_->model->{accessor}()"));
+    push_line(output, "        )>;");
+    push_line(output, "");
+    push_line(
+        output,
+        "    static_assert(RawType::Words == expected_words);",
+    );
+    push_line(output, "");
+    push_line(output, "    RawType raw_value{};");
+    push_line(output, "");
+    push_line(output, "    for (");
+    push_line(output, "        std::size_t index = 0;");
+    push_line(output, "        index < expected_words;");
+    push_line(output, "        ++index");
+    push_line(output, "    ) {");
+    push_line(output, "        raw_value[index] = words[index];");
+    push_line(output, "    }");
+
+    if wide_type.requires_final_word_mask() {
+        push_line(output, "");
+        push_line(
+            output,
+            &format!(
+                "    raw_value[{final_index}] &= {};",
+                wide_type.final_word_mask_literal()
+            ),
+        );
+    }
+
+    push_line(output, "");
+    push_line(output, &format!("    impl_->model->{accessor}(raw_value);"));
+    push_line(output, "");
+    push_line(output, "    return true;");
+    push_line(output, "}");
+}
+
 /// Renders one generated output getter.
 fn render_getter(output: &mut String, port: &Port, method: &str, accessor: &str, cpp_type: &str) {
-    let signal_type = SignalType::from_port(port);
+    match PortType::from_port(port) {
+        PortType::Scalar(signal_type) => {
+            render_scalar_getter(output, port, method, accessor, cpp_type, signal_type);
+        }
+        PortType::Wide(wide_type) => {
+            render_wide_getter(output, method, accessor, cpp_type, wide_type);
+        }
+    }
+}
 
+/// Renders one scalar output getter.
+fn render_scalar_getter(
+    output: &mut String,
+    port: &Port,
+    method: &str,
+    accessor: &str,
+    cpp_type: &str,
+    signal_type: SignalType,
+) {
     push_line(output, "");
     push_line(
         output,
@@ -679,6 +821,68 @@ fn render_getter(output: &mut String, port: &Port, method: &str, accessor: &str,
         );
     }
 
+    push_line(output, "}");
+}
+
+/// Renders one wide output getter.
+fn render_wide_getter(
+    output: &mut String,
+    method: &str,
+    accessor: &str,
+    cpp_type: &str,
+    wide_type: WideType,
+) {
+    let expected_words = wide_type.word_count();
+    let final_index = wide_type.word_count().saturating_sub(1);
+
+    push_line(output, "");
+    push_line(
+        output,
+        &format!("bool {cpp_type}::{method}(rust::Slice<std::uint32_t> words) const noexcept {{"),
+    );
+    push_line(
+        output,
+        &format!("    constexpr std::size_t expected_words{{{expected_words}}};"),
+    );
+    push_line(output, "");
+    push_line(output, "    if (words.size() != expected_words) {");
+    push_line(output, "        return false;");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(output, "    using RawType =");
+    push_line(output, "        std::decay_t<decltype(");
+    push_line(output, &format!("            impl_->model->{accessor}()"));
+    push_line(output, "        )>;");
+    push_line(output, "");
+    push_line(
+        output,
+        "    static_assert(RawType::Words == expected_words);",
+    );
+    push_line(output, "");
+    push_line(output, "    const auto& raw_value =");
+    push_line(output, &format!("        impl_->model->{accessor}();"));
+    push_line(output, "");
+    push_line(output, "    for (");
+    push_line(output, "        std::size_t index = 0;");
+    push_line(output, "        index < expected_words;");
+    push_line(output, "        ++index");
+    push_line(output, "    ) {");
+    push_line(output, "        words[index] = raw_value[index];");
+    push_line(output, "    }");
+
+    if wide_type.requires_final_word_mask() {
+        push_line(output, "");
+        push_line(
+            output,
+            &format!(
+                "    words[{final_index}] &= {};",
+                wide_type.final_word_mask_literal()
+            ),
+        );
+    }
+
+    push_line(output, "");
+    push_line(output, "    return true;");
     push_line(output, "}");
 }
 
@@ -797,6 +1001,76 @@ mod tests {
         assert!(signed_output.contains("std::numeric_limits<Signed>::min()"));
 
         assert!(unsigned_output.is_empty());
+
+        Ok(())
+    }
+
+    #[test]
+    fn wide_input_setter_emits_three_word_transfer_and_top_mask()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let mut output = String::new();
+        let port = port(PortDirection::Input, 65, false)?;
+
+        render_setter(&mut output, &port, "set_value", "value", "Dut");
+
+        assert!(output.contains("constexpr std::size_t expected_words{3};"));
+        assert!(output.contains("if (words.size() != expected_words) {"));
+        assert!(output.contains("raw_value[index] = words[index];"));
+        assert!(output.contains("raw_value[2] &= 0x1U;"));
+        assert!(output.contains("return false;"));
+        assert!(output.contains("return true;"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn wide_output_getter_omits_redundant_full_word_mask() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let mut output = String::new();
+        let port = port(PortDirection::Output, 96, false)?;
+
+        render_getter(&mut output, &port, "value", "value", "Dut");
+
+        assert!(output.contains("constexpr std::size_t expected_words{3};"));
+        assert!(output.contains("words[index] = raw_value[index];"));
+        assert!(!output.contains("words[2] &= 0xFFFFFFFFU;"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn signed_wide_input_uses_same_transfer_logic_as_unsigned()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let mut output = String::new();
+        let port = port(PortDirection::Input, 129, true)?;
+
+        render_setter(&mut output, &port, "set_value", "value", "Dut");
+
+        assert!(output.contains("constexpr std::size_t expected_words{5};"));
+        assert!(output.contains("raw_value[index] = words[index];"));
+        assert!(output.contains("raw_value[4] &= 0x1U;"));
+        assert!(!output.contains("UnsignedType"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn wide_getter_rejects_invalid_slice_length_before_indexing()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let mut output = String::new();
+        let port = port(PortDirection::Output, 129, true)?;
+
+        render_getter(&mut output, &port, "value", "value", "Dut");
+
+        let guard = output
+            .find("if (words.size() != expected_words) {")
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing size guard"))?;
+        let index = output
+            .find("words[index] = raw_value[index];")
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing copy loop"))?;
+
+        assert!(guard < index);
+        assert!(output.contains("return false;"));
 
         Ok(())
     }

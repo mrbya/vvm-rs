@@ -1,5 +1,5 @@
 use super::names::DutNames;
-use super::types::SignalType;
+use super::types::PortType;
 use crate::TraceOptions;
 use crate::codegen::GENERATED_NOTICE;
 use crate::metadata::{DutMetadata, PortDirection};
@@ -18,7 +18,7 @@ pub(super) fn render(
     render_bridge_lifecycle(&mut output, names, traced);
 
     for (port, port_names) in metadata.ports.iter().zip(&names.ports) {
-        let signal_type = SignalType::from_port(port);
+        let port_type = PortType::from_port(port);
 
         match port.direction {
             PortDirection::Input => {
@@ -29,12 +29,18 @@ pub(super) fn render(
                 );
                 push_line(
                     &mut output,
-                    &format!(
-                        "        fn {}(self: Pin<&mut {}>, value: {});",
-                        port_names.method,
-                        names.cpp_type,
-                        signal_type.rust_type()
-                    ),
+                    &match port_type {
+                        PortType::Scalar(signal_type) => format!(
+                            "        fn {}(self: Pin<&mut {}>, value: {});",
+                            port_names.method,
+                            names.cpp_type,
+                            signal_type.rust_type()
+                        ),
+                        PortType::Wide(_) => format!(
+                            "        fn {}(self: Pin<&mut {}>, words: &[u32]) -> bool;",
+                            port_names.method, names.cpp_type
+                        ),
+                    },
                 );
             }
             PortDirection::Output => {
@@ -45,12 +51,18 @@ pub(super) fn render(
                 );
                 push_line(
                     &mut output,
-                    &format!(
-                        "        fn {}(self: &{}) -> {};",
-                        port_names.method,
-                        names.cpp_type,
-                        signal_type.rust_type()
-                    ),
+                    &match port_type {
+                        PortType::Scalar(signal_type) => format!(
+                            "        fn {}(self: &{}) -> {};",
+                            port_names.method,
+                            names.cpp_type,
+                            signal_type.rust_type()
+                        ),
+                        PortType::Wide(_) => format!(
+                            "        fn {}(self: &{}, words: &mut [u32]) -> bool;",
+                            port_names.method, names.cpp_type
+                        ),
+                    },
                 );
             }
             PortDirection::Inout => {}

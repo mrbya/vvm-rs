@@ -360,19 +360,6 @@ pub enum BuildError {
         port: String,
     },
 
-    /// Port width exceeds the current VVM limit.
-    #[error("port `{port}` is {width} bits wide; the current maximum is {maximum}")]
-    UnsupportedPortWidth {
-        /// HDL port name.
-        port: String,
-
-        /// Actual packed width.
-        width: u32,
-
-        /// Current supported maximum.
-        maximum: u32,
-    },
-
     /// A metadata name cannot be represented by the initial generator.
     #[error("cannot generate {role} from `{name}`: {reason}")]
     UnsupportedCodegenName {

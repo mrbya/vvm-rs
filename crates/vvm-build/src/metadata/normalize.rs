@@ -10,9 +10,6 @@ use crate::{BuildError, BuildResult};
 /// Main Verilator AST metadata role.
 const TREE_ROLE: &str = "Verilator AST metadata";
 
-/// Maximum packed width supported by the current generated bridge.
-const MAXIMUM_SUPPORTED_WIDTH: u32 = 64;
-
 /// Lookup table for Verilator AST short addresses.
 struct AstIndex<'a> {
     /// AST tree node address map.
@@ -98,22 +95,12 @@ pub fn normalize(dut_name: &str, top_module: &str, raw: &RawMetadata) -> BuildRe
 ///
 /// # Errors
 ///
-/// Returns an error for inout ports or widths above 64 bits.
+/// Returns an error for inout ports.
 pub fn validate_supported(metadata: &DutMetadata) -> BuildResult<()> {
     for port in &metadata.ports {
         if port.direction == PortDirection::Inout {
             return Err(BuildError::UnsupportedInoutPort {
                 port: port.name.clone(),
-            });
-        }
-
-        let width = port.width.get();
-
-        if width > MAXIMUM_SUPPORTED_WIDTH {
-            return Err(BuildError::UnsupportedPortWidth {
-                port: port.name.clone(),
-                width,
-                maximum: MAXIMUM_SUPPORTED_WIDTH,
             });
         }
     }
@@ -499,6 +486,15 @@ mod tests {
             .join("signed_ports")
     }
 
+    fn wide_ports_fixture() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("verilator")
+            .join("5.048")
+            .join("wide_ports")
+    }
+
     #[test]
     fn normalizes_counter_fixture() -> Result<(), Box<dyn std::error::Error>> {
         let fixture = counter_fixture();
@@ -596,6 +592,96 @@ mod tests {
     }
 
     #[test]
+    fn normalizes_wide_ports_fixture() -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = wide_ports_fixture();
+
+        let raw = RawMetadata::from_paths(
+            VerilatorVersion::new(5, 48),
+            &fixture.join("wide_ports.tree.json"),
+            &fixture.join("wide_ports.tree.meta.json"),
+        )?;
+
+        let actual = normalize("wide_ports", "wide_ports", &raw)?;
+
+        let expected_ports = [
+            ("input_u65", PortDirection::Input, 65, false),
+            ("input_u96", PortDirection::Input, 96, false),
+            ("input_u129", PortDirection::Input, 129, false),
+            ("input_u256", PortDirection::Input, 256, false),
+            ("input_i65", PortDirection::Input, 65, true),
+            ("input_i129", PortDirection::Input, 129, true),
+            ("output_u65", PortDirection::Output, 65, false),
+            ("output_u96", PortDirection::Output, 96, false),
+            ("output_u129", PortDirection::Output, 129, false),
+            ("output_u256", PortDirection::Output, 256, false),
+            ("output_i65", PortDirection::Output, 65, true),
+            ("output_i129", PortDirection::Output, 129, true),
+        ]
+        .into_iter()
+        .map(|(name, direction, bit_width, signed)| Port {
+            name: name.to_owned(),
+            direction,
+            width: width(bit_width),
+            signed,
+        })
+        .collect();
+
+        let expected = DutMetadata {
+            name: "wide_ports".to_owned(),
+            top_module: "wide_ports".to_owned(),
+            ports: expected_ports,
+        };
+
+        assert_eq!(actual, expected);
+
+        validate_supported(&actual)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn verilator_wide_accessors_use_vlwide_storage() -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = wide_ports_fixture();
+        let header = std::fs::read_to_string(fixture.join("Vwide_ports.h"))?;
+
+        assert!(header.contains("VL_INW(&__Vm_sig_input_u65,64,0,3);"));
+        assert!(header.contains("VL_INW(&__Vm_sig_input_u96,95,0,3);"));
+        assert!(header.contains("VL_INW(&__Vm_sig_input_u129,128,0,5);"));
+        assert!(header.contains("VL_INW(&__Vm_sig_input_u256,255,0,8);"));
+        assert!(header.contains("VL_INW(&__Vm_sig_input_i65,64,0,3);"));
+        assert!(header.contains("VL_INW(&__Vm_sig_input_i129,128,0,5);"));
+        assert!(header.contains("VL_OUTW(&__Vm_sig_output_u65,64,0,3);"));
+        assert!(header.contains("VL_OUTW(&__Vm_sig_output_u96,95,0,3);"));
+        assert!(header.contains("VL_OUTW(&__Vm_sig_output_u129,128,0,5);"));
+        assert!(header.contains("VL_OUTW(&__Vm_sig_output_u256,255,0,8);"));
+        assert!(header.contains("VL_OUTW(&__Vm_sig_output_i65,64,0,3);"));
+        assert!(header.contains("VL_OUTW(&__Vm_sig_output_i129,128,0,5);"));
+
+        assert!(
+            header
+                .contains("decltype(__Vm_sig_input_u65) input_u65() {return __Vm_sig_input_u65;}")
+        );
+        assert!(
+            header
+                .contains("void input_u65(decltype(__Vm_sig_input_u65) v) {__Vm_sig_input_u65=v;}")
+        );
+        assert!(header.contains(
+            "decltype(__Vm_sig_output_u256) output_u256() {return __Vm_sig_output_u256;}"
+        ));
+        assert!(header.contains(
+            "void output_u256(decltype(__Vm_sig_output_u256) v) {__Vm_sig_output_u256=v;}"
+        ));
+        assert!(header.contains(
+            "decltype(__Vm_sig_output_i129) output_i129() {return __Vm_sig_output_i129;}"
+        ));
+        assert!(header.contains(
+            "void output_i129(decltype(__Vm_sig_output_i129) v) {__Vm_sig_output_i129=v;}"
+        ));
+
+        Ok(())
+    }
+
+    #[test]
     fn parses_descending_packed_range() -> Result<(), BuildError> {
         assert_eq!(parse_bit_width("value", Some("7:0"))?.get(), 8);
 
@@ -650,114 +736,38 @@ mod tests {
     }
 
     #[test]
-    fn rejects_signed_port_wider_than_sixty_four_bits() {
-        let metadata = DutMetadata {
-            name: "dut".to_owned(),
-            top_module: "dut".to_owned(),
-            ports: vec![Port {
-                name: "value".to_owned(),
-                direction: PortDirection::Output,
-                width: width(65),
-                signed: true,
-            }],
-        };
-
-        assert!(matches!(
-            validate_supported(&metadata),
-            Err(BuildError::UnsupportedPortWidth {
-                port,
-                width: 65,
-                maximum: 64,
-            }) if port == "value"
-        ));
-    }
-
-    #[test]
-    fn accepts_signed_ports_up_to_sixty_four_bits() -> Result<(), BuildError> {
+    fn accepts_wide_ports() -> Result<(), BuildError> {
         let metadata = DutMetadata {
             name: "dut".to_owned(),
             top_module: "dut".to_owned(),
             ports: vec![
                 Port {
-                    name: "signed_i1".to_owned(),
+                    name: "input_u65".to_owned(),
                     direction: PortDirection::Input,
-                    width: width(1),
+                    width: width(65),
+                    signed: false,
+                },
+                Port {
+                    name: "input_i129".to_owned(),
+                    direction: PortDirection::Input,
+                    width: width(129),
                     signed: true,
                 },
                 Port {
-                    name: "signed_i5".to_owned(),
-                    direction: PortDirection::Input,
-                    width: width(5),
-                    signed: true,
-                },
-                Port {
-                    name: "signed_i8".to_owned(),
-                    direction: PortDirection::Input,
-                    width: width(8),
-                    signed: true,
-                },
-                Port {
-                    name: "signed_i9".to_owned(),
-                    direction: PortDirection::Input,
-                    width: width(9),
-                    signed: true,
-                },
-                Port {
-                    name: "signed_i16".to_owned(),
-                    direction: PortDirection::Input,
-                    width: width(16),
-                    signed: true,
-                },
-                Port {
-                    name: "signed_i17".to_owned(),
+                    name: "output_u256".to_owned(),
                     direction: PortDirection::Output,
-                    width: width(17),
-                    signed: true,
+                    width: width(256),
+                    signed: false,
                 },
                 Port {
-                    name: "signed_i32".to_owned(),
+                    name: "output_i129".to_owned(),
                     direction: PortDirection::Output,
-                    width: width(32),
-                    signed: true,
-                },
-                Port {
-                    name: "signed_i33".to_owned(),
-                    direction: PortDirection::Output,
-                    width: width(33),
-                    signed: true,
-                },
-                Port {
-                    name: "signed_i64".to_owned(),
-                    direction: PortDirection::Output,
-                    width: width(64),
+                    width: width(129),
                     signed: true,
                 },
             ],
         };
 
         validate_supported(&metadata)
-    }
-
-    #[test]
-    fn rejects_port_wider_than_sixty_four_bits() {
-        let metadata = DutMetadata {
-            name: "dut".to_owned(),
-            top_module: "dut".to_owned(),
-            ports: vec![Port {
-                name: "value".to_owned(),
-                direction: PortDirection::Output,
-                width: width(65),
-                signed: false,
-            }],
-        };
-
-        assert!(matches!(
-            validate_supported(&metadata),
-            Err(BuildError::UnsupportedPortWidth {
-                port,
-                width: 65,
-                maximum: 64,
-            }) if port == "value"
-        ));
     }
 }

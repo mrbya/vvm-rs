@@ -93,46 +93,23 @@ mod tests {
     use crate::metadata::{BitWidth, DutMetadata, Port, PortDirection, RawMetadata, normalize};
     use crate::verilator::VerilatorVersion;
 
-    fn width(value: u32) -> Result<BitWidth, Box<dyn std::error::Error>> {
-        Ok(BitWidth::new(NonZeroU32::new(value).ok_or_else(|| {
-            std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "test width must be non-zero",
-            )
-        })?))
-    }
-
     fn wide_ports_metadata() -> Result<DutMetadata, Box<dyn std::error::Error>> {
-        Ok(DutMetadata {
-            name: "wide_ports".to_owned(),
-            top_module: "wide_ports".to_owned(),
-            ports: vec![
-                Port {
-                    name: "input_u65".to_owned(),
-                    direction: PortDirection::Input,
-                    width: width(65)?,
-                    signed: false,
-                },
-                Port {
-                    name: "input_i129".to_owned(),
-                    direction: PortDirection::Input,
-                    width: width(129)?,
-                    signed: true,
-                },
-                Port {
-                    name: "output_u96".to_owned(),
-                    direction: PortDirection::Output,
-                    width: width(96)?,
-                    signed: false,
-                },
-                Port {
-                    name: "output_i129".to_owned(),
-                    direction: PortDirection::Output,
-                    width: width(129)?,
-                    signed: true,
-                },
-            ],
-        })
+        let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+
+        let metadata_fixture = manifest
+            .join("tests")
+            .join("fixtures")
+            .join("verilator")
+            .join("5.048")
+            .join("wide_ports");
+
+        let raw = RawMetadata::from_paths(
+            VerilatorVersion::new(5, 48),
+            &metadata_fixture.join("wide_ports.tree.json"),
+            &metadata_fixture.join("wide_ports.tree.meta.json"),
+        )?;
+
+        Ok(normalize("wide_ports", "wide_ports", &raw)?)
     }
 
     fn counter_metadata() -> Result<crate::metadata::DutMetadata, Box<dyn std::error::Error>> {
@@ -184,14 +161,15 @@ mod tests {
     fn assert_generated_artifacts_match(
         generated: &super::GeneratedArtifacts,
         expected_directory: &Path,
+        file_stem: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
         assert_generated_snapshot(
             &generated.cpp_header,
-            &expected_directory.join("counter.hpp"),
+            &expected_directory.join(format!("{file_stem}.hpp")),
         )?;
         assert_generated_snapshot(
             &generated.cpp_source,
-            &expected_directory.join("counter.cpp"),
+            &expected_directory.join(format!("{file_stem}.cpp")),
         )?;
         assert_generated_snapshot(&generated.cxx_bridge, &expected_directory.join("bridge.rs"))?;
         assert_generated_snapshot(&generated.rust_wrapper, &expected_directory.join("dut.rs"))?;
@@ -265,7 +243,7 @@ mod tests {
         let generated = generate(&metadata, "Vcounter", output.path(), None)?;
         let expected_directory = expected_codegen_directory("counter");
 
-        assert_generated_artifacts_match(&generated, &expected_directory)?;
+        assert_generated_artifacts_match(&generated, &expected_directory, "counter")?;
 
         let header = std::fs::read_to_string(&generated.cpp_header)?;
         let source = std::fs::read_to_string(&generated.cpp_source)?;
@@ -353,7 +331,7 @@ mod tests {
         )?;
         let expected_directory = expected_codegen_directory("counter-vcd");
 
-        assert_generated_artifacts_match(&generated, &expected_directory)?;
+        assert_generated_artifacts_match(&generated, &expected_directory, "counter")?;
 
         let header = std::fs::read_to_string(&generated.cpp_header)?;
         let source = std::fs::read_to_string(&generated.cpp_source)?;
@@ -484,6 +462,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn wide_codegen_generates_slice_based_artifacts() -> Result<(), Box<dyn std::error::Error>> {
         let metadata = wide_ports_metadata()?;
         let output = tempdir()?;
@@ -499,20 +478,49 @@ mod tests {
             header.contains("bool set_input_u65(rust::Slice<const std::uint32_t> words) noexcept;")
         );
         assert!(
+            header.contains("bool set_input_u96(rust::Slice<const std::uint32_t> words) noexcept;")
+        );
+        assert!(
+            header
+                .contains("bool set_input_u129(rust::Slice<const std::uint32_t> words) noexcept;")
+        );
+        assert!(
+            header
+                .contains("bool set_input_u256(rust::Slice<const std::uint32_t> words) noexcept;")
+        );
+        assert!(
+            header.contains("bool set_input_i65(rust::Slice<const std::uint32_t> words) noexcept;")
+        );
+        assert!(
             header
                 .contains("bool set_input_i129(rust::Slice<const std::uint32_t> words) noexcept;")
+        );
+        assert!(
+            header.contains("bool output_u65(rust::Slice<std::uint32_t> words) const noexcept;")
         );
         assert!(
             header.contains("bool output_u96(rust::Slice<std::uint32_t> words) const noexcept;")
         );
         assert!(
+            header.contains("bool output_u129(rust::Slice<std::uint32_t> words) const noexcept;")
+        );
+        assert!(
+            header.contains("bool output_u256(rust::Slice<std::uint32_t> words) const noexcept;")
+        );
+        assert!(
+            header.contains("bool output_i65(rust::Slice<std::uint32_t> words) const noexcept;")
+        );
+        assert!(
             header.contains("bool output_i129(rust::Slice<std::uint32_t> words) const noexcept;")
         );
         assert!(!header.contains("set_input_u65(std::uint64_t value) noexcept"));
+        assert!(!header.contains("set_input_u96(std::uint64_t value) noexcept"));
         assert!(!header.contains("output_u96() const noexcept"));
+        assert!(!header.contains("output_u256() const noexcept"));
 
         assert!(source.contains("constexpr std::size_t expected_words{3};"));
         assert!(source.contains("constexpr std::size_t expected_words{5};"));
+        assert!(source.contains("constexpr std::size_t expected_words{8};"));
         assert!(source.contains("static_assert(RawType::Words == expected_words);"));
         assert!(source.contains("if (words.size() != expected_words) {"));
         assert!(source.contains("return false;"));
@@ -520,23 +528,55 @@ mod tests {
         assert!(source.contains("words[index] = raw_value[index];"));
         assert!(source.contains("raw_value[2] &= 0x1U;"));
         assert!(source.contains("raw_value[4] &= 0x1U;"));
+        assert!(source.contains("words[2] &= 0x1U;"));
         assert!(source.contains("words[4] &= 0x1U;"));
+        assert!(!source.contains("raw_value[2] &= 0xFFFFFFFFU;"));
         assert!(!source.contains("words[2] &= 0xFFFFFFFFU;"));
+        assert!(!source.contains("raw_value[7] &= 0xFFFFFFFFU;"));
+        assert!(!source.contains("words[7] &= 0xFFFFFFFFU;"));
 
         assert!(
             bridge.contains("fn set_input_u65(self: Pin<&mut WidePorts>, words: &[u32]) -> bool;")
         );
         assert!(
+            bridge.contains("fn set_input_u96(self: Pin<&mut WidePorts>, words: &[u32]) -> bool;")
+        );
+        assert!(
+            bridge.contains("fn set_input_u129(self: Pin<&mut WidePorts>, words: &[u32]) -> bool;")
+        );
+        assert!(
+            bridge.contains("fn set_input_u256(self: Pin<&mut WidePorts>, words: &[u32]) -> bool;")
+        );
+        assert!(
+            bridge.contains("fn set_input_i65(self: Pin<&mut WidePorts>, words: &[u32]) -> bool;")
+        );
+        assert!(
             bridge.contains("fn set_input_i129(self: Pin<&mut WidePorts>, words: &[u32]) -> bool;")
         );
+        assert!(bridge.contains("fn output_u65(self: &WidePorts, words: &mut [u32]) -> bool;"));
         assert!(bridge.contains("fn output_u96(self: &WidePorts, words: &mut [u32]) -> bool;"));
+        assert!(bridge.contains("fn output_u129(self: &WidePorts, words: &mut [u32]) -> bool;"));
+        assert!(bridge.contains("fn output_u256(self: &WidePorts, words: &mut [u32]) -> bool;"));
+        assert!(bridge.contains("fn output_i65(self: &WidePorts, words: &mut [u32]) -> bool;"));
         assert!(bridge.contains("fn output_i129(self: &WidePorts, words: &mut [u32]) -> bool;"));
 
         assert!(wrapper.contains("value: impl ::core::borrow::Borrow<::vvm::Bits<65>>"));
+        assert!(wrapper.contains("value: impl ::core::borrow::Borrow<::vvm::Bits<96>>"));
+        assert!(wrapper.contains("value: impl ::core::borrow::Borrow<::vvm::Bits<129>>"));
+        assert!(wrapper.contains("value: impl ::core::borrow::Borrow<::vvm::Bits<256>>"));
+        assert!(wrapper.contains("value: impl ::core::borrow::Borrow<::vvm::SignedBits<65>>"));
         assert!(wrapper.contains("value: impl ::core::borrow::Borrow<::vvm::SignedBits<129>>"));
+        assert!(wrapper.contains("pub fn output_u65(&self) -> Result<::vvm::Bits<65>> {"));
         assert!(wrapper.contains("pub fn output_u96(&self) -> Result<::vvm::Bits<96>> {"));
+        assert!(wrapper.contains("pub fn output_u129(&self) -> Result<::vvm::Bits<129>> {"));
+        assert!(wrapper.contains("pub fn output_u256(&self) -> Result<::vvm::Bits<256>> {"));
+        assert!(wrapper.contains("pub fn output_i65(&self) -> Result<::vvm::SignedBits<65>> {"));
         assert!(wrapper.contains("pub fn output_i129(&self) -> Result<::vvm::SignedBits<129>> {"));
+        assert!(wrapper.contains("vec![0_u32; ::vvm::Bits::<65>::WORDS];"));
         assert!(wrapper.contains("vec![0_u32; ::vvm::Bits::<96>::WORDS];"));
+        assert!(wrapper.contains("vec![0_u32; ::vvm::Bits::<129>::WORDS];"));
+        assert!(wrapper.contains("vec![0_u32; ::vvm::Bits::<256>::WORDS];"));
+        assert!(wrapper.contains("vec![0_u32; ::vvm::SignedBits::<65>::WORDS];"));
         assert!(wrapper.contains("vec![0_u32; ::vvm::SignedBits::<129>::WORDS];"));
         assert!(wrapper.contains("WidePortTransferFailed"));
         assert!(wrapper.contains(".map_err(|_error| {"));

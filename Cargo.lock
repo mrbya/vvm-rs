@@ -529,6 +529,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "vvm-example-wide-transform"
+version = "0.1.0-alpha.1"
+dependencies = [
+ "vvm-build",
+ "vvm-rs",
+]
+
+[[package]]
 name = "vvm-macros"
 version = "0.1.0-alpha.1"
 dependencies = [

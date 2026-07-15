@@ -19,17 +19,17 @@ public:
           model{std::make_unique<Vcounter>(context.get())} {
         {
             using RawType = std::decay_t<decltype(model->clk())>;
-            RawType raw_value{0};
+            RawType raw_value{};
             model->clk(raw_value);
         }
         {
             using RawType = std::decay_t<decltype(model->reset_n())>;
-            RawType raw_value{0};
+            RawType raw_value{};
             model->reset_n(raw_value);
         }
         {
             using RawType = std::decay_t<decltype(model->enable())>;
-            RawType raw_value{0};
+            RawType raw_value{};
             model->enable(raw_value);
         }
     }

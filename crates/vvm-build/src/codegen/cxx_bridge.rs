@@ -1,5 +1,5 @@
 use super::names::DutNames;
-use super::types::PortType;
+use super::types::{PortType, UnpackedArrayType};
 use crate::TraceOptions;
 use crate::codegen::GENERATED_NOTICE;
 use crate::metadata::{DutMetadata, PortDirection};
@@ -18,6 +18,42 @@ pub(super) fn render(
     render_bridge_lifecycle(&mut output, names, traced);
 
     for (port, port_names) in metadata.ports.iter().zip(&names.ports) {
+        if let Some(array_type) = UnpackedArrayType::from_port(port) {
+            let value_name = if matches!(
+                array_type.element_type(),
+                super::types::UnpackedArrayElementType::Wide(_)
+            ) {
+                "words"
+            } else {
+                "values"
+            };
+            let element_type = array_type.ffi_rust_element_type();
+            push_line(&mut output, "");
+            match port.direction {
+                PortDirection::Input => push_line(
+                    &mut output,
+                    &format!("        /// Drives the `{}` DUT input.", port.name),
+                ),
+                PortDirection::Output => push_line(
+                    &mut output,
+                    &format!("        /// Samples the `{}` DUT output.", port.name),
+                ),
+                PortDirection::Inout => continue,
+            }
+            let signature = match port.direction {
+                PortDirection::Input => format!(
+                    "        fn {}(self: Pin<&mut {}>, {value_name}: &[{element_type}]) -> bool;",
+                    port_names.method, names.cpp_type
+                ),
+                PortDirection::Output => format!(
+                    "        fn {}(self: &{}, {value_name}: &mut [{element_type}]) -> bool;",
+                    port_names.method, names.cpp_type
+                ),
+                PortDirection::Inout => continue,
+            };
+            push_line(&mut output, &signature);
+            continue;
+        }
         let port_type = PortType::from_port(port);
 
         match port.direction {

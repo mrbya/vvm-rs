@@ -3,7 +3,7 @@
 use std::collections::HashSet;
 
 use crate::builder::validate_identifier;
-use crate::codegen::types::{PackedArrayType, PackedEnumType, PackedStructType};
+use crate::codegen::types::{PackedArrayType, PackedEnumType, PackedStructType, UnpackedArrayType};
 use crate::metadata::{DutMetadata, PortDirection};
 use crate::{BuildError, BuildResult};
 
@@ -41,7 +41,7 @@ pub struct PortNames {
     /// Generated adapter member function.
     pub method: String,
 
-    /// Generated safe Rust aggregate value type.
+    /// Generated safe Rust aggregate or unpacked-array value type.
     pub rust_type: Option<String>,
 
     /// Generated packed-struct field methods.
@@ -128,7 +128,7 @@ pub fn resolve(metadata: &DutMetadata, model_prefix: &str) -> BuildResult<DutNam
         let enum_variants = packed_enum_variant_names(port)?;
 
         if let Some(ref rust_type) = rust_type {
-            validate_rust_identifier("Rust packed aggregate type", rust_type)?;
+            validate_rust_identifier("Rust generated value type", rust_type)?;
 
             if !used_rust_types.insert(rust_type.clone()) {
                 return Err(BuildError::GeneratedNameCollision {
@@ -170,11 +170,12 @@ pub fn resolve(metadata: &DutMetadata, model_prefix: &str) -> BuildResult<DutNam
     })
 }
 
-/// Returns the generated Rust wrapper type for one supported packed aggregate port.
+/// Returns the generated Rust wrapper type for one supported aggregate port.
 fn aggregate_rust_type(port: &crate::metadata::Port) -> BuildResult<Option<String>> {
     let supported = PackedArrayType::from_port(port).is_some()
         || PackedStructType::from_port(port).is_some()
-        || PackedEnumType::from_port(port).is_some();
+        || PackedEnumType::from_port(port).is_some()
+        || UnpackedArrayType::from_port(port).is_some();
 
     if !supported {
         return Ok(None);
@@ -184,7 +185,7 @@ fn aggregate_rust_type(port: &crate::metadata::Port) -> BuildResult<Option<Strin
 
     if rust_type.is_empty() {
         return Err(BuildError::UnsupportedCodegenName {
-            role: "Rust packed aggregate type",
+            role: "Rust generated aggregate type",
             name: port.name.clone(),
             reason: "the transformed type name is empty",
         });
@@ -495,12 +496,12 @@ mod tests {
     use std::num::NonZeroU32;
 
     use super::resolve;
-    use crate::BuildError;
     use crate::metadata::{
         ArrayDimension, BitWidth, DutMetadata, PackedArrayShape, PackedEnumShape,
         PackedEnumVariant, PackedScalarShape, PackedStructField, PackedStructShape, Port,
         PortDirection, PortShape,
     };
+    use crate::BuildError;
 
     fn port(name: &str, direction: PortDirection) -> Port {
         let width = BitWidth::new(NonZeroU32::MIN);
@@ -916,7 +917,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::too_many_lines)]
     fn resolves_packed_enum_type_names() -> Result<(), BuildError> {
         let metadata = metadata(
             "packed_enum_ports",

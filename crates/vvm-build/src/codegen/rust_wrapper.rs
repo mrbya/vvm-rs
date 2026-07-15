@@ -1,15 +1,15 @@
 //! Safe Rust DUT wrapper generation.
 
-use super::GENERATED_NOTICE;
 use super::names::{DutNames, PackedStructFieldNames, PortNames};
 use super::types::{
+    contains_packed_aggregate_ports, contains_unpacked_array_ports, contains_wide_ports,
     PackedArrayType, PackedEnumType, PackedStructFieldType, PackedStructFieldValueType,
-    PackedStructType, PortType, SignalType, WideType, contains_packed_aggregate_ports,
-    contains_wide_ports,
+    PackedStructType, PortType, SignalType, UnpackedArrayElementType, UnpackedArrayType, WideType,
 };
-use crate::TraceOptions;
+use super::GENERATED_NOTICE;
 use crate::metadata::{DutMetadata, Port, PortDirection};
 use crate::trace::TraceFormat;
+use crate::TraceOptions;
 
 /// Renders the safe Rust wrapper for one DUT.
 pub(super) fn render(
@@ -120,6 +120,12 @@ fn render_packed_aggregate_types(output: &mut String, metadata: &DutMetadata, na
             continue;
         }
 
+        if let Some(array_type) = UnpackedArrayType::from_port(port) {
+            render_unpacked_array_type(output, port, rust_type, array_type);
+            rendered_any = true;
+            continue;
+        }
+
         if let Some(struct_type) = PackedStructType::from_port(port) {
             render_packed_struct_type(output, port, port_names, rust_type, struct_type);
             rendered_any = true;
@@ -137,8 +143,187 @@ fn render_packed_aggregate_types(output: &mut String, metadata: &DutMetadata, na
     }
 }
 
+/// Renders one generated unpacked-array wrapper type.
+fn render_unpacked_array_type(
+    output: &mut String,
+    port: &Port,
+    rust_type: &str,
+    array: UnpackedArrayType<'_>,
+) {
+    let element = array.rust_element_type();
+    let length = array.length();
+    let zero = match array.element_type() {
+        UnpackedArrayElementType::Scalar(SignalType::Bool) => "false".to_owned(),
+        UnpackedArrayElementType::Scalar(_) => "0".to_owned(),
+        UnpackedArrayElementType::Wide(wide) => format!("{}::zero()", wide.rust_constructor_type()),
+    };
+    push_line(
+        output,
+        &format!(
+            "/// Unpacked-array value used by the `{}` DUT port.",
+            port.name
+        ),
+    );
+    push_line(output, "#[derive(Debug, Clone, PartialEq, Eq, Hash)]");
+    push_line(output, &format!("pub struct {rust_type} {{"));
+    push_line(output, "    /// Elements in HDL declaration order.");
+    push_line(output, &format!("    elements: [{element}; {length}],"));
+    push_line(output, "}");
+    push_line(output, "");
+    push_line(output, "#[allow(clippy::missing_const_for_fn)]");
+    push_line(output, &format!("impl {rust_type} {{"));
+    push_line(output, "    /// Number of unpacked elements.");
+    push_line(output, &format!("    pub const LEN: usize = {length};"));
+    push_line(output, "    /// Declared left HDL bound.");
+    push_line(
+        output,
+        &format!("    pub const LEFT: i64 = {};", array.left()),
+    );
+    push_line(output, "    /// Declared right HDL bound.");
+    push_line(
+        output,
+        &format!("    pub const RIGHT: i64 = {};", array.right()),
+    );
+    push_line(output, "    /// Packed width of one element.");
+    push_line(
+        output,
+        &format!(
+            "    pub const ELEMENT_WIDTH: usize = {};",
+            array.element_width()
+        ),
+    );
+    if let UnpackedArrayElementType::Wide(wide) = array.element_type() {
+        push_line(
+            output,
+            "    /// Number of native transfer words, in element-major order.",
+        );
+        push_line(
+            output,
+            &format!(
+                "    pub const ELEMENT_WORDS: usize = {};",
+                wide.word_count()
+            ),
+        );
+        push_line(
+            output,
+            &format!("    pub const TRANSFER_WORDS: usize = {length} * Self::ELEMENT_WORDS;"),
+        );
+    }
+    push_line(
+        output,
+        "    /// Constructs an all-zero unpacked-array value.",
+    );
+    push_line(output, "    #[must_use]");
+    push_line(output, "    pub fn zero() -> Self {");
+    if matches!(array.element_type(), UnpackedArrayElementType::Wide(_)) {
+        push_line(
+            output,
+            &format!("        Self {{ elements: std::array::from_fn(|_index| {zero}) }}"),
+        );
+    } else {
+        push_line(
+            output,
+            &format!("        Self {{ elements: [{zero}; {length}] }}"),
+        );
+    }
+    push_line(output, "    }");
+    push_line(
+        output,
+        "    /// Constructs a value from elements in HDL declaration order.",
+    );
+    push_line(output, "    #[must_use]");
+    push_line(
+        output,
+        &format!(
+            "    pub const fn from_array(elements: [{element}; {length}]) -> Self {{ Self {{ elements }} }}"
+        ),
+    );
+    push_line(output, "    /// Returns the declaration-order fixed array.");
+    push_line(output, "    #[must_use]");
+    push_line(
+        output,
+        &format!("    pub const fn as_array(&self) -> &[{element}; {length}] {{ &self.elements }}"),
+    );
+    push_line(
+        output,
+        "    /// Returns declaration-order elements as a slice.",
+    );
+    push_line(output, "    #[must_use]");
+    push_line(
+        output,
+        &format!("    pub fn as_slice(&self) -> &[{element}] {{ &self.elements }}"),
+    );
+    push_line(
+        output,
+        "    /// Consumes the value and returns the fixed array.",
+    );
+    push_line(output, "    #[must_use]");
+    push_line(
+        output,
+        &format!("    pub fn into_array(self) -> [{element}; {length}] {{ self.elements }}"),
+    );
+    push_line(
+        output,
+        "    fn ordinal(index: i64) -> std::result::Result<usize, ::vvm::UnpackedArrayIndexError> { ::vvm::unpacked_array_ordinal(Self::LEFT, Self::RIGHT, index) }",
+    );
+    push_line(output, "    /// Returns one element using its HDL index.");
+    push_line(
+        output,
+        "    ///\n    /// # Errors\n    ///\n    /// Returns an error when the index is outside the declared HDL range.",
+    );
+    push_line(
+        output,
+        &format!(
+            "    pub fn element(&self, index: i64) -> std::result::Result<&{element}, ::vvm::UnpackedArrayIndexError> {{ let ordinal = Self::ordinal(index)?; self.elements.get(ordinal).ok_or_else(|| ::vvm::UnpackedArrayIndexError::new(index, Self::LEFT, Self::RIGHT)) }}"
+        ),
+    );
+    push_line(output, "    /// Updates one element using its HDL index.");
+    push_line(output, "    #[allow(clippy::needless_pass_by_value)]");
+    push_line(
+        output,
+        &format!(
+            "    pub fn set_element(&mut self, index: i64, value: impl ::core::borrow::Borrow<{element}>) -> std::result::Result<(), ::vvm::UnpackedArrayIndexError> {{ let ordinal = Self::ordinal(index)?; let slot = self.elements.get_mut(ordinal).ok_or_else(|| ::vvm::UnpackedArrayIndexError::new(index, Self::LEFT, Self::RIGHT))?;"
+        ),
+    );
+    if matches!(array.element_type(), UnpackedArrayElementType::Wide(_)) {
+        push_line(
+            output,
+            "        *slot = ::core::borrow::Borrow::borrow(&value).clone();",
+        );
+    } else {
+        push_line(
+            output,
+            "        *slot = *::core::borrow::Borrow::borrow(&value);",
+        );
+    }
+    push_line(output, "        Ok(()) }");
+    push_line(output, "}");
+    push_line(output, "");
+    push_line(
+        output,
+        &format!("impl Default for {rust_type} {{ fn default() -> Self {{ Self::zero() }} }}"),
+    );
+    push_line(
+        output,
+        &format!(
+            "impl From<[{element}; {length}]> for {rust_type} {{ fn from(elements: [{element}; {length}]) -> Self {{ Self::from_array(elements) }} }}"
+        ),
+    );
+    push_line(
+        output,
+        &format!(
+            "impl From<{rust_type}> for [{element}; {length}] {{ fn from(value: {rust_type}) -> Self {{ value.into_array() }} }}"
+        ),
+    );
+    push_line(
+        output,
+        &format!(
+            "impl AsRef<[{element}]> for {rust_type} {{ fn as_ref(&self) -> &[{element}] {{ self.as_slice() }} }}"
+        ),
+    );
+}
+
 /// Renders one generated packed-array wrapper type.
-#[allow(clippy::too_many_lines)]
 fn render_packed_array_type(
     output: &mut String,
     port: &Port,
@@ -520,7 +705,6 @@ fn render_packed_array_type(
 }
 
 /// Renders one generated packed-struct wrapper type.
-#[allow(clippy::too_many_lines)]
 fn render_packed_struct_type(
     output: &mut String,
     port: &Port,
@@ -755,7 +939,6 @@ fn render_packed_struct_type(
 }
 
 /// Renders one packed-struct field getter.
-#[allow(clippy::too_many_lines)]
 fn render_packed_struct_field_getter(
     output: &mut String,
     field: PackedStructFieldType<'_>,
@@ -975,7 +1158,6 @@ fn render_packed_struct_field_setter(
 }
 
 /// Renders one generated packed-enum companion enum and wrapper type.
-#[allow(clippy::too_many_lines)]
 fn render_packed_enum_type(
     output: &mut String,
     port: &Port,
@@ -1471,6 +1653,14 @@ fn render_error_variants(output: &mut String, metadata: &DutMetadata, traced: bo
         );
         push_line(output, "    WidePortTransferFailed,");
     }
+    if contains_unpacked_array_ports(metadata) {
+        push_line(output, "");
+        push_line(
+            output,
+            "    /// The native adapter rejected an unpacked-array transfer.",
+        );
+        push_line(output, "    UnpackedArrayTransferFailed,");
+    }
     if traced {
         push_line(output, "");
         push_line(
@@ -1557,6 +1747,12 @@ fn render_error_display(
             output,
             "            Self::WidePortTransferFailed => {\"the native adapter rejected a \
              wide-port transfer\"},",
+        );
+    }
+    if contains_unpacked_array_ports(metadata) {
+        push_line(
+            output,
+            "            Self::UnpackedArrayTransferFailed => {\"the native adapter rejected an unpacked-array transfer\"},",
         );
     }
     if traced {
@@ -1987,6 +2183,10 @@ fn render_timing(output: &mut String, names: &DutNames) {
 
 /// Renders one typed input setter.
 fn render_input(output: &mut String, port: &Port, port_names: &PortNames, names: &DutNames) {
+    if let Some(array) = UnpackedArrayType::from_port(port) {
+        render_unpacked_input(output, port_names, array, names);
+        return;
+    }
     if let Some(array_type) = PackedArrayType::from_port(port) {
         render_packed_array_input(output, port, port_names, array_type, names);
 
@@ -2069,6 +2269,10 @@ fn render_scalar_input(output: &mut String, port: &Port, method: &str, signal_ty
 
 /// Renders one typed output getter.
 fn render_output(output: &mut String, port: &Port, port_names: &PortNames, names: &DutNames) {
+    if let Some(array) = UnpackedArrayType::from_port(port) {
+        render_unpacked_output(output, port_names, array, names);
+        return;
+    }
     if let Some(array_type) = PackedArrayType::from_port(port) {
         render_packed_array_output(output, port, port_names, array_type, names);
 
@@ -2097,6 +2301,199 @@ fn render_output(output: &mut String, port: &Port, port_names: &PortNames, names
     }
 }
 
+/// Renders an unpacked-array input transfer wrapper.
+fn render_unpacked_input(
+    output: &mut String,
+    port_names: &PortNames,
+    array: UnpackedArrayType<'_>,
+    names: &DutNames,
+) {
+    let Some(value_type) = port_names.rust_type.as_deref() else {
+        return;
+    };
+    let method = &port_names.method;
+    push_line(output, "");
+    push_line(output, "    #[allow(clippy::needless_pass_by_value)]");
+    push_line(
+        output,
+        &format!(
+            "    pub fn {method}(&mut self, value: impl ::core::borrow::Borrow<{value_type}>) -> Result<()> {{"
+        ),
+    );
+    push_line(output, "        self.ensure_running()?;");
+    push_line(
+        output,
+        "        let value = ::core::borrow::Borrow::borrow(&value);",
+    );
+    match array.element_type() {
+        UnpackedArrayElementType::Scalar(SignalType::Bool) => {
+            push_line(
+                output,
+                "        let values = value.as_slice().iter().copied().map(u8::from).collect::<Vec<_>>();",
+            );
+            push_line(
+                output,
+                &format!("        let transferred = self.inner_mut()?.{method}(&values);"),
+            );
+        }
+        UnpackedArrayElementType::Scalar(_) => push_line(
+            output,
+            &format!("        let transferred = self.inner_mut()?.{method}(value.as_slice());"),
+        ),
+        UnpackedArrayElementType::Wide(_) => {
+            push_line(
+                output,
+                &format!(
+                    "        let mut words = Vec::with_capacity({value_type}::TRANSFER_WORDS);"
+                ),
+            );
+            push_line(
+                output,
+                "        for element in value.as_slice() { words.extend_from_slice(element.words_le()); }",
+            );
+            push_line(
+                output,
+                &format!("        let transferred = self.inner_mut()?.{method}(&words);"),
+            );
+        }
+    }
+    push_line(output, "        if !transferred {");
+    push_line(
+        output,
+        &format!(
+            "            return Err({}::UnpackedArrayTransferFailed);",
+            names.rust_error_type
+        ),
+    );
+    push_line(output, "        }");
+    push_line(output, "        Ok(())");
+    push_line(output, "    }");
+}
+
+/// Renders an unpacked-array output transfer wrapper.
+fn render_unpacked_output(
+    output: &mut String,
+    port_names: &PortNames,
+    array: UnpackedArrayType<'_>,
+    names: &DutNames,
+) {
+    let Some(value_type) = port_names.rust_type.as_deref() else {
+        return;
+    };
+    let method = &port_names.method;
+    let element = array.rust_element_type();
+    let length = array.length();
+    push_line(output, "");
+    push_line(
+        output,
+        &format!("    pub fn {method}(&self) -> Result<{value_type}> {{"),
+    );
+    push_line(output, "        self.ensure_running()?;");
+    match array.element_type() {
+        UnpackedArrayElementType::Scalar(SignalType::Bool) => {
+            push_line(output, &format!("        let mut raw = [0_u8; {length}];"));
+            push_line(
+                output,
+                &format!("        let transferred = self.inner_ref()?.{method}(&mut raw);"),
+            );
+            push_line(
+                output,
+                &format!(
+                    "        if !transferred {{ return Err({}::UnpackedArrayTransferFailed); }}",
+                    names.rust_error_type
+                ),
+            );
+            push_line(
+                output,
+                &format!("        let mut elements = [false; {length}];"),
+            );
+            push_line(
+                output,
+                "        for (element, raw_value) in elements.iter_mut().zip(raw) { *element = raw_value != 0; }",
+            );
+            push_line(
+                output,
+                &format!("        Ok({value_type}::from_array(elements))"),
+            );
+        }
+        UnpackedArrayElementType::Scalar(_) => {
+            push_line(
+                output,
+                &format!("        let mut elements = [0_{element}; {length}];"),
+            );
+            push_line(
+                output,
+                &format!("        let transferred = self.inner_ref()?.{method}(&mut elements);"),
+            );
+            push_line(
+                output,
+                &format!(
+                    "        if !transferred {{ return Err({}::UnpackedArrayTransferFailed); }}",
+                    names.rust_error_type
+                ),
+            );
+            push_line(
+                output,
+                &format!("        Ok({value_type}::from_array(elements))"),
+            );
+        }
+        UnpackedArrayElementType::Wide(wide) => {
+            push_line(
+                output,
+                &format!("        let mut words = vec![0_u32; {value_type}::TRANSFER_WORDS];"),
+            );
+            push_line(
+                output,
+                &format!("        let transferred = self.inner_ref()?.{method}(&mut words);"),
+            );
+            push_line(
+                output,
+                &format!(
+                    "        if !transferred {{ return Err({}::UnpackedArrayTransferFailed); }}",
+                    names.rust_error_type
+                ),
+            );
+            push_line(
+                output,
+                &format!("        let mut elements = Vec::with_capacity({value_type}::LEN);"),
+            );
+            push_line(
+                output,
+                &format!(
+                    "        let mut chunks = words.chunks_exact({value_type}::ELEMENT_WORDS);"
+                ),
+            );
+            push_line(
+                output,
+                &format!(
+                    "        for chunk in &mut chunks {{ elements.push({}::from_words_le(chunk).map_err(|_error| {}::UnpackedArrayTransferFailed)?); }}",
+                    wide.rust_constructor_type(),
+                    names.rust_error_type
+                ),
+            );
+            push_line(
+                output,
+                &format!(
+                    "        if !chunks.remainder().is_empty() {{ return Err({}::UnpackedArrayTransferFailed); }}",
+                    names.rust_error_type
+                ),
+            );
+            push_line(
+                output,
+                &format!(
+                    "        let elements: [{element}; {length}] = elements.try_into().map_err(|_elements| {}::UnpackedArrayTransferFailed)?;",
+                    names.rust_error_type
+                ),
+            );
+            push_line(
+                output,
+                &format!("        Ok({value_type}::from_array(elements))"),
+            );
+        }
+    }
+    push_line(output, "    }");
+}
+
 /// Renders one packed-array typed input setter.
 fn render_packed_array_input(
     output: &mut String,
@@ -2121,7 +2518,6 @@ fn render_packed_array_input(
 }
 
 /// Renders the body of one flattened-scalar packed-array input setter.
-#[allow(clippy::too_many_lines)]
 fn render_packed_aggregate_scalar_input_body(
     output: &mut String,
     aggregate_rust_type: &str,
@@ -2472,7 +2868,6 @@ fn render_packed_aggregate_input(
 }
 
 /// Renders one packed-aggregate typed output getter.
-#[allow(clippy::too_many_arguments)]
 fn render_packed_aggregate_output(
     output: &mut String,
     port: &Port,

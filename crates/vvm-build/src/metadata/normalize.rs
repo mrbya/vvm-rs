@@ -100,7 +100,6 @@ pub fn normalize(dut_name: &str, top_module: &str, raw: &RawMetadata) -> BuildRe
 /// # Errors
 ///
 /// Returns an error for inout ports and unsupported aggregate port shapes.
-#[allow(clippy::pattern_type_mismatch)]
 pub fn validate_supported(metadata: &DutMetadata) -> BuildResult<()> {
     for port in &metadata.ports {
         if port.direction == PortDirection::Inout {
@@ -114,15 +113,58 @@ pub fn validate_supported(metadata: &DutMetadata) -> BuildResult<()> {
             PortShape::PackedArray(shape) => validate_supported_packed_array(port, shape)?,
             PortShape::PackedStruct(shape) => validate_supported_packed_struct(port, shape)?,
             PortShape::PackedEnum(shape) => validate_supported_packed_enum(port, shape)?,
-            PortShape::UnpackedArray(_) => {
-                return Err(BuildError::UnsupportedUnpackedArrayPort {
-                    port: port.name.clone(),
-                });
-            }
+            PortShape::UnpackedArray(shape) => validate_supported_unpacked_array(port, shape)?,
         }
     }
 
     Ok(())
+}
+
+/// Verifies that an unpacked-array shape is within the currently supported subset.
+fn validate_supported_unpacked_array(port: &Port, shape: &UnpackedArrayShape) -> BuildResult<()> {
+    if shape.dimensions.len() != 1 {
+        return Err(BuildError::UnsupportedUnpackedArrayPort {
+            port: port.name.clone(),
+        });
+    }
+    let PortShape::PackedScalar(element) = shape.element.as_ref() else {
+        return Err(BuildError::UnsupportedUnpackedArrayPort {
+            port: port.name.clone(),
+        });
+    };
+    let Some(dimension) = shape.dimensions.first() else {
+        return Err(BuildError::UnsupportedUnpackedArrayPort {
+            port: port.name.clone(),
+        });
+    };
+    let Some(expected_width) = element.width.get().checked_mul(dimension.length.get()) else {
+        return Err(BuildError::UnsupportedUnpackedArrayPort {
+            port: port.name.clone(),
+        });
+    };
+    if expected_width != port.width.get() {
+        return Err(BuildError::UnsupportedUnpackedArrayPort {
+            port: port.name.clone(),
+        });
+    }
+    let transfer_units = if element.width.get() <= 64 {
+        dimension.length.get()
+    } else {
+        let words_per_element = element.width.get().div_ceil(32);
+        let Some(units) = dimension.length.get().checked_mul(words_per_element) else {
+            return Err(BuildError::UnsupportedUnpackedArrayPort {
+                port: port.name.clone(),
+            });
+        };
+        units
+    };
+    usize::try_from(transfer_units)
+        .map(|_value| ())
+        .map_err(
+            |_conversion_error| BuildError::UnsupportedUnpackedArrayPort {
+                port: port.name.clone(),
+            },
+        )
 }
 
 /// Verifies that a packed-array shape is within the currently supported subset.
@@ -155,7 +197,6 @@ fn validate_supported_packed_array(port: &Port, shape: &PackedArrayShape) -> Bui
 }
 
 /// Verifies that a packed-struct shape is within the currently supported subset.
-#[allow(clippy::pattern_type_mismatch)]
 fn validate_supported_packed_struct(port: &Port, shape: &PackedStructShape) -> BuildResult<()> {
     if shape.fields.is_empty() {
         return Err(BuildError::UnsupportedPackedStructPort {
@@ -1422,7 +1463,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::too_many_lines)]
     fn normalizes_aggregate_ports_fixture() -> Result<(), Box<dyn std::error::Error>> {
         let actual = aggregate_ports_metadata()?;
 
@@ -2483,7 +2523,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_unpacked_array_port() {
+    fn accepts_supported_unpacked_array_port() {
         let metadata = DutMetadata {
             name: String::from("dut"),
             top_module: String::from("dut"),
@@ -2502,9 +2542,6 @@ mod tests {
             )],
         };
 
-        assert!(matches!(
-            validate_supported(&metadata),
-            Err(BuildError::UnsupportedUnpackedArrayPort { port }) if port == "bytes"
-        ));
+        assert!(matches!(validate_supported(&metadata), Ok(())));
     }
 }

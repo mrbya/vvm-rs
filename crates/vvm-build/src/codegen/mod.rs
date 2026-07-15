@@ -89,12 +89,12 @@ mod tests {
     use tempfile::tempdir;
 
     use super::generate;
-    use crate::TraceOptions;
     use crate::metadata::{
-        BitWidth, DutMetadata, PackedScalarShape, Port, PortDirection, PortShape, RawMetadata,
-        normalize,
+        normalize, BitWidth, DutMetadata, PackedScalarShape, Port, PortDirection, PortShape,
+        RawMetadata,
     };
     use crate::verilator::VerilatorVersion;
+    use crate::TraceOptions;
 
     fn wide_ports_metadata() -> Result<DutMetadata, Box<dyn std::error::Error>> {
         let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -153,8 +153,8 @@ mod tests {
         Ok(normalize("signed_ports", "signed_ports", &raw)?)
     }
 
-    fn packed_array_ports_metadata()
-    -> Result<crate::metadata::DutMetadata, Box<dyn std::error::Error>> {
+    fn packed_array_ports_metadata(
+    ) -> Result<crate::metadata::DutMetadata, Box<dyn std::error::Error>> {
         let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 
         let metadata_fixture = manifest
@@ -173,8 +173,23 @@ mod tests {
         Ok(normalize("packed_array_ports", "packed_array_ports", &raw)?)
     }
 
-    fn packed_struct_ports_metadata()
-    -> Result<crate::metadata::DutMetadata, Box<dyn std::error::Error>> {
+    fn unpacked_array_ports_metadata() -> Result<DutMetadata, Box<dyn std::error::Error>> {
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/verilator/5.048/unpacked_array_ports");
+        let raw = RawMetadata::from_paths(
+            VerilatorVersion::new(5, 48),
+            &fixture.join("unpacked_array_ports.tree.json"),
+            &fixture.join("unpacked_array_ports.tree.meta.json"),
+        )?;
+        Ok(normalize(
+            "unpacked_array_ports",
+            "unpacked_array_ports",
+            &raw,
+        )?)
+    }
+
+    fn packed_struct_ports_metadata(
+    ) -> Result<crate::metadata::DutMetadata, Box<dyn std::error::Error>> {
         let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 
         let metadata_fixture = manifest
@@ -197,8 +212,8 @@ mod tests {
         )?)
     }
 
-    fn packed_enum_ports_metadata()
-    -> Result<crate::metadata::DutMetadata, Box<dyn std::error::Error>> {
+    fn packed_enum_ports_metadata(
+    ) -> Result<crate::metadata::DutMetadata, Box<dyn std::error::Error>> {
         let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 
         let metadata_fixture = manifest
@@ -493,8 +508,8 @@ mod tests {
     }
 
     #[test]
-    fn traced_wrapper_generation_encodes_trace_lifecycle_rules()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn traced_wrapper_generation_encodes_trace_lifecycle_rules(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let metadata = counter_metadata()?;
         let output = tempdir()?;
         let generated = generate(
@@ -516,10 +531,8 @@ mod tests {
         assert!(wrapper.contains("self.trace_configured = TraceFlag::new(true);"));
         assert!(wrapper.contains("TraceOpenFailed"));
         assert!(wrapper.contains("self.evaluated = TraceFlag::new(true);"));
-        assert!(
-            wrapper
-                .contains("self.trace_open = TraceFlag::new(self.inner_ref()?.trace_is_open());")
-        );
+        assert!(wrapper
+            .contains("self.trace_open = TraceFlag::new(self.inner_ref()?.trace_is_open());"));
         assert!(wrapper.contains(
             "if self.finished {\n            self.trace_open = TraceFlag::new(false);\n            return Ok(());"
         ));
@@ -539,7 +552,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::too_many_lines)]
     fn wide_codegen_generates_slice_based_artifacts() -> Result<(), Box<dyn std::error::Error>> {
         let metadata = wide_ports_metadata()?;
         let output = tempdir()?;
@@ -557,21 +569,15 @@ mod tests {
         assert!(
             header.contains("bool set_input_u96(rust::Slice<const std::uint32_t> words) noexcept;")
         );
-        assert!(
-            header
-                .contains("bool set_input_u129(rust::Slice<const std::uint32_t> words) noexcept;")
-        );
-        assert!(
-            header
-                .contains("bool set_input_u256(rust::Slice<const std::uint32_t> words) noexcept;")
-        );
+        assert!(header
+            .contains("bool set_input_u129(rust::Slice<const std::uint32_t> words) noexcept;"));
+        assert!(header
+            .contains("bool set_input_u256(rust::Slice<const std::uint32_t> words) noexcept;"));
         assert!(
             header.contains("bool set_input_i65(rust::Slice<const std::uint32_t> words) noexcept;")
         );
-        assert!(
-            header
-                .contains("bool set_input_i129(rust::Slice<const std::uint32_t> words) noexcept;")
-        );
+        assert!(header
+            .contains("bool set_input_i129(rust::Slice<const std::uint32_t> words) noexcept;"));
         assert!(
             header.contains("bool output_u65(rust::Slice<std::uint32_t> words) const noexcept;")
         );
@@ -662,9 +668,8 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::too_many_lines)]
-    fn packed_array_codegen_generates_newtypes_and_flattened_transfer()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn packed_array_codegen_generates_newtypes_and_flattened_transfer(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let metadata = packed_array_ports_metadata()?;
         let output = tempdir()?;
         let generated = generate(&metadata, "Vpacked_array_ports", output.path(), None)?;
@@ -714,9 +719,33 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::too_many_lines)]
-    fn packed_struct_codegen_generates_newtypes_and_flattened_transfer()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn unpacked_array_codegen_uses_element_slices() -> Result<(), Box<dyn std::error::Error>> {
+        let output = tempdir()?;
+        let generated = generate(
+            &unpacked_array_ports_metadata()?,
+            "Vunpacked_array_ports",
+            output.path(),
+            None,
+        )?;
+        let header = std::fs::read_to_string(&generated.cpp_header)?;
+        let bridge = std::fs::read_to_string(&generated.cxx_bridge)?;
+        let wrapper = std::fs::read_to_string(&generated.rust_wrapper)?;
+        assert!(header.contains("rust::Slice<const std::uint8_t> values"));
+        assert!(header.contains("rust::Slice<const std::int16_t> values"));
+        assert!(header.contains("rust::Slice<const std::uint32_t> words"));
+        assert!(bridge.contains("values: &[u8]"));
+        assert!(bridge.contains("values: &[i16]"));
+        assert!(bridge.contains("words: &[u32]"));
+        assert!(wrapper.contains("pub struct Flags"));
+        assert!(wrapper.contains("elements: [bool; 4]"));
+        assert!(wrapper.contains("elements: [::vvm::Bits<129>; 2]"));
+        assert!(wrapper.contains("UnpackedArrayTransferFailed"));
+        Ok(())
+    }
+
+    #[test]
+    fn packed_struct_codegen_generates_newtypes_and_flattened_transfer(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let metadata = packed_struct_ports_metadata()?;
         let output = tempdir()?;
         let generated = generate(&metadata, "Vpacked_struct_ports", output.path(), None)?;
@@ -727,25 +756,18 @@ mod tests {
 
         assert!(header.contains("void set_packet(std::uint32_t value) noexcept;"));
         assert!(header.contains("[[nodiscard]] std::uint32_t packet_out() const noexcept;"));
-        assert!(
-            header
-                .contains("bool set_wide_packet(rust::Slice<const std::uint32_t> words) noexcept;")
-        );
-        assert!(
-            header
-                .contains("bool wide_packet_out(rust::Slice<std::uint32_t> words) const noexcept;")
-        );
+        assert!(header
+            .contains("bool set_wide_packet(rust::Slice<const std::uint32_t> words) noexcept;"));
+        assert!(header
+            .contains("bool wide_packet_out(rust::Slice<std::uint32_t> words) const noexcept;"));
 
         assert!(bridge.contains("fn set_packet(self: Pin<&mut PackedStructPorts>, value: u32);"));
         assert!(bridge.contains("fn packet_out(self: &PackedStructPorts) -> u32;"));
         assert!(bridge.contains(
             "fn set_wide_packet(self: Pin<&mut PackedStructPorts>, words: &[u32]) -> bool;"
         ));
-        assert!(
-            bridge.contains(
-                "fn wide_packet_out(self: &PackedStructPorts, words: &mut [u32]) -> bool;"
-            )
-        );
+        assert!(bridge
+            .contains("fn wide_packet_out(self: &PackedStructPorts, words: &mut [u32]) -> bool;"));
 
         assert!(wrapper.contains("pub struct Packet {"));
         assert!(wrapper.contains("pub struct PacketOut {"));
@@ -805,9 +827,8 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::too_many_lines)]
-    fn packed_enum_codegen_generates_wrappers_and_flattened_transfer()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn packed_enum_codegen_generates_wrappers_and_flattened_transfer(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let metadata = packed_enum_ports_metadata()?;
         let output = tempdir()?;
         let generated = generate(&metadata, "Vpacked_enum_ports", output.path(), None)?;
@@ -826,9 +847,7 @@ mod tests {
 
         assert!(bridge.contains("fn set_state(self: Pin<&mut PackedEnumPorts>, value: u8);"));
         assert!(bridge.contains("fn state_out(self: &PackedEnumPorts) -> u8;"));
-        assert!(
-            bridge.contains("fn set_signed_state(self: Pin<&mut PackedEnumPorts>, value: i8);")
-        );
+        assert!(bridge.contains("fn set_signed_state(self: Pin<&mut PackedEnumPorts>, value: i8);"));
         assert!(bridge.contains("fn signed_state_out(self: &PackedEnumPorts) -> i8;"));
 
         assert!(wrapper.contains("pub struct State {"));
@@ -842,11 +861,8 @@ mod tests {
         );
         assert!(wrapper.contains("pub const LAYOUT: ::vvm::PackedEnumLayout ="));
         assert!(wrapper.contains("pub fn from_raw(value: u64) -> Self {"));
-        assert!(
-            wrapper.contains(
-                "pub fn raw(&self) -> std::result::Result<u64, ::vvm::PackedLayoutError> {"
-            )
-        );
+        assert!(wrapper
+            .contains("pub fn raw(&self) -> std::result::Result<u64, ::vvm::PackedLayoutError> {"));
         assert!(wrapper.contains("pub fn from_variant(variant: StateVariant) -> Self {"));
         assert!(wrapper.contains(
             "pub fn variant(&self) -> std::result::Result<Option<StateVariant>, \

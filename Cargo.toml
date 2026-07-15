@@ -10,6 +10,7 @@ members = [
     "examples/packed-struct",
     "examples/signed-adder",
     "examples/wide-transform",
+    "examples/unpacked-array",
 ]
 resolver = "2"
 

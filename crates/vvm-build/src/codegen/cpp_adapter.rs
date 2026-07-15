@@ -1,9 +1,12 @@
 use super::names::DutNames;
-use super::types::{PortType, SignalType, WideType, contains_wide_ports};
-use crate::TraceOptions;
+use super::types::{
+    contains_slice_ports, PortType, SignalType, UnpackedArrayElementType, UnpackedArrayType,
+    WideType,
+};
 use crate::codegen::GENERATED_NOTICE;
 use crate::metadata::{DutMetadata, Port, PortDirection};
 use crate::trace::TraceFormat;
+use crate::TraceOptions;
 
 /// Complete generated C++ adapter text.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -22,7 +25,7 @@ pub(super) fn render(
     trace: Option<TraceOptions>,
 ) -> CppAdapterText {
     let trace = trace.filter(|options| options.format == TraceFormat::Vcd);
-    let requires_rust_cxx = trace.is_some() || contains_wide_ports(metadata);
+    let requires_rust_cxx = trace.is_some() || contains_slice_ports(metadata);
     let traced = trace.is_some();
 
     CppAdapterText {
@@ -78,6 +81,7 @@ fn render_header_prelude(
     push_line(output, "");
     if include_rust_cxx {
         push_line(output, "#include \"rust/cxx.h\"");
+        push_line(output, "#include <cstddef>");
     }
     push_line(output, "#include <cstdint>");
     push_line(output, "#include <memory>");
@@ -138,6 +142,28 @@ fn render_header_prelude(
 /// Renders per-port method declarations in the public header.
 fn render_header_port_methods(output: &mut String, metadata: &DutMetadata, names: &DutNames) {
     for (port, port_names) in metadata.ports.iter().zip(&names.ports) {
+        if let Some(array_type) = UnpackedArrayType::from_port(port) {
+            let value_name =
+                if matches!(array_type.element_type(), UnpackedArrayElementType::Wide(_)) {
+                    "words"
+                } else {
+                    "values"
+                };
+            let value_type = array_type.ffi_cpp_element_type();
+            let declaration = match port.direction {
+                PortDirection::Input => format!(
+                    "    [[nodiscard]] bool {}(rust::Slice<const {value_type}> {value_name}) noexcept;",
+                    port_names.method
+                ),
+                PortDirection::Output => format!(
+                    "    [[nodiscard]] bool {}(rust::Slice<{value_type}> {value_name}) const noexcept;",
+                    port_names.method
+                ),
+                PortDirection::Inout => continue,
+            };
+            push_line(output, &declaration);
+            continue;
+        }
         let port_type = PortType::from_port(port);
 
         match port.direction {
@@ -191,7 +217,7 @@ fn render_source(metadata: &DutMetadata, names: &DutNames, trace: Option<TraceOp
     let mut output = String::new();
     let traced = trace.is_some();
     let trace_depth = trace.map(|options| options.depth);
-    let has_wide_ports = contains_wide_ports(metadata);
+    let has_wide_ports = contains_slice_ports(metadata);
 
     render_source_prelude(&mut output, names, traced, has_wide_ports);
     render_impl_class(&mut output, metadata, names, trace);
@@ -347,7 +373,7 @@ fn render_input_initializers(output: &mut String, metadata: &DutMetadata, names:
                 port_names.accessor
             ),
         );
-        push_line(output, "            RawType raw_value{0};");
+        push_line(output, "            RawType raw_value{};");
         push_line(
             output,
             &format!("            model->{}(raw_value);", port_names.accessor),
@@ -358,10 +384,17 @@ fn render_input_initializers(output: &mut String, metadata: &DutMetadata, names:
 
 /// Renders the signed-output decoding helper when required.
 fn render_signed_output_decoder(output: &mut String, metadata: &DutMetadata) {
-    let required = metadata
-        .ports
-        .iter()
-        .any(|port| port.signed && port.direction == PortDirection::Output);
+    let required = metadata.ports.iter().any(|port| {
+        (port.signed && port.direction == PortDirection::Output)
+            || UnpackedArrayType::from_port(port).is_some_and(|array_type| {
+                port.direction == PortDirection::Output
+                    && array_type.element_signed()
+                    && matches!(
+                        array_type.element_type(),
+                        UnpackedArrayElementType::Scalar(_)
+                    )
+            })
+    });
 
     if !required {
         return;
@@ -624,6 +657,10 @@ fn render_source_epilogue(output: &mut String, names: &DutNames) {
 
 /// Renders one generated input setter.
 fn render_setter(output: &mut String, port: &Port, method: &str, accessor: &str, cpp_type: &str) {
+    if let Some(array_type) = UnpackedArrayType::from_port(port) {
+        render_unpacked_array_setter(output, method, accessor, cpp_type, array_type);
+        return;
+    }
     match PortType::from_port(port) {
         PortType::Scalar(signal_type) => {
             render_scalar_setter(output, port, method, accessor, cpp_type, signal_type);
@@ -759,6 +796,10 @@ fn render_wide_setter(
 
 /// Renders one generated output getter.
 fn render_getter(output: &mut String, port: &Port, method: &str, accessor: &str, cpp_type: &str) {
+    if let Some(array_type) = UnpackedArrayType::from_port(port) {
+        render_unpacked_array_getter(output, method, accessor, cpp_type, array_type);
+        return;
+    }
     match PortType::from_port(port) {
         PortType::Scalar(signal_type) => {
             render_scalar_getter(output, port, method, accessor, cpp_type, signal_type);
@@ -882,6 +923,287 @@ fn render_wide_getter(
     }
 
     push_line(output, "");
+    push_line(output, "    return true;");
+    push_line(output, "}");
+}
+
+/// Renders one unpacked-array input transfer.
+fn render_unpacked_array_setter(
+    output: &mut String,
+    method: &str,
+    accessor: &str,
+    cpp_type: &str,
+    array: UnpackedArrayType<'_>,
+) {
+    let Some(transfer_length) = array.transfer_length() else {
+        return;
+    };
+    let value_name = if matches!(array.element_type(), UnpackedArrayElementType::Wide(_)) {
+        "words"
+    } else {
+        "values"
+    };
+    let value_type = array.ffi_cpp_element_type();
+    push_line(output, "");
+    push_line(
+        output,
+        &format!(
+            "bool {cpp_type}::{method}(rust::Slice<const {value_type}> {value_name}) noexcept {{"
+        ),
+    );
+    push_line(
+        output,
+        &format!(
+            "    constexpr std::size_t expected_elements{{{}}};",
+            array.length()
+        ),
+    );
+    push_line(
+        output,
+        &format!("    constexpr std::size_t expected_transfer{{{transfer_length}}};"),
+    );
+    push_line(
+        output,
+        &format!("    if ({value_name}.size() != expected_transfer) {{"),
+    );
+    push_line(output, "        return false;");
+    push_line(output, "    }");
+    push_line(
+        output,
+        &format!("    using RawType = std::decay_t<decltype(impl_->model->{accessor}())>;"),
+    );
+    push_line(output, "    RawType raw_value{};");
+    push_line(output, "    if (raw_value.size() != expected_elements) {");
+    push_line(output, "        return false;");
+    push_line(output, "    }");
+    match array.element_type() {
+        UnpackedArrayElementType::Scalar(signal) => {
+            push_line(
+                output,
+                "    using RawElement = std::decay_t<decltype(raw_value[0])>;",
+            );
+            push_line(
+                output,
+                "    for (std::size_t ordinal = 0; ordinal < expected_elements; ++ordinal) {",
+            );
+            if array.left() > array.right() {
+                push_line(
+                    output,
+                    "        const auto native_ordinal = expected_elements - 1U - ordinal;",
+                );
+            } else {
+                push_line(output, "        const auto native_ordinal = ordinal;");
+            }
+            let source = if array.element_is_bool() {
+                "values[ordinal] != 0U".to_owned()
+            } else if array.element_signed() {
+                let mask = signal
+                    .mask_literal(array.element_bit_width())
+                    .unwrap_or_else(|| "bits".to_owned());
+                let expression = if mask == "bits" {
+                    "bits".to_owned()
+                } else {
+                    format!("bits & {mask}")
+                };
+                push_line(
+                    output,
+                    &format!(
+                        "        using UnsignedType = {};",
+                        signal.unsigned_cpp_type()
+                    ),
+                );
+                push_line(
+                    output,
+                    "        const auto bits = static_cast<UnsignedType>(values[ordinal]);",
+                );
+                expression
+            } else {
+                signal.mask_literal(array.element_bit_width()).map_or_else(
+                    || "values[ordinal]".to_owned(),
+                    |mask| format!("values[ordinal] & {mask}"),
+                )
+            };
+            push_line(
+                output,
+                &format!("        raw_value[native_ordinal] = static_cast<RawElement>({source});"),
+            );
+            push_line(output, "    }");
+        }
+        UnpackedArrayElementType::Wide(wide) => {
+            push_line(
+                output,
+                &format!(
+                    "    constexpr std::size_t element_words{{{}}};",
+                    wide.word_count()
+                ),
+            );
+            push_line(
+                output,
+                "    for (std::size_t element = 0; element < expected_elements; ++element) {",
+            );
+            if array.left() > array.right() {
+                push_line(
+                    output,
+                    "        const auto native_element = expected_elements - 1U - element;",
+                );
+            } else {
+                push_line(output, "        const auto native_element = element;");
+            }
+            push_line(
+                output,
+                "        for (std::size_t word = 0; word < element_words; ++word) {",
+            );
+            push_line(
+                output,
+                "            raw_value[native_element][word] = words[element * element_words + word];",
+            );
+            push_line(output, "        }");
+            if wide.requires_final_word_mask() {
+                push_line(
+                    output,
+                    &format!(
+                        "        raw_value[native_element][{}] &= {};",
+                        wide.word_count().saturating_sub(1),
+                        wide.final_word_mask_literal()
+                    ),
+                );
+            }
+            push_line(output, "    }");
+        }
+    }
+    push_line(output, &format!("    impl_->model->{accessor}(raw_value);"));
+    push_line(output, "    return true;");
+    push_line(output, "}");
+}
+
+/// Renders one unpacked-array output transfer.
+fn render_unpacked_array_getter(
+    output: &mut String,
+    method: &str,
+    accessor: &str,
+    cpp_type: &str,
+    array: UnpackedArrayType<'_>,
+) {
+    let Some(transfer_length) = array.transfer_length() else {
+        return;
+    };
+    let value_name = if matches!(array.element_type(), UnpackedArrayElementType::Wide(_)) {
+        "words"
+    } else {
+        "values"
+    };
+    let value_type = array.ffi_cpp_element_type();
+    push_line(output, "");
+    push_line(
+        output,
+        &format!(
+            "bool {cpp_type}::{method}(rust::Slice<{value_type}> {value_name}) const noexcept {{"
+        ),
+    );
+    push_line(
+        output,
+        &format!(
+            "    constexpr std::size_t expected_elements{{{}}};",
+            array.length()
+        ),
+    );
+    push_line(
+        output,
+        &format!("    constexpr std::size_t expected_transfer{{{transfer_length}}};"),
+    );
+    push_line(
+        output,
+        &format!("    if ({value_name}.size() != expected_transfer) {{"),
+    );
+    push_line(output, "        return false;");
+    push_line(output, "    }");
+    push_line(
+        output,
+        &format!("    const auto& raw_value = impl_->model->{accessor}();"),
+    );
+    push_line(output, "    if (raw_value.size() != expected_elements) {");
+    push_line(output, "        return false;");
+    push_line(output, "    }");
+    match array.element_type() {
+        UnpackedArrayElementType::Scalar(signal) => {
+            push_line(
+                output,
+                "    for (std::size_t ordinal = 0; ordinal < expected_elements; ++ordinal) {",
+            );
+            if array.left() > array.right() {
+                push_line(
+                    output,
+                    "        const auto native_ordinal = expected_elements - 1U - ordinal;",
+                );
+            } else {
+                push_line(output, "        const auto native_ordinal = ordinal;");
+            }
+            if signal == SignalType::Bool {
+                push_line(
+                    output,
+                    "        values[ordinal] = raw_value[native_ordinal] != 0 ? 1U : 0U;",
+                );
+            } else if array.element_signed() {
+                push_line(
+                    output,
+                    &format!(
+                        "        values[ordinal] = Impl::sign_extend<{}, {}>(raw_value[native_ordinal]);",
+                        signal.cpp_type(),
+                        array.element_width()
+                    ),
+                );
+            } else {
+                push_line(
+                    output,
+                    &format!(
+                        "        values[ordinal] = static_cast<{value_type}>(raw_value[native_ordinal]);"
+                    ),
+                );
+            }
+            push_line(output, "    }");
+        }
+        UnpackedArrayElementType::Wide(wide) => {
+            push_line(
+                output,
+                &format!(
+                    "    constexpr std::size_t element_words{{{}}};",
+                    wide.word_count()
+                ),
+            );
+            push_line(
+                output,
+                "    for (std::size_t element = 0; element < expected_elements; ++element) {",
+            );
+            if array.left() > array.right() {
+                push_line(
+                    output,
+                    "        const auto native_element = expected_elements - 1U - element;",
+                );
+            } else {
+                push_line(output, "        const auto native_element = element;");
+            }
+            push_line(
+                output,
+                "        for (std::size_t word = 0; word < element_words; ++word) {",
+            );
+            push_line(
+                output,
+                "            words[element * element_words + word] = raw_value[native_element][word];",
+            );
+            push_line(output, "        }");
+            if wide.requires_final_word_mask() {
+                push_line(
+                    output,
+                    &format!(
+                        "        words[element * element_words + {}] &= {};",
+                        wide.word_count().saturating_sub(1),
+                        wide.final_word_mask_literal()
+                    ),
+                );
+            }
+            push_line(output, "    }");
+        }
+    }
     push_line(output, "    return true;");
     push_line(output, "}");
 }
@@ -1011,8 +1333,8 @@ mod tests {
     }
 
     #[test]
-    fn wide_input_setter_emits_three_word_transfer_and_top_mask()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn wide_input_setter_emits_three_word_transfer_and_top_mask(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut output = String::new();
         let port = port(PortDirection::Input, 65, false)?;
 
@@ -1044,8 +1366,8 @@ mod tests {
     }
 
     #[test]
-    fn signed_wide_input_uses_same_transfer_logic_as_unsigned()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn signed_wide_input_uses_same_transfer_logic_as_unsigned(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut output = String::new();
         let port = port(PortDirection::Input, 129, true)?;
 
@@ -1060,8 +1382,8 @@ mod tests {
     }
 
     #[test]
-    fn wide_getter_rejects_invalid_slice_length_before_indexing()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn wide_getter_rejects_invalid_slice_length_before_indexing(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut output = String::new();
         let port = port(PortDirection::Output, 129, true)?;
 

@@ -1,6 +1,6 @@
 use crate::metadata::{
-    BitWidth, DutMetadata, PackedArrayShape, PackedEnumShape, PackedEnumVariant, PackedScalarShape,
-    PackedStructField, PackedStructShape, Port, PortShape,
+    ArrayDimension, BitWidth, DutMetadata, PackedArrayShape, PackedEnumShape, PackedEnumVariant,
+    PackedScalarShape, PackedStructField, PackedStructShape, Port, PortShape,
 };
 
 /// Public generated type used by adapter methods.
@@ -27,6 +27,24 @@ pub struct PackedArrayType<'a> {
 
     /// Single supported packed dimension.
     dimension: &'a crate::metadata::ArrayDimension,
+}
+
+/// Supported generated unpacked-array descriptor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct UnpackedArrayType<'a> {
+    /// Plain packed-scalar element.
+    element: &'a PackedScalarShape,
+    /// Single supported unpacked dimension.
+    dimension: &'a ArrayDimension,
+}
+
+/// Generated representation and native transfer shape for one unpacked-array element.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UnpackedArrayElementType {
+    /// Primitive scalar element.
+    Scalar(SignalType),
+    /// Wide packed element.
+    Wide(WideType),
 }
 
 /// Supported generated packed-struct type descriptor.
@@ -210,9 +228,99 @@ impl<'a> PackedArrayType<'a> {
     }
 }
 
+impl<'a> UnpackedArrayType<'a> {
+    /// Returns a descriptor for a supported unpacked-array port.
+    pub fn from_port(port: &'a Port) -> Option<Self> {
+        let PortShape::UnpackedArray(shape) = &port.shape else {
+            return None;
+        };
+        if shape.dimensions.len() != 1 {
+            return None;
+        }
+        let dimension = shape.dimensions.first()?;
+        let PortShape::PackedScalar(element) = shape.element.as_ref() else {
+            return None;
+        };
+        Some(Self { element, dimension })
+    }
+
+    /// Returns the number of elements.
+    pub const fn length(self) -> u32 {
+        self.dimension.length.get()
+    }
+    /// Returns the declared left HDL bound.
+    pub const fn left(self) -> i64 {
+        self.dimension.left
+    }
+    /// Returns the declared right HDL bound.
+    pub const fn right(self) -> i64 {
+        self.dimension.right
+    }
+    /// Returns one element width.
+    pub const fn element_width(self) -> u32 {
+        self.element.width.get()
+    }
+    /// Returns the element bit-width descriptor.
+    pub const fn element_bit_width(self) -> BitWidth {
+        self.element.width
+    }
+    /// Returns element signedness.
+    pub const fn element_signed(self) -> bool {
+        self.element.signed
+    }
+    /// Returns whether public elements use `bool`.
+    pub const fn element_is_bool(self) -> bool {
+        !self.element_signed() && self.element_width() == 1
+    }
+    /// Returns the generated element representation.
+    pub const fn element_type(self) -> UnpackedArrayElementType {
+        if self.element_width() <= 64 {
+            UnpackedArrayElementType::Scalar(SignalType::from_width_signed(
+                self.element_width(),
+                self.element_signed(),
+            ))
+        } else {
+            UnpackedArrayElementType::Wide(WideType::new(self.element.width, self.element_signed()))
+        }
+    }
+    /// Returns the public Rust element type.
+    pub fn rust_element_type(self) -> String {
+        match self.element_type() {
+            UnpackedArrayElementType::Scalar(signal) => signal.rust_type().to_owned(),
+            UnpackedArrayElementType::Wide(wide) => wide.rust_value_type(),
+        }
+    }
+    /// Returns the FFI Rust transfer-unit type.
+    pub const fn ffi_rust_element_type(self) -> &'static str {
+        match self.element_type() {
+            UnpackedArrayElementType::Scalar(SignalType::Bool) => "u8",
+            UnpackedArrayElementType::Scalar(signal) => signal.rust_type(),
+            UnpackedArrayElementType::Wide(_) => "u32",
+        }
+    }
+    /// Returns the FFI C++ transfer-unit type.
+    pub const fn ffi_cpp_element_type(self) -> &'static str {
+        match self.element_type() {
+            UnpackedArrayElementType::Scalar(SignalType::Bool) => "std::uint8_t",
+            UnpackedArrayElementType::Scalar(signal) => signal.cpp_type(),
+            UnpackedArrayElementType::Wide(_) => "std::uint32_t",
+        }
+    }
+    /// Returns native transfer units per element.
+    pub const fn transfer_units_per_element(self) -> u32 {
+        match self.element_type() {
+            UnpackedArrayElementType::Scalar(_) => 1,
+            UnpackedArrayElementType::Wide(wide) => wide.word_count(),
+        }
+    }
+    /// Returns the total native transfer length.
+    pub const fn transfer_length(self) -> Option<u32> {
+        self.length().checked_mul(self.transfer_units_per_element())
+    }
+}
+
 impl<'a> PackedStructType<'a> {
     /// Returns a supported packed-struct descriptor.
-    #[allow(clippy::pattern_type_mismatch)]
     pub fn from_port(port: &'a Port) -> Option<Self> {
         let PortShape::PackedStruct(shape) = &port.shape else {
             return None;
@@ -274,7 +382,6 @@ impl<'a> PackedStructType<'a> {
 
 impl<'a> PackedEnumType<'a> {
     /// Returns a supported packed-enum descriptor.
-    #[allow(clippy::pattern_type_mismatch)]
     pub const fn from_port(port: &'a Port) -> Option<Self> {
         let PortShape::PackedEnum(shape) = &port.shape else {
             return None;
@@ -326,7 +433,6 @@ impl<'a> PackedEnumType<'a> {
 
 impl<'a> PackedStructFieldType<'a> {
     /// Creates a descriptor for one scalar packed-struct field.
-    #[allow(clippy::pattern_type_mismatch)]
     pub const fn from_field(field: &'a PackedStructField) -> Option<Self> {
         let PortShape::PackedScalar(scalar) = &field.shape else {
             return None;
@@ -458,10 +564,22 @@ impl WideType {
 
 /// Returns whether any generated DUT port needs wide transfer support.
 pub fn contains_wide_ports(metadata: &DutMetadata) -> bool {
+    metadata.ports.iter().any(|port| {
+        UnpackedArrayType::from_port(port).is_none() && PortType::from_port(port).is_wide()
+    })
+}
+
+/// Returns whether any port uses a supported unpacked-array wrapper.
+pub fn contains_unpacked_array_ports(metadata: &DutMetadata) -> bool {
     metadata
         .ports
         .iter()
-        .any(|port| PortType::from_port(port).is_wide())
+        .any(|port| UnpackedArrayType::from_port(port).is_some())
+}
+
+/// Returns whether generated C++ needs CXX slice support.
+pub fn contains_slice_ports(metadata: &DutMetadata) -> bool {
+    contains_wide_ports(metadata) || contains_unpacked_array_ports(metadata)
 }
 
 /// Returns whether any port uses a supported packed-array wrapper.
@@ -627,13 +745,15 @@ mod tests {
     use std::num::NonZeroU32;
 
     use super::{
+        contains_packed_aggregate_ports, contains_packed_array_ports, contains_packed_enum_ports,
+        contains_packed_struct_ports, contains_unpacked_array_ports, contains_wide_ports,
         PackedArrayType, PackedEnumType, PackedStructFieldValueType, PackedStructType, PortType,
-        SignalType, WideType, contains_packed_aggregate_ports, contains_packed_array_ports,
-        contains_packed_enum_ports, contains_packed_struct_ports, contains_wide_ports,
+        SignalType, UnpackedArrayElementType, UnpackedArrayType, WideType,
     };
     use crate::metadata::{
-        ArrayDimension, BitWidth, PackedArrayShape, PackedEnumShape, PackedEnumVariant,
-        PackedScalarShape, PackedStructField, PackedStructShape, Port, PortDirection, PortShape,
+        ArrayDimension, BitWidth, DutMetadata, PackedArrayShape, PackedEnumShape,
+        PackedEnumVariant, PackedScalarShape, PackedStructField, PackedStructShape, Port,
+        PortDirection, PortShape, UnpackedArrayShape,
     };
 
     fn width(value: u32) -> Result<BitWidth, io::Error> {
@@ -701,6 +821,36 @@ mod tests {
                 dimensions,
                 width: total_width,
                 signed,
+            }),
+        })
+    }
+
+    fn unpacked_array_port(
+        total_bits: u32,
+        element_bits: u32,
+        signed: bool,
+    ) -> Result<Port, io::Error> {
+        let total_width = width(total_bits)?;
+        let element_width = width(element_bits)?;
+        let _ = element_bits;
+        let element_count = if total_bits == 258 { 2 } else { 4 };
+        let length = NonZeroU32::new(element_count)
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "test unpacked length"))?;
+        Ok(Port {
+            name: String::from("values"),
+            direction: PortDirection::Input,
+            width: total_width,
+            signed: false,
+            shape: PortShape::UnpackedArray(UnpackedArrayShape {
+                element: Box::new(PortShape::PackedScalar(PackedScalarShape {
+                    width: element_width,
+                    signed,
+                })),
+                dimensions: vec![ArrayDimension {
+                    left: 3,
+                    right: 0,
+                    length,
+                }],
             }),
         })
     }
@@ -886,8 +1036,8 @@ mod tests {
     }
 
     #[test]
-    fn sixty_five_bit_wide_type_uses_three_words_and_single_bit_mask()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn sixty_five_bit_wide_type_uses_three_words_and_single_bit_mask(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let wide = wide_type(65, false)?;
 
         assert_eq!(wide.word_count(), 3);
@@ -911,8 +1061,8 @@ mod tests {
     }
 
     #[test]
-    fn one_hundred_twenty_nine_bit_wide_type_uses_five_words()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn one_hundred_twenty_nine_bit_wide_type_uses_five_words(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let wide = wide_type(129, true)?;
 
         assert_eq!(wide.word_count(), 5);
@@ -979,6 +1129,39 @@ mod tests {
         assert!(!contains_wide_ports(&scalar));
         assert!(contains_wide_ports(&wide));
 
+        Ok(())
+    }
+
+    #[test]
+    fn describes_unpacked_arrays_by_element_abi() -> Result<(), Box<dyn std::error::Error>> {
+        let scalar = unpacked_array_port(128, 32, false)?;
+        let scalar_type =
+            UnpackedArrayType::from_port(&scalar).ok_or_else(|| io::Error::other("array"))?;
+        assert_eq!(scalar_type.length(), 4);
+        assert_eq!(scalar_type.left(), 3);
+        assert_eq!(scalar_type.right(), 0);
+        assert_eq!(scalar_type.rust_element_type(), "u32");
+        assert_eq!(scalar_type.ffi_rust_element_type(), "u32");
+        assert_eq!(scalar_type.transfer_length(), Some(4));
+        assert_eq!(
+            scalar_type.element_type(),
+            UnpackedArrayElementType::Scalar(SignalType::U32)
+        );
+
+        let wide = unpacked_array_port(258, 129, false)?;
+        let wide_type =
+            UnpackedArrayType::from_port(&wide).ok_or_else(|| io::Error::other("array"))?;
+        assert_eq!(wide_type.rust_element_type(), "::vvm::Bits<129>");
+        assert_eq!(wide_type.ffi_cpp_element_type(), "std::uint32_t");
+        assert_eq!(wide_type.transfer_units_per_element(), 5);
+        assert_eq!(wide_type.transfer_length(), Some(10));
+        let metadata = DutMetadata {
+            name: String::from("array"),
+            top_module: String::from("array"),
+            ports: vec![wide],
+        };
+        assert!(contains_unpacked_array_ports(&metadata));
+        assert!(!contains_wide_ports(&metadata));
         Ok(())
     }
 

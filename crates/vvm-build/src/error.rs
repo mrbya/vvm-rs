@@ -381,8 +381,8 @@ pub enum BuildError {
         port: String,
     },
 
-    /// Unpacked array ports are recognized but not yet supported by generated code.
-    #[error("port `{port}` is an unpacked array; unpacked array ports are not supported yet")]
+    /// Unpacked array ports are recognized but only a constrained subset is supported.
+    #[error("port `{port}` uses an unsupported unpacked-array shape")]
     UnsupportedUnpackedArrayPort {
         /// HDL port name.
         port: String,

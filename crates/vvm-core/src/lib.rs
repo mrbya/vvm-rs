@@ -91,6 +91,8 @@ pub(crate) mod scoreboard;
 pub(crate) mod testbench;
 /// Explicit simulation time.
 pub(crate) mod time;
+/// Unpacked-array indexing helpers.
+pub(crate) mod unpacked;
 
 // Re-exports
 pub use bits::{Bits, InvalidBitVectorWordCount, SignedBits};
@@ -118,6 +120,7 @@ pub use sample::Sample;
 pub use scoreboard::{ExactScoreboard, Mismatch, Scoreboard};
 pub use testbench::{Testbench, Unconfigured};
 pub use time::{CycleTiming, InvalidTimeStep, SimulationTime, TimeStep};
+pub use unpacked::{UnpackedArrayIndexError, unpacked_array_ordinal};
 
 // Unit tests.
 #[cfg(test)]

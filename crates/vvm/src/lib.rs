@@ -100,8 +100,9 @@ pub use vvm_core::{
     Sample, Scoreboard, Seed, SignedBits, SimulationError, SimulationStage, SimulationTime,
     TestCapabilities, TestDescriptor, TestFunction, TestOutcome, TestRegistry, TestRegistryError,
     TestResult, TestRun, TestRunConfig, TestStatistics, TestStatus, TestSummary, Testbench,
-    TimeStep, TraceableDut, extract_packed, extract_signed, extract_signed_packed,
-    extract_unsigned, insert_packed, insert_signed, insert_signed_packed, insert_unsigned,
+    TimeStep, TraceableDut, UnpackedArrayIndexError, extract_packed, extract_signed,
+    extract_signed_packed, extract_unsigned, insert_packed, insert_signed, insert_signed_packed,
+    insert_unsigned, unpacked_array_ordinal,
 };
 #[doc(inline)]
 pub use vvm_macros::{Clock, Drive, Sample, test};

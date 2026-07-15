@@ -3,6 +3,7 @@
 use std::collections::HashSet;
 
 use crate::builder::validate_identifier;
+use crate::codegen::types::PackedArrayType;
 use crate::metadata::{DutMetadata, PortDirection};
 use crate::{BuildError, BuildResult};
 
@@ -39,6 +40,9 @@ pub struct PortNames {
 
     /// Generated adapter member function.
     pub method: String,
+
+    /// Generated safe Rust aggregate value type.
+    pub rust_type: Option<String>,
 }
 
 /// Resolves and validates all names needed by the C++ adapter.
@@ -67,6 +71,8 @@ pub fn resolve(metadata: &DutMetadata, model_prefix: &str) -> BuildResult<DutNam
 
     let rust_error_type = format!("{cpp_type}Error");
     validate_rust_identifier("Rust DUT error type", &rust_error_type)?;
+
+    let mut used_rust_types = HashSet::from([cpp_type.clone(), rust_error_type.clone()]);
 
     let factory = format!("create_{}", metadata.name);
     validate_cpp_identifier("C++ factory", &factory)?;
@@ -98,9 +104,22 @@ pub fn resolve(metadata: &DutMetadata, model_prefix: &str) -> BuildResult<DutNam
             return Err(BuildError::GeneratedNameCollision { name: method });
         }
 
+        let rust_type = packed_array_rust_type(port)?;
+
+        if let Some(ref rust_type) = rust_type {
+            validate_rust_identifier("Rust packed-array type", rust_type)?;
+
+            if !used_rust_types.insert(rust_type.clone()) {
+                return Err(BuildError::GeneratedNameCollision {
+                    name: rust_type.clone(),
+                });
+            }
+        }
+
         ports.push(PortNames {
             accessor: port.name.clone(),
             method,
+            rust_type,
         });
     }
 
@@ -113,6 +132,25 @@ pub fn resolve(metadata: &DutMetadata, model_prefix: &str) -> BuildResult<DutNam
         model_type: model_prefix.to_owned(),
         ports,
     })
+}
+
+/// Returns the generated Rust wrapper type for one supported packed-array port.
+fn packed_array_rust_type(port: &crate::metadata::Port) -> BuildResult<Option<String>> {
+    let Some(_array_type) = PackedArrayType::from_port(port) else {
+        return Ok(None);
+    };
+
+    let rust_type = to_pascal_case(&port.name);
+
+    if rust_type.is_empty() {
+        return Err(BuildError::UnsupportedCodegenName {
+            role: "Rust packed-array type",
+            name: port.name.clone(),
+            reason: "the transformed type name is empty",
+        });
+    }
+
+    Ok(Some(rust_type))
 }
 
 /// Verifies that a name is safe for direct C++ emission.
@@ -341,7 +379,8 @@ mod tests {
     use super::resolve;
     use crate::BuildError;
     use crate::metadata::{
-        BitWidth, DutMetadata, PackedScalarShape, Port, PortDirection, PortShape,
+        ArrayDimension, BitWidth, DutMetadata, PackedArrayShape, PackedScalarShape, Port,
+        PortDirection, PortShape,
     };
 
     fn port(name: &str, direction: PortDirection) -> Port {
@@ -353,6 +392,31 @@ mod tests {
             width,
             signed: false,
             shape: PortShape::PackedScalar(PackedScalarShape {
+                width,
+                signed: false,
+            }),
+        }
+    }
+
+    fn packed_array_port(name: &str, direction: PortDirection) -> Port {
+        let width = BitWidth::new(NonZeroU32::new(32).unwrap_or(NonZeroU32::MIN));
+        let element_width = BitWidth::new(NonZeroU32::new(8).unwrap_or(NonZeroU32::MIN));
+
+        Port {
+            name: name.to_owned(),
+            direction,
+            width,
+            signed: false,
+            shape: PortShape::PackedArray(PackedArrayShape {
+                element: Box::new(PortShape::PackedScalar(PackedScalarShape {
+                    width: element_width,
+                    signed: false,
+                })),
+                dimensions: vec![ArrayDimension {
+                    left: 3,
+                    right: 0,
+                    length: NonZeroU32::new(4).unwrap_or(NonZeroU32::MIN),
+                }],
                 width,
                 signed: false,
             }),
@@ -389,10 +453,24 @@ mod tests {
             names.ports.first().map(|port| port.method.as_str()),
             Some("set_clk")
         );
+        assert_eq!(
+            names
+                .ports
+                .first()
+                .and_then(|port| port.rust_type.as_deref()),
+            None
+        );
 
         assert_eq!(
             names.ports.get(1).map(|port| port.method.as_str()),
             Some("count")
+        );
+        assert_eq!(
+            names
+                .ports
+                .get(1)
+                .and_then(|port| port.rust_type.as_deref()),
+            None
         );
 
         Ok(())
@@ -490,6 +568,50 @@ mod tests {
                 name,
                 ..
             }) if name == "_dut"
+        ));
+    }
+
+    #[test]
+    fn resolves_packed_array_type_names() -> Result<(), BuildError> {
+        let metadata = metadata(
+            "packed_array_ports",
+            vec![
+                port("clk", PortDirection::Input),
+                packed_array_port("packed_bytes", PortDirection::Input),
+                packed_array_port("packed_bytes_out", PortDirection::Output),
+            ],
+        );
+
+        let names = resolve(&metadata, "Vpacked_array_ports")?;
+
+        assert_eq!(
+            names
+                .ports
+                .get(1)
+                .and_then(|port| port.rust_type.as_deref()),
+            Some("PackedBytes")
+        );
+        assert_eq!(
+            names
+                .ports
+                .get(2)
+                .and_then(|port| port.rust_type.as_deref()),
+            Some("PackedBytesOut")
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_packed_array_type_name_collision() {
+        let metadata = metadata(
+            "packed_bytes",
+            vec![packed_array_port("packed_bytes", PortDirection::Input)],
+        );
+
+        assert!(matches!(
+            resolve(&metadata, "Vdut"),
+            Err(BuildError::GeneratedNameCollision { name }) if name == "PackedBytes"
         ));
     }
 }

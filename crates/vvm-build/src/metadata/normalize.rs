@@ -112,29 +112,54 @@ pub fn validate_supported(metadata: &DutMetadata) -> BuildResult<()> {
             continue;
         }
 
-        if matches!(&port.shape, &PortShape::PackedArray(_)) {
+        match port.shape {
+            PortShape::PackedScalar(_) => {}
+            PortShape::PackedArray(ref shape) => validate_supported_packed_array(port, shape)?,
+            PortShape::PackedStruct(_) => {
+                return Err(BuildError::UnsupportedPackedStructPort {
+                    port: port.name.clone(),
+                });
+            }
+            PortShape::PackedEnum(_) => {
+                return Err(BuildError::UnsupportedPackedEnumPort {
+                    port: port.name.clone(),
+                });
+            }
+            PortShape::UnpackedArray(_) => {
+                return Err(BuildError::UnsupportedUnpackedArrayPort {
+                    port: port.name.clone(),
+                });
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Verifies that a packed-array shape is within the currently supported subset.
+fn validate_supported_packed_array(port: &Port, shape: &PackedArrayShape) -> BuildResult<()> {
+    if shape.dimensions.len() != 1 {
+        return Err(BuildError::UnsupportedPackedArrayPort {
+            port: port.name.clone(),
+        });
+    }
+
+    let element = match *shape.element.as_ref() {
+        PortShape::PackedScalar(ref element) => element,
+        PortShape::PackedArray(_)
+        | PortShape::PackedStruct(_)
+        | PortShape::PackedEnum(_)
+        | PortShape::UnpackedArray(_) => {
             return Err(BuildError::UnsupportedPackedArrayPort {
                 port: port.name.clone(),
             });
         }
+    };
 
-        if matches!(&port.shape, &PortShape::PackedStruct(_)) {
-            return Err(BuildError::UnsupportedPackedStructPort {
-                port: port.name.clone(),
-            });
-        }
-
-        if matches!(&port.shape, &PortShape::PackedEnum(_)) {
-            return Err(BuildError::UnsupportedPackedEnumPort {
-                port: port.name.clone(),
-            });
-        }
-
-        if matches!(&port.shape, &PortShape::UnpackedArray(_)) {
-            return Err(BuildError::UnsupportedUnpackedArrayPort {
-                port: port.name.clone(),
-            });
-        }
+    if element.width.get() > 64 {
+        return Err(BuildError::UnsupportedPackedArrayPort {
+            port: port.name.clone(),
+        });
     }
 
     Ok(())
@@ -906,6 +931,34 @@ mod tests {
         }
     }
 
+    fn packed_array_port(
+        name: &str,
+        direction: PortDirection,
+        width_bits: u32,
+        signed: bool,
+        element_width_bits: u32,
+        element_signed: bool,
+        dimensions: Vec<ArrayDimension>,
+    ) -> Port {
+        let total_width = width(width_bits);
+
+        aggregate_port(
+            name,
+            direction,
+            total_width,
+            signed,
+            PortShape::PackedArray(PackedArrayShape {
+                element: Box::new(PortShape::PackedScalar(PackedScalarShape {
+                    width: width(element_width_bits),
+                    signed: element_signed,
+                })),
+                dimensions,
+                width: total_width,
+                signed,
+            }),
+        )
+    }
+
     fn aggregate_ports_fixture() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("tests")
@@ -913,6 +966,15 @@ mod tests {
             .join("verilator")
             .join("5.048")
             .join("aggregate_ports")
+    }
+
+    fn packed_array_ports_fixture() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("verilator")
+            .join("5.048")
+            .join("packed_array_ports")
     }
 
     fn aggregate_ports_metadata() -> Result<DutMetadata, Box<dyn std::error::Error>> {
@@ -925,6 +987,18 @@ mod tests {
         )?;
 
         Ok(normalize("aggregate_ports", "aggregate_ports", &raw)?)
+    }
+
+    fn packed_array_ports_metadata() -> Result<DutMetadata, Box<dyn std::error::Error>> {
+        let fixture = packed_array_ports_fixture();
+
+        let raw = RawMetadata::from_paths(
+            VerilatorVersion::new(5, 48),
+            &fixture.join("packed_array_ports.tree.json"),
+            &fixture.join("packed_array_ports.tree.meta.json"),
+        )?;
+
+        Ok(normalize("packed_array_ports", "packed_array_ports", &raw)?)
     }
 
     fn find_port<'a>(
@@ -1294,6 +1368,45 @@ mod tests {
     }
 
     #[test]
+    fn normalizes_packed_array_ports_fixture() -> Result<(), Box<dyn std::error::Error>> {
+        let actual = packed_array_ports_metadata()?;
+
+        let packed_bytes = find_port(&actual, "packed_bytes")?;
+        assert_eq!(packed_bytes.direction, PortDirection::Input);
+        assert_eq!(packed_bytes.width, width(32));
+        assert!(!packed_bytes.signed);
+        assert_eq!(
+            packed_bytes.shape,
+            PortShape::PackedArray(PackedArrayShape {
+                element: Box::new(PortShape::PackedScalar(PackedScalarShape {
+                    width: width(8),
+                    signed: false,
+                })),
+                dimensions: vec![dimension(3, 0, 4)],
+                width: width(32),
+                signed: false,
+            })
+        );
+
+        let packed_bytes_out = find_port(&actual, "packed_bytes_out")?;
+        assert_eq!(packed_bytes_out.direction, PortDirection::Output);
+        assert_eq!(packed_bytes_out.width, width(32));
+        assert!(!packed_bytes_out.signed);
+
+        let first_byte = find_port(&actual, "first_byte")?;
+        assert_eq!(first_byte.direction, PortDirection::Output);
+        assert_eq!(first_byte.width, width(8));
+        assert!(matches!(first_byte.shape, PortShape::PackedScalar(_)));
+
+        let last_byte = find_port(&actual, "last_byte")?;
+        assert_eq!(last_byte.direction, PortDirection::Output);
+        assert_eq!(last_byte.width, width(8));
+        assert!(matches!(last_byte.shape, PortShape::PackedScalar(_)));
+
+        Ok(())
+    }
+
+    #[test]
     fn parses_descending_packed_range() -> Result<(), BuildError> {
         assert_eq!(parse_bit_width("value", Some("7:0"))?.get(), 8);
 
@@ -1359,33 +1472,75 @@ mod tests {
     }
 
     #[test]
+    fn accepts_supported_packed_array_ports() -> Result<(), BuildError> {
+        let metadata = DutMetadata {
+            name: String::from("dut"),
+            top_module: String::from("dut"),
+            ports: vec![packed_array_port(
+                "packed_bytes",
+                PortDirection::Input,
+                32,
+                false,
+                8,
+                false,
+                vec![dimension(3, 0, 4)],
+            )],
+        };
+
+        validate_supported(&metadata)
+    }
+
+    #[test]
     fn rejects_aggregate_ports_after_normalization() -> Result<(), Box<dyn std::error::Error>> {
         let metadata = aggregate_ports_metadata()?;
 
         assert!(matches!(
             validate_supported(&metadata),
-            Err(BuildError::UnsupportedPackedArrayPort { port }) if port == "packed_bytes"
+            Err(BuildError::UnsupportedPackedStructPort { port }) if port == "packet"
         ));
 
         Ok(())
     }
 
     #[test]
-    fn rejects_packed_array_port() {
+    fn rejects_multidimensional_packed_arrays() {
+        let metadata = DutMetadata {
+            name: String::from("dut"),
+            top_module: String::from("dut"),
+            ports: vec![packed_array_port(
+                "packed",
+                PortDirection::Input,
+                64,
+                false,
+                8,
+                false,
+                vec![dimension(1, 0, 2), dimension(3, 0, 4)],
+            )],
+        };
+
+        assert!(matches!(
+            validate_supported(&metadata),
+            Err(BuildError::UnsupportedPackedArrayPort { port }) if port == "packed"
+        ));
+    }
+
+    #[test]
+    fn rejects_packed_array_with_aggregate_elements() {
         let metadata = DutMetadata {
             name: String::from("dut"),
             top_module: String::from("dut"),
             ports: vec![aggregate_port(
-                "packed",
+                "packet_array",
                 PortDirection::Input,
                 width(32),
                 false,
                 PortShape::PackedArray(PackedArrayShape {
-                    element: Box::new(PortShape::PackedScalar(PackedScalarShape {
-                        width: width(8),
+                    element: Box::new(PortShape::PackedStruct(PackedStructShape {
+                        width: width(16),
+                        fields: vec![],
                         signed: false,
                     })),
-                    dimensions: vec![dimension(3, 0, 4)],
+                    dimensions: vec![dimension(1, 0, 2)],
                     width: width(32),
                     signed: false,
                 }),
@@ -1394,7 +1549,29 @@ mod tests {
 
         assert!(matches!(
             validate_supported(&metadata),
-            Err(BuildError::UnsupportedPackedArrayPort { port }) if port == "packed"
+            Err(BuildError::UnsupportedPackedArrayPort { port }) if port == "packet_array"
+        ));
+    }
+
+    #[test]
+    fn rejects_packed_array_element_wider_than_sixty_four_bits() {
+        let metadata = DutMetadata {
+            name: String::from("dut"),
+            top_module: String::from("dut"),
+            ports: vec![packed_array_port(
+                "wide_elements",
+                PortDirection::Input,
+                130,
+                false,
+                65,
+                false,
+                vec![dimension(1, 0, 2)],
+            )],
+        };
+
+        assert!(matches!(
+            validate_supported(&metadata),
+            Err(BuildError::UnsupportedPackedArrayPort { port }) if port == "wide_elements"
         ));
     }
 

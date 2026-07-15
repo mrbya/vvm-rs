@@ -153,6 +153,26 @@ mod tests {
         Ok(normalize("signed_ports", "signed_ports", &raw)?)
     }
 
+    fn packed_array_ports_metadata()
+    -> Result<crate::metadata::DutMetadata, Box<dyn std::error::Error>> {
+        let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+
+        let metadata_fixture = manifest
+            .join("tests")
+            .join("fixtures")
+            .join("verilator")
+            .join("5.048")
+            .join("packed_array_ports");
+
+        let raw = RawMetadata::from_paths(
+            VerilatorVersion::new(5, 48),
+            &metadata_fixture.join("packed_array_ports.tree.json"),
+            &metadata_fixture.join("packed_array_ports.tree.meta.json"),
+        )?;
+
+        Ok(normalize("packed_array_ports", "packed_array_ports", &raw)?)
+    }
+
     fn expected_codegen_directory(name: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("tests")
@@ -593,6 +613,58 @@ mod tests {
         assert!(wrapper.contains("vec![0_u32; ::vvm::SignedBits::<129>::WORDS];"));
         assert!(wrapper.contains("WidePortTransferFailed"));
         assert!(wrapper.contains(".map_err(|_error| {"));
+
+        Ok(())
+    }
+
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn packed_array_codegen_generates_newtypes_and_flattened_transfer()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let metadata = packed_array_ports_metadata()?;
+        let output = tempdir()?;
+        let generated = generate(&metadata, "Vpacked_array_ports", output.path(), None)?;
+
+        let header = std::fs::read_to_string(&generated.cpp_header)?;
+        let source = std::fs::read_to_string(&generated.cpp_source)?;
+        let bridge = std::fs::read_to_string(&generated.cxx_bridge)?;
+        let wrapper = std::fs::read_to_string(&generated.rust_wrapper)?;
+
+        assert!(header.contains("void set_packed_bytes(std::uint32_t value) noexcept;"));
+        assert!(header.contains("[[nodiscard]] std::uint32_t packed_bytes_out() const noexcept;"));
+        assert!(header.contains("[[nodiscard]] std::uint8_t first_byte() const noexcept;"));
+        assert!(header.contains("[[nodiscard]] std::uint8_t last_byte() const noexcept;"));
+        assert!(!header.contains("rust::Slice<const std::uint32_t> words) noexcept;"));
+
+        assert!(source.contains("PackedArrayPorts::set_packed_bytes("));
+        assert!(source.contains("PackedArrayPorts::packed_bytes_out() const noexcept"));
+
+        assert!(
+            bridge.contains("fn set_packed_bytes(self: Pin<&mut PackedArrayPorts>, value: u32);")
+        );
+        assert!(bridge.contains("fn packed_bytes_out(self: &PackedArrayPorts) -> u32;"));
+
+        assert!(wrapper.contains("pub struct PackedBytes {"));
+        assert!(wrapper.contains("pub struct PackedBytesOut {"));
+        assert!(wrapper.contains("impl ::vvm::PackedValue for PackedBytes {"));
+        assert!(wrapper.contains("pub const WIDTH: usize = 32;"));
+        assert!(wrapper.contains("pub const LEN: usize = 4;"));
+        assert!(wrapper.contains("pub const ELEMENT_WIDTH: usize = 8;"));
+        assert!(wrapper.contains("pub const LEFT: i64 = 3;"));
+        assert!(wrapper.contains("pub const RIGHT: i64 = 0;"));
+        assert!(wrapper.contains("pub fn element(&self, index: i64)"));
+        assert!(wrapper.contains("pub fn set_element(&mut self, index: i64, value: u8)"));
+        assert!(wrapper.contains("Borrow<PackedBytes>"));
+        assert!(wrapper.contains("Result<PackedBytesOut>"));
+        assert!(wrapper.contains("PackedLayoutFailed"));
+        assert!(wrapper.contains("::vvm::extract_unsigned"));
+        assert!(wrapper.contains("::vvm::insert_unsigned"));
+        assert!(wrapper.contains("::vvm::PackedLayoutError::range_out_of_bounds("));
+        assert!(wrapper.contains("::vvm::PackedLayoutError::invalid_packed_value"));
+        assert!(wrapper.contains("let raw = ::vvm::extract_unsigned("));
+        assert!(wrapper.contains("let raw: u32 = u32::try_from(raw)"));
+        assert!(wrapper.contains("let bits = ::vvm::Bits::<32>::from("));
+        assert!(wrapper.contains("Ok(PackedBytesOut::from_bits(bits))"));
 
         Ok(())
     }

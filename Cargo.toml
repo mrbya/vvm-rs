@@ -5,6 +5,7 @@ members = [
     "crates/vvm-core",
     "crates/vvm-macros",
     "examples/counter",
+    "examples/packed-array",
     "examples/signed-adder",
     "examples/wide-transform",
 ]

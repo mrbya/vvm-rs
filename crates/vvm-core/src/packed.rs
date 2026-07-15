@@ -265,6 +265,24 @@ pub enum PackedLayoutError {
     },
 }
 
+impl PackedLayoutError {
+    /// Creates a range-out-of-bounds error.
+    #[must_use]
+    pub const fn range_out_of_bounds(storage_width: usize, offset: usize, width: usize) -> Self {
+        Self::RangeOutOfBounds {
+            storage_width,
+            offset,
+            width,
+        }
+    }
+
+    /// Creates an invalid reconstructed packed-value error.
+    #[must_use]
+    pub const fn invalid_packed_value(source: InvalidBitVectorWordCount) -> Self {
+        Self::InvalidPackedValue { source }
+    }
+}
+
 impl fmt::Display for PackedLayoutError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {

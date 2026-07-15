@@ -1,8 +1,11 @@
 //! Safe Rust DUT wrapper generation.
 
 use super::GENERATED_NOTICE;
-use super::names::DutNames;
-use super::types::{PortType, SignalType, WideType, contains_wide_ports};
+use super::names::{DutNames, PortNames};
+use super::types::{
+    PackedArrayType, PortType, SignalType, WideType, contains_packed_array_ports,
+    contains_wide_ports,
+};
 use crate::TraceOptions;
 use crate::metadata::{DutMetadata, Port, PortDirection};
 use crate::trace::TraceFormat;
@@ -27,6 +30,8 @@ pub(super) fn render(
     );
     push_line(&mut output, "));");
     push_line(&mut output, "");
+
+    render_packed_array_types(&mut output, metadata, names);
 
     if traced {
         render_trace_flag(&mut output);
@@ -65,10 +70,10 @@ pub(super) fn render(
     for (port, port_names) in metadata.ports.iter().zip(&names.ports) {
         match port.direction {
             PortDirection::Input => {
-                render_input(&mut output, port, &port_names.method, names);
+                render_input(&mut output, port, port_names, names);
             }
             PortDirection::Output => {
-                render_output(&mut output, port, &port_names.method, names);
+                render_output(&mut output, port, port_names, names);
             }
             PortDirection::Inout => {}
         }
@@ -93,6 +98,414 @@ pub(super) fn render(
     render_drop(&mut output, names, traced);
 
     output
+}
+
+/// Renders generated packed-array wrapper types.
+fn render_packed_array_types(output: &mut String, metadata: &DutMetadata, names: &DutNames) {
+    let mut rendered_any = false;
+
+    for (port, port_names) in metadata.ports.iter().zip(&names.ports) {
+        let Some(array_type) = PackedArrayType::from_port(port) else {
+            continue;
+        };
+
+        let Some(rust_type) = port_names.rust_type.as_deref() else {
+            continue;
+        };
+
+        if rendered_any {
+            push_line(output, "");
+        }
+
+        render_packed_array_type(output, port, rust_type, array_type);
+        rendered_any = true;
+    }
+
+    if rendered_any {
+        push_line(output, "");
+    }
+}
+
+/// Renders one generated packed-array wrapper type.
+#[allow(clippy::too_many_lines)]
+fn render_packed_array_type(
+    output: &mut String,
+    port: &Port,
+    rust_type: &str,
+    array_type: PackedArrayType<'_>,
+) {
+    let storage_type = array_type.storage_rust_type();
+    let storage_constructor_type = array_type.storage_constructor_type();
+    let element_rust_type = array_type.element_rust_type();
+    let extraction_function = array_type.extraction_function();
+    let insertion_function = array_type.insertion_function();
+    let total_width = array_type.total_width();
+    let element_width = array_type.element_width();
+    let length = array_type.length();
+    let left = array_type.left();
+    let right = array_type.right();
+
+    push_line(
+        output,
+        &format!(
+            "/// Packed-array value used by the `{}` DUT port.",
+            port.name
+        ),
+    );
+    push_line(output, "#[derive(Debug, Clone, PartialEq, Eq, Hash)]");
+    push_line(output, &format!("pub struct {rust_type} {{"));
+    push_line(output, "    /// Canonical flattened packed storage.");
+    push_line(output, &format!("    bits: {storage_type},"));
+    push_line(output, "}");
+    push_line(output, "");
+    push_line(output, "#[allow(clippy::same_name_method)]");
+    push_line(output, &format!("impl {rust_type} {{"));
+    push_line(output, "    /// Total packed width.");
+    push_line(
+        output,
+        &format!("    pub const WIDTH: usize = {total_width};"),
+    );
+    push_line(output, "");
+    push_line(output, "    /// Number of canonical transfer words.");
+    push_line(
+        output,
+        &format!("    pub const WORDS: usize = {storage_constructor_type}::WORDS;"),
+    );
+    push_line(output, "");
+    push_line(output, "    /// Number of packed-array elements.");
+    push_line(output, &format!("    pub const LEN: usize = {length};"));
+    push_line(output, "");
+    push_line(output, "    /// Width of one element.");
+    push_line(
+        output,
+        &format!("    pub const ELEMENT_WIDTH: usize = {element_width};"),
+    );
+    push_line(output, "");
+    push_line(output, "    /// Left HDL index bound.");
+    push_line(output, &format!("    pub const LEFT: i64 = {left};"));
+    push_line(output, "");
+    push_line(output, "    /// Right HDL index bound.");
+    push_line(output, &format!("    pub const RIGHT: i64 = {right};"));
+    push_line(output, "");
+    push_line(output, "    /// Constructs an all-zero packed-array value.");
+    push_line(output, "    #[must_use]");
+    push_line(output, "    pub fn zero() -> Self {");
+    push_line(output, "        Self {");
+    push_line(
+        output,
+        &format!("            bits: {storage_constructor_type}::zero(),"),
+    );
+    push_line(output, "        }");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(output, "    /// Wraps canonical packed bits.");
+    push_line(output, "    #[must_use]");
+    push_line(
+        output,
+        &format!("    pub const fn from_bits(bits: {storage_type}) -> Self {{"),
+    );
+    push_line(output, "        Self {");
+    push_line(output, "            bits,");
+    push_line(output, "        }");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(output, "    /// Returns the underlying packed bits.");
+    push_line(output, "    #[must_use]");
+    push_line(
+        output,
+        &format!("    pub const fn bits(&self) -> &{storage_type} {{"),
+    );
+    push_line(output, "        &self.bits");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(
+        output,
+        "    /// Consumes the value and returns its packed bits.",
+    );
+    push_line(output, "    #[must_use]");
+    push_line(
+        output,
+        &format!("    pub fn into_bits(self) -> {storage_type} {{"),
+    );
+    push_line(output, "        self.bits");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(
+        output,
+        "    /// Constructs the packed array from canonical words.",
+    );
+    push_line(output, "    ///");
+    push_line(output, "    /// # Errors");
+    push_line(output, "    ///");
+    push_line(
+        output,
+        "    /// Returns an error when the word count does not match the packed width.",
+    );
+    push_line(output, "    pub fn from_words_le(");
+    push_line(output, "        words: impl AsRef<[u32]>,");
+    push_line(
+        output,
+        "    ) -> std::result::Result<Self, ::vvm::InvalidBitVectorWordCount> {",
+    );
+    push_line(
+        output,
+        &format!("        {storage_constructor_type}::from_words_le(words)"),
+    );
+    push_line(output, "            .map(Self::from_bits)");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(
+        output,
+        "    /// Returns canonical least-significant-word-first words.",
+    );
+    push_line(output, "    #[must_use]");
+    push_line(output, "    pub fn words_le(&self) -> &[u32] {");
+    push_line(output, "        self.bits.words_le()");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(
+        output,
+        "    /// Computes the packed-bit offset for one HDL element index.",
+    );
+    push_line(output, "    fn element_offset(");
+    push_line(output, "        index: i64,");
+    push_line(
+        output,
+        "    ) -> std::result::Result<usize, ::vvm::PackedLayoutError> {",
+    );
+    push_line(
+        output,
+        "        let (lower, upper) = if Self::LEFT <= Self::RIGHT {",
+    );
+    push_line(output, "            (Self::LEFT, Self::RIGHT)");
+    push_line(output, "        } else {");
+    push_line(output, "            (Self::RIGHT, Self::LEFT)");
+    push_line(output, "        };");
+    push_line(output, "");
+    push_line(
+        output,
+        "        let in_range = (lower..=upper).contains(&index);",
+    );
+    push_line(output, "");
+    push_line(output, "        if !in_range {");
+    push_line(
+        output,
+        "            return Err(::vvm::PackedLayoutError::range_out_of_bounds(",
+    );
+    push_line(output, "                Self::WIDTH,");
+    push_line(output, "                Self::WIDTH,");
+    push_line(output, "                Self::ELEMENT_WIDTH,");
+    push_line(output, "            ));");
+    push_line(output, "        }");
+    push_line(output, "");
+    push_line(
+        output,
+        "        let ordinal = if Self::LEFT >= Self::RIGHT {",
+    );
+    push_line(output, "            index.checked_sub(Self::RIGHT)");
+    push_line(output, "        } else {");
+    push_line(output, "            Self::RIGHT.checked_sub(index)");
+    push_line(output, "        };");
+    push_line(output, "");
+    push_line(output, "        let Some(ordinal) = ordinal else {");
+    push_line(
+        output,
+        "            return Err(::vvm::PackedLayoutError::range_out_of_bounds(",
+    );
+    push_line(output, "                Self::WIDTH,");
+    push_line(output, "                Self::WIDTH,");
+    push_line(output, "                Self::ELEMENT_WIDTH,");
+    push_line(output, "            ));");
+    push_line(output, "        };");
+    push_line(output, "");
+    push_line(
+        output,
+        "        let ordinal = usize::try_from(ordinal).map_err(|_error| {",
+    );
+    push_line(
+        output,
+        "            ::vvm::PackedLayoutError::range_out_of_bounds(",
+    );
+    push_line(output, "                Self::WIDTH,");
+    push_line(output, "                Self::WIDTH,");
+    push_line(output, "                Self::ELEMENT_WIDTH,");
+    push_line(output, "            )");
+    push_line(output, "        })?;");
+    push_line(output, "");
+    push_line(
+        output,
+        "        ordinal.checked_mul(Self::ELEMENT_WIDTH).ok_or(",
+    );
+    push_line(
+        output,
+        "            ::vvm::PackedLayoutError::range_out_of_bounds(",
+    );
+    push_line(output, "                Self::WIDTH,");
+    push_line(output, "                Self::WIDTH,");
+    push_line(output, "                Self::ELEMENT_WIDTH,");
+    push_line(output, "            ),");
+    push_line(output, "        )");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(
+        output,
+        "    /// Returns one packed-array element using its HDL index.",
+    );
+    push_line(output, "    ///");
+    push_line(output, "    /// # Errors");
+    push_line(output, "    ///");
+    push_line(
+        output,
+        "    /// Returns an error when the HDL index is outside the declared range or packed",
+    );
+    push_line(output, "    /// layout extraction fails.");
+    push_line(
+        output,
+        &format!(
+            "    pub fn element(&self, index: i64) -> std::result::Result<{element_rust_type}, \
+             ::vvm::PackedLayoutError> {{"
+        ),
+    );
+    push_line(output, "        let offset = Self::element_offset(index)?;");
+    push_line(output, "");
+    if array_type.element_is_bool() {
+        push_line(output, "        Ok(");
+        push_line(output, &format!("            {extraction_function}("));
+        push_line(output, "                self.words_le(),");
+        push_line(output, "                Self::WIDTH,");
+        push_line(output, "                offset,");
+        push_line(output, "                1,");
+        push_line(output, "            )? != 0,");
+        push_line(output, "        )");
+    } else {
+        push_line(output, &format!("        let raw = {extraction_function}("));
+        push_line(output, "            self.words_le(),");
+        push_line(output, "            Self::WIDTH,");
+        push_line(output, "            offset,");
+        push_line(output, "            Self::ELEMENT_WIDTH,");
+        push_line(output, "        )?;");
+        push_line(output, "");
+        push_line(
+            output,
+            &format!("        {element_rust_type}::try_from(raw).map_err(|_error| {{"),
+        );
+        push_line(
+            output,
+            "            ::vvm::PackedLayoutError::range_out_of_bounds(",
+        );
+        push_line(output, "                Self::WIDTH,");
+        push_line(output, "                offset,");
+        push_line(output, "                Self::ELEMENT_WIDTH,");
+        push_line(output, "            )");
+        push_line(output, "        })");
+    }
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(
+        output,
+        "    /// Updates one packed-array element using its HDL index.",
+    );
+    push_line(output, "    ///");
+    push_line(
+        output,
+        "    /// Values wider than the declared element width are truncated to the low bits.",
+    );
+    push_line(output, "    ///");
+    push_line(output, "    /// # Errors");
+    push_line(output, "    ///");
+    push_line(
+        output,
+        "    /// Returns an error when the HDL index is outside the declared range or packed",
+    );
+    push_line(output, "    /// layout insertion fails.");
+    push_line(
+        output,
+        &format!(
+            "    pub fn set_element(&mut self, index: i64, value: {element_rust_type}) -> \
+             std::result::Result<(), ::vvm::PackedLayoutError> {{"
+        ),
+    );
+    push_line(output, "        let offset = Self::element_offset(index)?;");
+    push_line(output, "        let mut words = self.words_le().to_vec();");
+    push_line(output, "");
+    push_line(output, &format!("        {insertion_function}("));
+    push_line(output, "            &mut words,");
+    push_line(output, "            Self::WIDTH,");
+    push_line(output, "            offset,");
+    push_line(output, "            Self::ELEMENT_WIDTH,");
+    if array_type.element_is_bool() {
+        push_line(output, "            u64::from(u8::from(value)),");
+    } else if array_type.element_signed() {
+        push_line(output, "            i64::from(value),");
+    } else {
+        push_line(output, "            u64::from(value),");
+    }
+    push_line(output, "        )?;");
+    push_line(output, "");
+    push_line(
+        output,
+        &format!("        self.bits = {storage_constructor_type}::from_words_le(words)"),
+    );
+    push_line(
+        output,
+        "            .map_err(::vvm::PackedLayoutError::invalid_packed_value)?;",
+    );
+    push_line(output, "");
+    push_line(output, "        Ok(())");
+    push_line(output, "    }");
+    push_line(output, "}");
+    push_line(output, "");
+    push_line(output, &format!("impl Default for {rust_type} {{"));
+    push_line(output, "    fn default() -> Self {");
+    push_line(output, "        Self::zero()");
+    push_line(output, "    }");
+    push_line(output, "}");
+    push_line(output, "");
+    push_line(output, "#[allow(clippy::same_name_method)]");
+    push_line(
+        output,
+        &format!("impl ::vvm::PackedValue for {rust_type} {{"),
+    );
+    push_line(output, "    const WIDTH: usize = Self::WIDTH;");
+    push_line(output, "    const WORDS: usize = Self::WORDS;");
+    push_line(output, "");
+    push_line(output, "    fn from_words_le(");
+    push_line(output, "        words: impl AsRef<[u32]>,");
+    push_line(
+        output,
+        "    ) -> std::result::Result<Self, ::vvm::InvalidBitVectorWordCount> {",
+    );
+    push_line(output, "        Self::from_words_le(words)");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(output, "    fn words_le(&self) -> &[u32] {");
+    push_line(output, "        self.words_le()");
+    push_line(output, "    }");
+    push_line(output, "}");
+    push_line(output, "");
+    push_line(
+        output,
+        &format!("impl From<{storage_type}> for {rust_type} {{"),
+    );
+    push_line(
+        output,
+        &format!("    fn from(bits: {storage_type}) -> Self {{"),
+    );
+    push_line(output, "        Self::from_bits(bits)");
+    push_line(output, "    }");
+    push_line(output, "}");
+    push_line(output, "");
+    push_line(
+        output,
+        &format!("impl From<{rust_type}> for {storage_type} {{"),
+    );
+    push_line(
+        output,
+        &format!("    fn from(value: {rust_type}) -> Self {{"),
+    );
+    push_line(output, "        value.into_bits()");
+    push_line(output, "    }");
+    push_line(output, "}");
 }
 
 /// Renders the generated DUT error type.
@@ -136,6 +549,14 @@ fn render_error_variants(output: &mut String, metadata: &DutMetadata, traced: bo
     push_line(output, "");
     push_line(output, "    /// Simulation time would overflow.");
     push_line(output, "    TimeOverflow,");
+    if contains_packed_array_ports(metadata) {
+        push_line(output, "");
+        push_line(
+            output,
+            "    /// A generated packed-array layout conversion failed.",
+        );
+        push_line(output, "    PackedLayoutFailed,");
+    }
     if contains_wide_ports(metadata) {
         push_line(output, "");
         push_line(
@@ -218,6 +639,13 @@ fn render_error_display(
             metadata.name
         ),
     );
+    if contains_packed_array_ports(metadata) {
+        push_line(
+            output,
+            "            Self::PackedLayoutFailed => {\"the generated packed-array layout \
+             conversion failed\"},",
+        );
+    }
     if contains_wide_ports(metadata) {
         push_line(
             output,
@@ -652,10 +1080,20 @@ fn render_timing(output: &mut String, names: &DutNames) {
 }
 
 /// Renders one typed input setter.
-fn render_input(output: &mut String, port: &Port, method: &str, names: &DutNames) {
+fn render_input(output: &mut String, port: &Port, port_names: &PortNames, names: &DutNames) {
+    if let Some(array_type) = PackedArrayType::from_port(port) {
+        render_packed_array_input(output, port, port_names, array_type, names);
+
+        return;
+    }
+
     match PortType::from_port(port) {
-        PortType::Scalar(signal_type) => render_scalar_input(output, port, method, signal_type),
-        PortType::Wide(wide_type) => render_wide_input(output, port, method, wide_type, names),
+        PortType::Scalar(signal_type) => {
+            render_scalar_input(output, port, &port_names.method, signal_type);
+        }
+        PortType::Wide(wide_type) => {
+            render_wide_input(output, port, &port_names.method, wide_type, names);
+        }
     }
 }
 
@@ -712,11 +1150,369 @@ fn render_scalar_input(output: &mut String, port: &Port, method: &str, signal_ty
 }
 
 /// Renders one typed output getter.
-fn render_output(output: &mut String, port: &Port, method: &str, names: &DutNames) {
-    match PortType::from_port(port) {
-        PortType::Scalar(signal_type) => render_scalar_output(output, port, method, signal_type),
-        PortType::Wide(wide_type) => render_wide_output(output, port, method, wide_type, names),
+fn render_output(output: &mut String, port: &Port, port_names: &PortNames, names: &DutNames) {
+    if let Some(array_type) = PackedArrayType::from_port(port) {
+        render_packed_array_output(output, port, port_names, array_type, names);
+
+        return;
     }
+
+    match PortType::from_port(port) {
+        PortType::Scalar(signal_type) => {
+            render_scalar_output(output, port, &port_names.method, signal_type);
+        }
+        PortType::Wide(wide_type) => {
+            render_wide_output(output, port, &port_names.method, wide_type, names);
+        }
+    }
+}
+
+/// Renders one packed-array typed input setter.
+fn render_packed_array_input(
+    output: &mut String,
+    port: &Port,
+    port_names: &PortNames,
+    array_type: PackedArrayType<'_>,
+    names: &DutNames,
+) {
+    let Some(rust_type) = port_names.rust_type.as_deref() else {
+        return;
+    };
+
+    push_line(output, "");
+    push_line(
+        output,
+        &format!("    /// Drives the `{}` DUT input.", port.name),
+    );
+    push_line(output, "    ///");
+    push_line(
+        output,
+        "    /// The value may be supplied by value or by reference.",
+    );
+    push_line(output, "    ///");
+    push_line(output, "    /// # Errors");
+    push_line(output, "    ///");
+    push_line(
+        output,
+        "    /// Returns an error if the DUT has already been finished, a generated",
+    );
+    push_line(
+        output,
+        "    /// packed-array layout conversion fails, or a native wide transfer is rejected.",
+    );
+    push_line(output, "    #[allow(clippy::needless_pass_by_value)]");
+    push_line(output, &format!("    pub fn {}(", port_names.method));
+    push_line(output, "        &mut self,");
+    push_line(
+        output,
+        &format!("        value: impl ::core::borrow::Borrow<{rust_type}>,"),
+    );
+    push_line(output, "    ) -> Result<()> {");
+    push_line(output, "        self.ensure_running()?;");
+    push_line(output, "");
+    push_line(output, "        let value =");
+    push_line(
+        output,
+        "            ::core::borrow::Borrow::borrow(&value);",
+    );
+    push_line(output, "");
+
+    match array_type.storage_port_type() {
+        PortType::Scalar(signal_type) => {
+            render_packed_array_scalar_input_body(
+                output,
+                port_names,
+                array_type,
+                signal_type,
+                names,
+            );
+        }
+        PortType::Wide(_) => {
+            push_line(output, "        let transferred =");
+            push_line(
+                output,
+                &format!("            self.inner_mut()?.{}(", port_names.method),
+            );
+            push_line(output, "                value.words_le(),");
+            push_line(output, "            );");
+            push_line(output, "");
+            push_line(output, "        if !transferred {");
+            push_line(output, "            return Err(");
+            push_line(
+                output,
+                &format!(
+                    "                {}::WidePortTransferFailed,",
+                    names.rust_error_type
+                ),
+            );
+            push_line(output, "            );");
+            push_line(output, "        }");
+        }
+    }
+
+    push_line(output, "");
+    push_line(output, "        Ok(())");
+    push_line(output, "    }");
+}
+
+/// Renders the body of one flattened-scalar packed-array input setter.
+#[allow(clippy::too_many_lines)]
+fn render_packed_array_scalar_input_body(
+    output: &mut String,
+    port_names: &PortNames,
+    array_type: PackedArrayType<'_>,
+    signal_type: SignalType,
+    names: &DutNames,
+) {
+    if signal_type == SignalType::Bool {
+        push_line(output, "        let raw = ::vvm::extract_unsigned(");
+        push_line(output, "            value.words_le(),");
+        push_line(
+            output,
+            &format!(
+                "            {0}::WIDTH,",
+                port_names.rust_type.as_deref().unwrap_or("")
+            ),
+        );
+        push_line(output, "            0,");
+        push_line(
+            output,
+            &format!(
+                "            {0}::WIDTH,",
+                port_names.rust_type.as_deref().unwrap_or("")
+            ),
+        );
+        push_line(output, "        )");
+        push_line(
+            output,
+            &format!(
+                "        .map_err(|_error| {}::PackedLayoutFailed)?;",
+                names.rust_error_type
+            ),
+        );
+        push_line(output, "");
+        push_line(output, "        let raw = raw != 0;");
+    } else if array_type.storage_signed() {
+        push_line(output, "        let raw = ::vvm::extract_signed(");
+        push_line(output, "            value.words_le(),");
+        push_line(
+            output,
+            &format!(
+                "            {0}::WIDTH,",
+                port_names.rust_type.as_deref().unwrap_or("")
+            ),
+        );
+        push_line(output, "            0,");
+        push_line(
+            output,
+            &format!(
+                "            {0}::WIDTH,",
+                port_names.rust_type.as_deref().unwrap_or("")
+            ),
+        );
+        push_line(output, "        )");
+        push_line(
+            output,
+            &format!(
+                "        .map_err(|_error| {}::PackedLayoutFailed)?;",
+                names.rust_error_type
+            ),
+        );
+        push_line(output, "");
+        push_line(
+            output,
+            &format!(
+                "        let raw: {} = {}::try_from(raw)",
+                signal_type.rust_type(),
+                signal_type.rust_type()
+            ),
+        );
+        push_line(
+            output,
+            &format!(
+                "            .map_err(|_error| {}::PackedLayoutFailed)?;",
+                names.rust_error_type
+            ),
+        );
+    } else {
+        push_line(output, "        let raw = ::vvm::extract_unsigned(");
+        push_line(output, "            value.words_le(),");
+        push_line(
+            output,
+            &format!(
+                "            {0}::WIDTH,",
+                port_names.rust_type.as_deref().unwrap_or("")
+            ),
+        );
+        push_line(output, "            0,");
+        push_line(
+            output,
+            &format!(
+                "            {0}::WIDTH,",
+                port_names.rust_type.as_deref().unwrap_or("")
+            ),
+        );
+        push_line(output, "        )");
+        push_line(
+            output,
+            &format!(
+                "        .map_err(|_error| {}::PackedLayoutFailed)?;",
+                names.rust_error_type
+            ),
+        );
+        push_line(output, "");
+        push_line(
+            output,
+            &format!(
+                "        let raw: {} = {}::try_from(raw)",
+                signal_type.rust_type(),
+                signal_type.rust_type()
+            ),
+        );
+        push_line(
+            output,
+            &format!(
+                "            .map_err(|_error| {}::PackedLayoutFailed)?;",
+                names.rust_error_type
+            ),
+        );
+    }
+
+    push_line(output, "");
+    push_line(
+        output,
+        &format!("        self.inner_mut()?.{}(raw);", port_names.method),
+    );
+}
+
+/// Renders one packed-array typed output getter.
+fn render_packed_array_output(
+    output: &mut String,
+    port: &Port,
+    port_names: &PortNames,
+    array_type: PackedArrayType<'_>,
+    names: &DutNames,
+) {
+    let Some(rust_type) = port_names.rust_type.as_deref() else {
+        return;
+    };
+
+    push_line(output, "");
+    push_line(
+        output,
+        &format!("    /// Samples the `{}` DUT output.", port.name),
+    );
+    push_line(output, "    ///");
+    push_line(output, "    /// # Errors");
+    push_line(output, "    ///");
+    push_line(
+        output,
+        "    /// Returns an error if the DUT has already been finished, a generated",
+    );
+    push_line(
+        output,
+        "    /// packed-array layout conversion fails, or a native wide transfer is rejected.",
+    );
+    push_line(
+        output,
+        &format!(
+            "    pub fn {}(&self) -> Result<{rust_type}> {{",
+            port_names.method
+        ),
+    );
+    push_line(output, "        self.ensure_running()?;");
+    push_line(output, "");
+
+    match array_type.storage_port_type() {
+        PortType::Scalar(signal_type) => {
+            render_packed_array_scalar_output_body(output, port_names, array_type, signal_type);
+        }
+        PortType::Wide(_) => {
+            let storage_constructor_type = array_type.storage_constructor_type();
+            push_line(output, "        let mut words =");
+            push_line(
+                output,
+                &format!("            vec![0_u32; {rust_type}::WORDS];"),
+            );
+            push_line(output, "");
+            push_line(output, "        let transferred =");
+            push_line(
+                output,
+                &format!(
+                    "            self.inner_ref()?.{}(&mut words);",
+                    port_names.method
+                ),
+            );
+            push_line(output, "");
+            push_line(output, "        if !transferred {");
+            push_line(output, "            return Err(");
+            push_line(
+                output,
+                &format!(
+                    "                {}::WidePortTransferFailed,",
+                    names.rust_error_type
+                ),
+            );
+            push_line(output, "            );");
+            push_line(output, "        }");
+            push_line(output, "");
+            push_line(
+                output,
+                &format!("        let bits = {storage_constructor_type}::from_words_le(words)"),
+            );
+            push_line(
+                output,
+                &format!(
+                    "            .map_err(|_error| {}::PackedLayoutFailed)?;",
+                    names.rust_error_type
+                ),
+            );
+            push_line(output, "");
+            push_line(output, &format!("        Ok({rust_type}::from_bits(bits))"));
+        }
+    }
+
+    push_line(output, "    }");
+}
+
+/// Renders the body of one flattened-scalar packed-array output getter.
+fn render_packed_array_scalar_output_body(
+    output: &mut String,
+    port_names: &PortNames,
+    array_type: PackedArrayType<'_>,
+    signal_type: SignalType,
+) {
+    let Some(rust_type) = port_names.rust_type.as_deref() else {
+        return;
+    };
+
+    let storage_constructor_type = array_type.storage_constructor_type();
+
+    push_line(
+        output,
+        &format!(
+            "        let raw = self.inner_ref()?.{}();",
+            port_names.method
+        ),
+    );
+    push_line(output, "");
+
+    push_line(
+        output,
+        &format!("        let bits = {storage_constructor_type}::from("),
+    );
+
+    if signal_type == SignalType::Bool {
+        push_line(output, "            u64::from(u8::from(raw)),");
+    } else if array_type.storage_signed() {
+        push_line(output, "            i64::from(raw),");
+    } else {
+        push_line(output, "            u64::from(raw),");
+    }
+    push_line(output, "        );");
+
+    push_line(output, "");
+    push_line(output, &format!("        Ok({rust_type}::from_bits(bits))"));
 }
 
 /// Renders one scalar typed output getter.

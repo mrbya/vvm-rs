@@ -1,4 +1,6 @@
-use crate::metadata::{BitWidth, DutMetadata, Port};
+use crate::metadata::{
+    BitWidth, DutMetadata, PackedArrayShape, PackedScalarShape, Port, PortShape,
+};
 
 /// Public generated type used by adapter methods.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -8,6 +10,22 @@ pub enum PortType {
 
     /// Wide port represented by VVM bit-vector wrappers.
     Wide(WideType),
+}
+
+/// Supported generated packed-array type descriptor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PackedArrayType<'a> {
+    /// Original normalized port.
+    port: &'a Port,
+
+    /// Packed-array shape.
+    shape: &'a PackedArrayShape,
+
+    /// Scalar element shape.
+    element: &'a PackedScalarShape,
+
+    /// Single supported packed dimension.
+    dimension: &'a crate::metadata::ArrayDimension,
 }
 
 impl PortType {
@@ -23,6 +41,131 @@ impl PortType {
     /// Returns whether the selected generated type is wide.
     pub const fn is_wide(self) -> bool {
         matches!(self, Self::Wide(_))
+    }
+}
+
+impl<'a> PackedArrayType<'a> {
+    /// Returns a supported packed-array descriptor for one normalized port.
+    pub fn from_port(port: &'a Port) -> Option<Self> {
+        let shape = match port.shape {
+            PortShape::PackedArray(ref shape) => shape,
+            PortShape::PackedScalar(_)
+            | PortShape::PackedStruct(_)
+            | PortShape::PackedEnum(_)
+            | PortShape::UnpackedArray(_) => {
+                return None;
+            }
+        };
+
+        if shape.dimensions.len() != 1 {
+            return None;
+        }
+
+        let dimension = shape.dimensions.first()?;
+
+        let element = match *shape.element.as_ref() {
+            PortShape::PackedScalar(ref element) => element,
+            PortShape::PackedArray(_)
+            | PortShape::PackedStruct(_)
+            | PortShape::PackedEnum(_)
+            | PortShape::UnpackedArray(_) => {
+                return None;
+            }
+        };
+
+        if element.width.get() > 64 {
+            return None;
+        }
+
+        Some(Self {
+            port,
+            shape,
+            element,
+            dimension,
+        })
+    }
+
+    /// Returns the total flattened packed width.
+    pub const fn total_width(self) -> u32 {
+        self.port.width.get()
+    }
+
+    /// Returns the storage signedness.
+    pub const fn storage_signed(self) -> bool {
+        self.port.signed
+    }
+
+    /// Returns the storage Rust value type.
+    pub fn storage_rust_type(self) -> String {
+        WideType::new(self.port.width, self.port.signed).rust_value_type()
+    }
+
+    /// Returns the storage Rust constructor type.
+    pub fn storage_constructor_type(self) -> String {
+        WideType::new(self.port.width, self.port.signed).rust_constructor_type()
+    }
+
+    /// Returns the generated element Rust scalar type.
+    pub const fn element_rust_type(self) -> &'static str {
+        self.element_signal_type().rust_type()
+    }
+
+    /// Returns the scalar extraction helper path.
+    pub const fn extraction_function(self) -> &'static str {
+        if self.element.signed {
+            "::vvm::extract_signed"
+        } else {
+            "::vvm::extract_unsigned"
+        }
+    }
+
+    /// Returns the scalar insertion helper path.
+    pub const fn insertion_function(self) -> &'static str {
+        if self.element.signed {
+            "::vvm::insert_signed"
+        } else {
+            "::vvm::insert_unsigned"
+        }
+    }
+
+    /// Returns one element width in bits.
+    pub const fn element_width(self) -> u32 {
+        self.element.width.get()
+    }
+
+    /// Returns the left HDL index bound.
+    pub const fn left(self) -> i64 {
+        self.dimension.left
+    }
+
+    /// Returns the right HDL index bound.
+    pub const fn right(self) -> i64 {
+        self.dimension.right
+    }
+
+    /// Returns the element count.
+    pub const fn length(self) -> u32 {
+        self.dimension.length.get()
+    }
+
+    /// Returns whether elements are signed.
+    pub const fn element_signed(self) -> bool {
+        self.element.signed
+    }
+
+    /// Returns whether elements are represented as bool.
+    pub const fn element_is_bool(self) -> bool {
+        !self.element.signed && self.element.width.get() == 1
+    }
+
+    /// Returns the element signal type mapping.
+    pub const fn element_signal_type(self) -> SignalType {
+        SignalType::from_width_signed(self.element.width.get(), self.element.signed)
+    }
+
+    /// Returns the flattened native transfer representation.
+    pub const fn storage_port_type(self) -> PortType {
+        PortType::from_port(self.port)
     }
 }
 
@@ -112,6 +255,14 @@ pub fn contains_wide_ports(metadata: &DutMetadata) -> bool {
         .any(|port| PortType::from_port(port).is_wide())
 }
 
+/// Returns whether any port uses a supported packed-array wrapper.
+pub fn contains_packed_array_ports(metadata: &DutMetadata) -> bool {
+    metadata
+        .ports
+        .iter()
+        .any(|port| PackedArrayType::from_port(port).is_some())
+}
+
 /// Public scalar type used by generated adapter method.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SignalType {
@@ -144,9 +295,9 @@ pub enum SignalType {
 }
 
 impl SignalType {
-    /// Selects the public scalar type for a normalized port.
-    pub const fn from_scalar_port(port: &Port) -> Self {
-        match (port.signed, port.width.get()) {
+    /// Selects the public scalar type for one width/signedness pair.
+    pub const fn from_width_signed(width: u32, signed: bool) -> Self {
+        match (signed, width) {
             (false, 1) => Self::Bool,
             (false, 2..=8) => Self::U8,
             (false, 9..=16) => Self::U16,
@@ -158,6 +309,11 @@ impl SignalType {
             (true, 17..=32) => Self::I32,
             (true, _) => Self::I64,
         }
+    }
+
+    /// Selects the public scalar type for a normalized port.
+    pub const fn from_scalar_port(port: &Port) -> Self {
+        Self::from_width_signed(port.width.get(), port.signed)
     }
 
     /// Returns the generated public C++ type.
@@ -238,8 +394,14 @@ mod tests {
     use std::io;
     use std::num::NonZeroU32;
 
-    use super::{PortType, SignalType, WideType, contains_wide_ports};
-    use crate::metadata::{BitWidth, PackedScalarShape, Port, PortDirection, PortShape};
+    use super::{
+        PackedArrayType, PortType, SignalType, WideType, contains_packed_array_ports,
+        contains_wide_ports,
+    };
+    use crate::metadata::{
+        ArrayDimension, BitWidth, PackedArrayShape, PackedScalarShape, Port, PortDirection,
+        PortShape,
+    };
 
     fn width(value: u32) -> Result<BitWidth, io::Error> {
         NonZeroU32::new(value).map(BitWidth::new).ok_or_else(|| {
@@ -281,6 +443,33 @@ mod tests {
                 "expected wide test type",
             )),
         }
+    }
+
+    fn packed_array_port(
+        width_bits: u32,
+        signed: bool,
+        element_width_bits: u32,
+        element_signed: bool,
+        dimensions: Vec<ArrayDimension>,
+    ) -> Result<Port, io::Error> {
+        let total_width = width(width_bits)?;
+        let element_width = width(element_width_bits)?;
+
+        Ok(Port {
+            name: String::from("packed"),
+            direction: PortDirection::Input,
+            width: total_width,
+            signed,
+            shape: PortShape::PackedArray(PackedArrayShape {
+                element: Box::new(PortShape::PackedScalar(PackedScalarShape {
+                    width: element_width,
+                    signed: element_signed,
+                })),
+                dimensions,
+                width: total_width,
+                signed,
+            }),
+        })
     }
 
     #[test]
@@ -516,6 +705,72 @@ mod tests {
 
         assert!(!contains_wide_ports(&scalar));
         assert!(contains_wide_ports(&wide));
+
+        Ok(())
+    }
+
+    #[test]
+    fn detects_supported_packed_array_ports() -> Result<(), Box<dyn std::error::Error>> {
+        let metadata = crate::metadata::DutMetadata {
+            name: String::from("packed"),
+            top_module: String::from("packed"),
+            ports: vec![packed_array_port(
+                32,
+                false,
+                8,
+                false,
+                vec![ArrayDimension {
+                    left: 3,
+                    right: 0,
+                    length: NonZeroU32::new(4).ok_or_else(|| {
+                        io::Error::new(io::ErrorKind::InvalidInput, "test dimension length")
+                    })?,
+                }],
+            )?],
+        };
+
+        assert!(contains_packed_array_ports(&metadata));
+
+        Ok(())
+    }
+
+    #[test]
+    fn describes_supported_packed_array_type() -> Result<(), Box<dyn std::error::Error>> {
+        let port = packed_array_port(
+            32,
+            false,
+            8,
+            false,
+            vec![ArrayDimension {
+                left: 3,
+                right: 0,
+                length: NonZeroU32::new(4).ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::InvalidInput, "test dimension length")
+                })?,
+            }],
+        )?;
+
+        let array_type = PackedArrayType::from_port(&port).ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                "expected supported packed array",
+            )
+        })?;
+
+        assert_eq!(array_type.storage_rust_type(), "::vvm::Bits<32>");
+        assert_eq!(array_type.storage_constructor_type(), "::vvm::Bits::<32>");
+        assert_eq!(array_type.element_rust_type(), "u8");
+        assert_eq!(array_type.extraction_function(), "::vvm::extract_unsigned");
+        assert_eq!(array_type.insertion_function(), "::vvm::insert_unsigned");
+        assert_eq!(array_type.element_width(), 8);
+        assert_eq!(array_type.total_width(), 32);
+        assert_eq!(array_type.left(), 3);
+        assert_eq!(array_type.right(), 0);
+        assert_eq!(array_type.length(), 4);
+        assert_eq!(
+            array_type.storage_port_type(),
+            PortType::Scalar(SignalType::U32)
+        );
 
         Ok(())
     }

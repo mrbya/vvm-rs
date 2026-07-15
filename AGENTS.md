@@ -1,36 +1,33 @@
 # AGENTS
 
-## Workspace
-- Root-only Cargo workspace members are `crates/vvm`, `crates/vvm-core`, `crates/vvm-build`, `crates/vvm-macros`, and `examples/counter`.
-- `crates/vvm` is the public facade crate, but its Cargo package name is `vvm-rs`; use `-p vvm-rs` for package-scoped Cargo commands.
-- Runtime code should depend on `vvm`; `build.rs` should depend on `vvm-build`.
-- Generated DUT modules come from `OUT_DIR`; consumers should use `vvm::include_dut!`, and `vvm` already re-exports the hidden `cxx` support generated code needs.
-- `docs/dev/reference-projects/vvm` is a git submodule with legacy/reference material, not the active workspace implementation.
+## Architecture
+- The workspace contains runtime crates (`vvm-core`, `vvm`, `vvm-macros`), build-time bridge generation (`vvm-build`), and executable examples under `examples/`.
+- `crates/vvm` exposes Rust library `vvm` but its Cargo package is `vvm-rs`; use `-p vvm-rs` for package-scoped commands.
+- Depend on `vvm` at runtime and `vvm-build` only from a consumer `build.rs`. `vvm-build` invokes Verilator, generates Rust/C++ bridge code, and compiles native support.
+- Generated DUT modules live under `OUT_DIR`; include them with `vvm::include_dut!`. The facade re-exports the hidden `cxx` dependency that generated code needs.
+- `docs/dev/reference-projects/vvm` is legacy submodule material, not active implementation code.
 
 ## Commands
-- Prefer `just` recipes over ad hoc Cargo commands.
-- Bootstrap once with `just init`.
-- Format with `just fmt`; this repo uses `cargo +nightly fmt --all`.
-- Lint with `just check -- -D warnings`.
-- Run tests with `just test`; run doc tests with `just doctest`.
-- Run CI-equivalent verification with `just ci`. GitLab CI uses this directly from `.gitlab-ci.yml`; there are no repo GitHub workflows.
-- `just pre-commit` is heavier than CI: it formats, runs strict checks, doc tests, and coverage.
+- Prefer `just` recipes. `just fmt` requires nightly; `just check -- -D warnings` runs Clippy across workspace targets/examples; `just test` uses nextest with all features.
+- `just ci` is the GitLab CI command: strict format/lint/udeps/audit, doc tests, then coverage. `just pre-commit` also reformats and runs local coverage.
+- `just` loads `.env` automatically.
 
 ## Verification Shortcuts
-- Facade integration target: `cargo test -p vvm-rs --test public_api`.
-- Repository integration target: `cargo test -p vvm-rs --test integration_tests`.
-- Counter example smoke test: `cargo test -p vvm-example-counter counter_smoke`.
-- HDL-only lint for the example DUT: `verilator --lint-only examples/counter/rtl/counter.sv`.
+- Facade integration: `cargo test -p vvm-rs --test public_api`; repository integration: `cargo test -p vvm-rs --test integration_tests`.
+- Example smoke tests are package-scoped, e.g. `cargo test -p vvm-example-counter counter_smoke` or `cargo test -p vvm-example-unpacked-array`.
+- HDL-only checks bypass Rust generation, e.g. `verilator --lint-only examples/counter/rtl/counter.sv`.
 
 ## Toolchain Gotchas
-- `examples/counter` is a workspace member, so `cargo check`, `cargo test`, and clippy build its `build.rs` too.
-- That build script runs Verilator and compiles a small CXX bridge, so Rust verification commands need `verilator` plus a working C++ toolchain.
-- `just` automatically loads `.env` because `justfile` sets `dotenv-load := true`.
+- Workspace examples have `build.rs` scripts; workspace Cargo commands require Verilator and a working C++ toolchain, not only Rust.
+- Verilator metadata fixtures under `crates/vvm-build/tests/fixtures/verilator/5.048/` are intentionally excluded from automatic JSON reformatting; regenerate them with Verilator 5.048 when changing normalization/codegen inputs.
 
 ## Hooks And Style
-- Pre-commit runs `just ci` when `.rs`, `.toml`, or `justfile` changes.
-- README edits trigger `just index`, which rewrites `README.md` with `markdown-toc -i`.
-- Commit messages are checked for conventional-commit format.
-- Workspace `edition` is `2024` and `rust-version` is `1.87.0`.
-- `rustfmt.toml` enforces `imports_granularity = "Module"` and `group_imports = "StdExternalCrate"`.
-- Workspace lints warn on `missing_docs` and `clippy::missing_docs_in_private_items`; follow `docs/dev/rustdoc_style.md` when adding or rewriting docs.
+- The pre-commit hook runs `just ci` for `.rs`, `.toml`, or `justfile` changes; README changes run `just index`. Commit messages must be conventional commits.
+- The workspace is edition 2024 with Rust 1.87. `rustfmt.toml` needs nightly for module-granularity imports and grouped standard/external imports.
+- `missing_docs` and private-item rustdoc lints are enabled. For hand-written Rust documentation, follow `docs/dev/rustdoc_style.md`; generated code is excluded.
+
+## Rustdoc And Lints
+- The root workspace enables strict `missing_docs` and `clippy::missing_docs_in_private_items` plus other strict code readability and bug-proning lints.
+- Do not add new `#[allow(...)]` attributes just to silence clippy; fix the warning/error instead.
+- When adding or rewriting docs, match `docs/dev/rustdoc_style.md` rather than the stale README link to `dev/docs/rustdoc_style.md`.
+

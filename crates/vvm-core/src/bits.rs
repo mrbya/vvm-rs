@@ -107,6 +107,7 @@ impl<const N: usize> Bits<N> {
     /// # Errors
     ///
     /// Returns [`InvalidBitVectorWordCount`] when the supplied word count does not match [`Self::WORDS`].
+    #[allow(clippy::same_name_method)]
     pub fn from_words_le(words: impl AsRef<[u32]>) -> Result<Self, InvalidBitVectorWordCount> {
         Ok(Self {
             words: canonical_words::<N>(words.as_ref())?,
@@ -115,6 +116,7 @@ impl<const N: usize> Bits<N> {
 
     /// Returns the canonical least-significant-word-first representation.
     #[must_use]
+    #[allow(clippy::same_name_method)]
     pub fn words_le(&self) -> &[u32] {
         &self.words
     }
@@ -157,6 +159,7 @@ impl<const N: usize> SignedBits<N> {
     /// # Errors
     ///
     /// Returns [`InvalidBitVectorWordCount`] when the supplied word count does not match [`Self::WORDS`].
+    #[allow(clippy::same_name_method)]
     pub fn from_words_le(words: impl AsRef<[u32]>) -> Result<Self, InvalidBitVectorWordCount> {
         Ok(Self {
             words: canonical_words::<N>(words.as_ref())?,
@@ -165,6 +168,7 @@ impl<const N: usize> SignedBits<N> {
 
     /// Returns the canonical least-significant-word-first representation.
     #[must_use]
+    #[allow(clippy::same_name_method)]
     pub fn words_le(&self) -> &[u32] {
         &self.words
     }

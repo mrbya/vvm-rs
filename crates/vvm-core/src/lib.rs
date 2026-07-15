@@ -71,6 +71,8 @@ pub(crate) mod drive;
 pub(crate) mod dut;
 /// Bounded check-failure policy.
 pub(crate) mod failure_policy;
+/// Packed aggregate layout helpers.
+pub(crate) mod packed;
 /// Randomization support.
 pub(crate) mod random;
 /// Reference model abstraction.
@@ -96,6 +98,11 @@ pub use clock::Clock;
 pub use drive::Drive;
 pub use dut::{Dut, TraceableDut};
 pub use failure_policy::{FailurePolicy, InvalidFailureLimit};
+pub use packed::{
+    PackedFieldLayout, PackedLayout, PackedLayoutError, PackedRange, PackedValue, extract_packed,
+    extract_signed, extract_signed_packed, extract_unsigned, insert_packed, insert_signed,
+    insert_signed_packed, insert_unsigned,
+};
 pub use random::{
     ParseReplayTokenError, RandomAlgorithm, RandomContext, Randomize, ReplayToken,
     ReplayableSequence, Seed,

@@ -3,8 +3,9 @@
 use super::GENERATED_NOTICE;
 use super::names::{DutNames, PackedStructFieldNames, PortNames};
 use super::types::{
-    PackedArrayType, PackedStructFieldType, PackedStructFieldValueType, PackedStructType, PortType,
-    SignalType, WideType, contains_packed_aggregate_ports, contains_wide_ports,
+    PackedArrayType, PackedEnumType, PackedStructFieldType, PackedStructFieldValueType,
+    PackedStructType, PortType, SignalType, WideType, contains_packed_aggregate_ports,
+    contains_wide_ports,
 };
 use crate::TraceOptions;
 use crate::metadata::{DutMetadata, Port, PortDirection};
@@ -121,6 +122,12 @@ fn render_packed_aggregate_types(output: &mut String, metadata: &DutMetadata, na
 
         if let Some(struct_type) = PackedStructType::from_port(port) {
             render_packed_struct_type(output, port, port_names, rust_type, struct_type);
+            rendered_any = true;
+            continue;
+        }
+
+        if let Some(enum_type) = PackedEnumType::from_port(port) {
+            render_packed_enum_type(output, port, port_names, rust_type, enum_type);
             rendered_any = true;
         }
     }
@@ -967,6 +974,446 @@ fn render_packed_struct_field_setter(
     }
 }
 
+/// Renders one generated packed-enum companion enum and wrapper type.
+#[allow(clippy::too_many_lines)]
+fn render_packed_enum_type(
+    output: &mut String,
+    port: &Port,
+    port_names: &PortNames,
+    rust_type: &str,
+    enum_type: PackedEnumType<'_>,
+) {
+    let Some(variant_type) = port_names.enum_variant_type.as_deref() else {
+        return;
+    };
+
+    let storage_type = enum_type.storage_rust_type();
+    let storage_constructor_type = enum_type.storage_constructor_type();
+
+    push_line(
+        output,
+        &format!("/// Declared HDL variants of [`{rust_type}`]."),
+    );
+    push_line(output, "#[allow(non_camel_case_types)]");
+    push_line(output, "#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]");
+    push_line(output, &format!("pub enum {variant_type} {{"));
+
+    for variant in &port_names.enum_variants {
+        push_line(output, &format!("    {variant},"));
+    }
+
+    push_line(output, "}");
+    push_line(output, "");
+    push_line(output, &format!("impl {variant_type} {{"));
+    push_line(
+        output,
+        "    /// Returns the canonical raw HDL discriminant.",
+    );
+    push_line(output, "    #[must_use]");
+    push_line(output, "    pub const fn raw(self) -> u64 {");
+    push_line(output, "        match self {");
+
+    for (variant_name, variant) in port_names.enum_variants.iter().zip(enum_type.variants()) {
+        push_line(
+            output,
+            &format!("            Self::{variant_name} => {},", variant.value),
+        );
+    }
+
+    push_line(output, "        }");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(output, "    /// Returns the original HDL variant name.");
+    push_line(output, "    #[must_use]");
+    push_line(output, "    pub const fn name(self) -> &'static str {");
+    push_line(output, "        match self {");
+
+    for variant_name in &port_names.enum_variants {
+        push_line(
+            output,
+            &format!("            Self::{variant_name} => \"{variant_name}\","),
+        );
+    }
+
+    push_line(output, "        }");
+    push_line(output, "    }");
+    push_line(output, "}");
+    push_line(output, "");
+
+    push_line(
+        output,
+        &format!(
+            "/// Packed-enum value used by the `{}` DUT port.",
+            port.name
+        ),
+    );
+    push_line(output, "#[derive(Debug, Clone, PartialEq, Eq, Hash)]");
+    push_line(output, &format!("pub struct {rust_type} {{"));
+    push_line(output, "    /// Canonical flattened packed storage.");
+    push_line(output, &format!("    bits: {storage_type},"));
+    push_line(output, "}");
+    push_line(output, "");
+    push_line(output, "#[allow(clippy::same_name_method)]");
+    push_line(output, &format!("impl {rust_type} {{"));
+    push_line(output, "    /// Total packed width.");
+    push_line(
+        output,
+        &format!("    pub const WIDTH: usize = {};", enum_type.total_width()),
+    );
+    push_line(output, "");
+    push_line(output, "    /// Number of canonical transfer words.");
+    push_line(
+        output,
+        &format!("    pub const WORDS: usize = {storage_constructor_type}::WORDS;"),
+    );
+    push_line(output, "");
+    push_line(
+        output,
+        "    /// Declared enum variants in HDL declaration order.",
+    );
+    push_line(
+        output,
+        "    pub const VARIANTS: &'static [::vvm::PackedEnumVariantLayout] = &[",
+    );
+
+    for variant in enum_type.variants() {
+        push_line(
+            output,
+            &format!(
+                "        ::vvm::PackedEnumVariantLayout::new(\"{}\", {}),",
+                variant.name, variant.value
+            ),
+        );
+    }
+
+    push_line(output, "    ];");
+    push_line(output, "");
+    push_line(output, "    /// Complete packed-enum layout.");
+    push_line(output, "    pub const LAYOUT: ::vvm::PackedEnumLayout =");
+    push_line(
+        output,
+        &format!(
+            "        ::vvm::PackedEnumLayout::new(\"{rust_type}\", Self::WIDTH, {}, \
+             Self::VARIANTS);",
+            enum_type.storage_signed()
+        ),
+    );
+    push_line(output, "");
+    push_line(output, "    /// Constructs an all-zero packed-enum value.");
+    push_line(output, "    #[must_use]");
+    push_line(output, "    pub fn zero() -> Self {");
+    push_line(output, "        Self {");
+    push_line(
+        output,
+        &format!("            bits: {storage_constructor_type}::zero(),"),
+    );
+    push_line(output, "        }");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(output, "    /// Wraps canonical packed bits.");
+    push_line(output, "    #[must_use]");
+    push_line(
+        output,
+        &format!("    pub const fn from_bits(bits: {storage_type}) -> Self {{"),
+    );
+    push_line(output, "        Self {");
+    push_line(output, "            bits,");
+    push_line(output, "        }");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(output, "    /// Returns the underlying packed bits.");
+    push_line(output, "    #[must_use]");
+    push_line(
+        output,
+        &format!("    pub const fn bits(&self) -> &{storage_type} {{"),
+    );
+    push_line(output, "        &self.bits");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(output, "    /// Returns the packed width.");
+    push_line(output, "    #[must_use]");
+    push_line(output, "    pub const fn width() -> usize {");
+    push_line(output, "        Self::WIDTH");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(output, "    /// Returns the packed-enum layout.");
+    push_line(output, "    #[must_use]");
+    push_line(
+        output,
+        "    pub const fn layout() -> ::vvm::PackedEnumLayout {",
+    );
+    push_line(output, "        Self::LAYOUT");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(
+        output,
+        "    /// Returns declared HDL variants in declaration order.",
+    );
+    push_line(output, "    #[must_use]");
+    push_line(
+        output,
+        "    pub const fn variants() -> &'static [::vvm::PackedEnumVariantLayout] {",
+    );
+    push_line(output, "        Self::VARIANTS");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(
+        output,
+        "    /// Consumes the value and returns its packed bits.",
+    );
+    push_line(output, "    #[must_use]");
+    push_line(
+        output,
+        &format!("    pub fn into_bits(self) -> {storage_type} {{"),
+    );
+    push_line(output, "        self.bits");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(
+        output,
+        "    /// Constructs the packed enum from canonical words.",
+    );
+    push_line(output, "    ///");
+    push_line(output, "    /// # Errors");
+    push_line(output, "    ///");
+    push_line(
+        output,
+        "    /// Returns an error when the word count does not match the packed width.",
+    );
+    push_line(output, "    pub fn from_words_le(");
+    push_line(output, "        words: impl AsRef<[u32]>,");
+    push_line(
+        output,
+        "    ) -> std::result::Result<Self, ::vvm::InvalidBitVectorWordCount> {",
+    );
+    push_line(
+        output,
+        &format!("        {storage_constructor_type}::from_words_le(words)"),
+    );
+    push_line(output, "            .map(Self::from_bits)");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(
+        output,
+        "    /// Returns canonical least-significant-word-first words.",
+    );
+    push_line(output, "    #[must_use]");
+    push_line(output, "    pub fn words_le(&self) -> &[u32] {");
+    push_line(output, "        self.bits.words_le()");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(
+        output,
+        "    /// Constructs a packed-enum value from its raw bit pattern.",
+    );
+    push_line(output, "    ///");
+    push_line(
+        output,
+        "    /// Only the low [`Self::WIDTH`] bits are retained.",
+    );
+    push_line(output, "    #[must_use]");
+    push_line(output, "    pub fn from_raw(value: u64) -> Self {");
+    if enum_type.storage_signed() {
+        push_line(
+            output,
+            "        let signed = i64::from_ne_bytes(value.to_ne_bytes());",
+        );
+        push_line(
+            output,
+            &format!("        Self::from_bits({storage_constructor_type}::from(signed))"),
+        );
+    } else {
+        push_line(
+            output,
+            &format!("        Self::from_bits({storage_constructor_type}::from(value))"),
+        );
+    }
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(
+        output,
+        "    /// Returns the canonical raw enum bit pattern.",
+    );
+    push_line(output, "    ///");
+    push_line(output, "    /// # Errors");
+    push_line(output, "    ///");
+    push_line(
+        output,
+        "    /// Returns an error if the internal packed storage cannot be extracted.",
+    );
+    push_line(
+        output,
+        "    pub fn raw(&self) -> std::result::Result<u64, ::vvm::PackedLayoutError> {",
+    );
+    push_line(output, "        ::vvm::extract_unsigned(");
+    push_line(output, "            self.words_le(),");
+    push_line(output, "            Self::WIDTH,");
+    push_line(output, "            0,");
+    push_line(output, "            Self::WIDTH,");
+    push_line(output, "        )");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(
+        output,
+        "    /// Constructs a packed value from one declared HDL variant.",
+    );
+    push_line(output, "    #[must_use]");
+    push_line(
+        output,
+        &format!("    pub fn from_variant(variant: {variant_type}) -> Self {{"),
+    );
+    push_line(output, "        Self::from_raw(variant.raw())");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(
+        output,
+        "    /// Returns the declared variant matching this raw value.",
+    );
+    push_line(output, "    ///");
+    push_line(
+        output,
+        "    /// Unknown but valid HDL bit patterns return `None`.",
+    );
+    push_line(output, "    ///");
+    push_line(output, "    /// # Errors");
+    push_line(output, "    ///");
+    push_line(
+        output,
+        "    /// Returns an error if packed storage extraction fails.",
+    );
+    push_line(
+        output,
+        &format!(
+            "    pub fn variant(&self) -> std::result::Result<Option<{variant_type}>, \
+             ::vvm::PackedLayoutError> {{"
+        ),
+    );
+    push_line(output, "        let variant = match self.raw()? {");
+
+    for (variant_name, variant) in port_names.enum_variants.iter().zip(enum_type.variants()) {
+        push_line(
+            output,
+            &format!(
+                "            {} => Some({variant_type}::{variant_name}),",
+                variant.value
+            ),
+        );
+    }
+
+    push_line(output, "            _ => None,");
+    push_line(output, "        };");
+    push_line(output, "");
+    push_line(output, "        Ok(variant)");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(
+        output,
+        "    /// Returns the original HDL name of the current known variant.",
+    );
+    push_line(output, "    ///");
+    push_line(output, "    /// Unknown values return `None`.");
+    push_line(output, "    ///");
+    push_line(output, "    /// # Errors");
+    push_line(output, "    ///");
+    push_line(
+        output,
+        "    /// Returns an error if packed storage extraction fails.",
+    );
+    push_line(
+        output,
+        "    pub fn name(&self) -> std::result::Result<Option<&'static str>, \
+         ::vvm::PackedLayoutError> {",
+    );
+    push_line(
+        output,
+        &format!("        Ok(self.variant()?.map({variant_type}::name))"),
+    );
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(
+        output,
+        "    /// Returns whether this value matches a declared HDL variant.",
+    );
+    push_line(output, "    ///");
+    push_line(output, "    /// # Errors");
+    push_line(output, "    ///");
+    push_line(
+        output,
+        "    /// Returns an error if packed storage extraction fails.",
+    );
+    push_line(
+        output,
+        "    pub fn is_known(&self) -> std::result::Result<bool, ::vvm::PackedLayoutError> {",
+    );
+    push_line(output, "        Ok(self.variant()?.is_some())");
+    push_line(output, "    }");
+    push_line(output, "}");
+    push_line(output, "");
+    push_line(output, &format!("impl Default for {rust_type} {{"));
+    push_line(output, "    fn default() -> Self {");
+    push_line(output, "        Self::zero()");
+    push_line(output, "    }");
+    push_line(output, "}");
+    push_line(output, "");
+    push_line(
+        output,
+        &format!("impl From<{variant_type}> for {rust_type} {{"),
+    );
+    push_line(
+        output,
+        &format!("    fn from(variant: {variant_type}) -> Self {{"),
+    );
+    push_line(output, "        Self::from_variant(variant)");
+    push_line(output, "    }");
+    push_line(output, "}");
+    push_line(output, "");
+    push_line(output, "#[allow(clippy::same_name_method)]");
+    push_line(
+        output,
+        &format!("impl ::vvm::PackedValue for {rust_type} {{"),
+    );
+    push_line(output, "    const WIDTH: usize = Self::WIDTH;");
+    push_line(output, "    const WORDS: usize = Self::WORDS;");
+    push_line(output, "");
+    push_line(output, "    fn from_words_le(");
+    push_line(output, "        words: impl AsRef<[u32]>,");
+    push_line(
+        output,
+        "    ) -> std::result::Result<Self, ::vvm::InvalidBitVectorWordCount> {",
+    );
+    push_line(output, "        Self::from_words_le(words)");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(output, "    fn words_le(&self) -> &[u32] {");
+    push_line(output, "        self.words_le()");
+    push_line(output, "    }");
+    push_line(output, "}");
+    push_line(output, "");
+    push_line(
+        output,
+        &format!("impl From<{storage_type}> for {rust_type} {{"),
+    );
+    push_line(
+        output,
+        &format!("    fn from(bits: {storage_type}) -> Self {{"),
+    );
+    push_line(output, "        Self::from_bits(bits)");
+    push_line(output, "    }");
+    push_line(output, "}");
+    push_line(output, "");
+    push_line(
+        output,
+        &format!("impl From<{rust_type}> for {storage_type} {{"),
+    );
+    push_line(
+        output,
+        &format!("    fn from(value: {rust_type}) -> Self {{"),
+    );
+    push_line(output, "        value.into_bits()");
+    push_line(output, "    }");
+    push_line(output, "}");
+}
+
 /// Renders the generated DUT error type.
 fn render_error(output: &mut String, metadata: &DutMetadata, names: &DutNames, traced: bool) {
     push_line(output, "/// Error returned by generated DUT operations.");
@@ -1552,6 +1999,12 @@ fn render_input(output: &mut String, port: &Port, port_names: &PortNames, names:
         return;
     }
 
+    if let Some(enum_type) = PackedEnumType::from_port(port) {
+        render_packed_enum_input(output, port, port_names, enum_type, names);
+
+        return;
+    }
+
     match PortType::from_port(port) {
         PortType::Scalar(signal_type) => {
             render_scalar_input(output, port, &port_names.method, signal_type);
@@ -1624,6 +2077,12 @@ fn render_output(output: &mut String, port: &Port, port_names: &PortNames, names
 
     if let Some(struct_type) = PackedStructType::from_port(port) {
         render_packed_struct_output(output, port, port_names, struct_type, names);
+
+        return;
+    }
+
+    if let Some(enum_type) = PackedEnumType::from_port(port) {
+        render_packed_enum_output(output, port, port_names, enum_type, names);
 
         return;
     }
@@ -1874,6 +2333,53 @@ fn render_packed_struct_output(
         struct_type.storage_port_type(),
         struct_type.storage_signed(),
         &struct_type.storage_constructor_type(),
+        names,
+    );
+}
+
+/// Renders one packed-enum typed input setter.
+fn render_packed_enum_input(
+    output: &mut String,
+    port: &Port,
+    port_names: &PortNames,
+    enum_type: PackedEnumType<'_>,
+    names: &DutNames,
+) {
+    let Some(rust_type) = port_names.rust_type.as_deref() else {
+        return;
+    };
+
+    render_packed_aggregate_input(
+        output,
+        port,
+        port_names,
+        rust_type,
+        enum_type.storage_port_type(),
+        enum_type.storage_signed(),
+        names,
+    );
+}
+
+/// Renders one packed-enum typed output getter.
+fn render_packed_enum_output(
+    output: &mut String,
+    port: &Port,
+    port_names: &PortNames,
+    enum_type: PackedEnumType<'_>,
+    names: &DutNames,
+) {
+    let Some(rust_type) = port_names.rust_type.as_deref() else {
+        return;
+    };
+
+    render_packed_aggregate_output(
+        output,
+        port,
+        port_names,
+        rust_type,
+        enum_type.storage_port_type(),
+        enum_type.storage_signed(),
+        &enum_type.storage_constructor_type(),
         names,
     );
 }

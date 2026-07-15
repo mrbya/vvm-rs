@@ -113,11 +113,7 @@ pub fn validate_supported(metadata: &DutMetadata) -> BuildResult<()> {
             PortShape::PackedScalar(_) => {}
             PortShape::PackedArray(shape) => validate_supported_packed_array(port, shape)?,
             PortShape::PackedStruct(shape) => validate_supported_packed_struct(port, shape)?,
-            PortShape::PackedEnum(_) => {
-                return Err(BuildError::UnsupportedPackedEnumPort {
-                    port: port.name.clone(),
-                });
-            }
+            PortShape::PackedEnum(shape) => validate_supported_packed_enum(port, shape)?,
             PortShape::UnpackedArray(_) => {
                 return Err(BuildError::UnsupportedUnpackedArrayPort {
                     port: port.name.clone(),
@@ -228,6 +224,60 @@ fn validate_packed_struct_coverage(port: &Port, shape: &PackedStructShape) -> Bu
         return Err(BuildError::UnsupportedPackedStructPort {
             port: port.name.clone(),
         });
+    }
+
+    Ok(())
+}
+
+/// Verifies that a packed-enum shape is within the currently supported subset.
+fn validate_supported_packed_enum(port: &Port, shape: &PackedEnumShape) -> BuildResult<()> {
+    if shape.width.get() > 64 || shape.variants.is_empty() {
+        return Err(BuildError::UnsupportedPackedEnumPort {
+            port: port.name.clone(),
+        });
+    }
+
+    validate_packed_enum_values(port, shape)
+}
+
+/// Returns a width-limited mask for packed-enum discriminants.
+fn packed_enum_mask(width: u32) -> Option<u64> {
+    if width == 64 {
+        return Some(u64::MAX);
+    }
+
+    1_u64.checked_shl(width)?.checked_sub(1)
+}
+
+/// Verifies that packed-enum variants fit the declared width and remain unique.
+fn validate_packed_enum_values(port: &Port, shape: &PackedEnumShape) -> BuildResult<()> {
+    let Some(mask) = packed_enum_mask(shape.width.get()) else {
+        return Err(BuildError::UnsupportedPackedEnumPort {
+            port: port.name.clone(),
+        });
+    };
+
+    let mut names = HashSet::new();
+    let mut values = HashSet::new();
+
+    for variant in &shape.variants {
+        if variant.value & !mask != 0 {
+            return Err(BuildError::UnsupportedPackedEnumPort {
+                port: port.name.clone(),
+            });
+        }
+
+        if !names.insert(variant.name.as_str()) {
+            return Err(BuildError::UnsupportedPackedEnumPort {
+                port: port.name.clone(),
+            });
+        }
+
+        if !values.insert(variant.value) {
+            return Err(BuildError::UnsupportedPackedEnumPort {
+                port: port.name.clone(),
+            });
+        }
     }
 
     Ok(())
@@ -595,10 +645,11 @@ fn normalize_enum_data_type(
             })?;
 
         let raw_value = parse_const_value(required_string(value, "name", path)?)?;
+        let masked_value = packed_enum_mask(width.get()).map_or(raw_value, |mask| raw_value & mask);
 
         variants.push(PackedEnumVariant {
             name,
-            value: raw_value,
+            value: masked_value,
         });
     }
 
@@ -1060,6 +1111,28 @@ mod tests {
         )
     }
 
+    fn packed_enum_port(
+        name: &str,
+        direction: PortDirection,
+        width_bits: u32,
+        signed: bool,
+        variants: Vec<PackedEnumVariant>,
+    ) -> Port {
+        let total_width = width(width_bits);
+
+        aggregate_port(
+            name,
+            direction,
+            total_width,
+            signed,
+            PortShape::PackedEnum(PackedEnumShape {
+                width: total_width,
+                signed,
+                variants,
+            }),
+        )
+    }
+
     fn aggregate_ports_fixture() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("tests")
@@ -1085,6 +1158,15 @@ mod tests {
             .join("verilator")
             .join("5.048")
             .join("packed_struct_ports")
+    }
+
+    fn packed_enum_ports_fixture() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("verilator")
+            .join("5.048")
+            .join("packed_enum_ports")
     }
 
     fn aggregate_ports_metadata() -> Result<DutMetadata, Box<dyn std::error::Error>> {
@@ -1125,6 +1207,18 @@ mod tests {
             "packed_struct_ports",
             &raw,
         )?)
+    }
+
+    fn packed_enum_ports_metadata() -> Result<DutMetadata, Box<dyn std::error::Error>> {
+        let fixture = packed_enum_ports_fixture();
+
+        let raw = RawMetadata::from_paths(
+            VerilatorVersion::new(5, 48),
+            &fixture.join("packed_enum_ports.tree.json"),
+            &fixture.join("packed_enum_ports.tree.meta.json"),
+        )?;
+
+        Ok(normalize("packed_enum_ports", "packed_enum_ports", &raw)?)
     }
 
     fn find_port<'a>(
@@ -1638,6 +1732,71 @@ mod tests {
     }
 
     #[test]
+    fn normalizes_packed_enum_ports_fixture() -> Result<(), Box<dyn std::error::Error>> {
+        let actual = packed_enum_ports_metadata()?;
+
+        let state = find_port(&actual, "state")?;
+        assert_eq!(state.direction, PortDirection::Input);
+        assert_eq!(state.width, width(3));
+        assert!(!state.signed);
+        assert_eq!(
+            state.shape,
+            PortShape::PackedEnum(PackedEnumShape {
+                width: width(3),
+                signed: false,
+                variants: vec![
+                    PackedEnumVariant {
+                        name: String::from("STATE_IDLE"),
+                        value: 0,
+                    },
+                    PackedEnumVariant {
+                        name: String::from("STATE_BUSY"),
+                        value: 2,
+                    },
+                    PackedEnumVariant {
+                        name: String::from("STATE_DONE"),
+                        value: 5,
+                    },
+                    PackedEnumVariant {
+                        name: String::from("STATE_ERROR"),
+                        value: 7,
+                    },
+                ],
+            })
+        );
+
+        let signed_state = find_port(&actual, "signed_state")?;
+        assert_eq!(signed_state.direction, PortDirection::Input);
+        assert_eq!(signed_state.width, width(4));
+        assert!(signed_state.signed);
+        assert_eq!(
+            signed_state.shape,
+            PortShape::PackedEnum(PackedEnumShape {
+                width: width(4),
+                signed: true,
+                variants: vec![
+                    PackedEnumVariant {
+                        name: String::from("SIGNED_NEG"),
+                        value: 0xD,
+                    },
+                    PackedEnumVariant {
+                        name: String::from("SIGNED_ZERO"),
+                        value: 0,
+                    },
+                    PackedEnumVariant {
+                        name: String::from("SIGNED_POS"),
+                        value: 5,
+                    },
+                ],
+            })
+        );
+
+        validate_supported(&actual)?;
+
+        Ok(())
+    }
+
+    #[test]
     fn parses_descending_packed_range() -> Result<(), BuildError> {
         assert_eq!(parse_bit_width("value", Some("7:0"))?.get(), 8);
 
@@ -1798,12 +1957,64 @@ mod tests {
     }
 
     #[test]
+    fn accepts_supported_unsigned_packed_enum() -> Result<(), BuildError> {
+        let metadata = DutMetadata {
+            name: String::from("dut"),
+            top_module: String::from("dut"),
+            ports: vec![packed_enum_port(
+                "state",
+                PortDirection::Input,
+                3,
+                false,
+                vec![
+                    PackedEnumVariant {
+                        name: String::from("STATE_IDLE"),
+                        value: 0,
+                    },
+                    PackedEnumVariant {
+                        name: String::from("STATE_BUSY"),
+                        value: 2,
+                    },
+                ],
+            )],
+        };
+
+        validate_supported(&metadata)
+    }
+
+    #[test]
+    fn accepts_supported_signed_packed_enum() -> Result<(), BuildError> {
+        let metadata = DutMetadata {
+            name: String::from("dut"),
+            top_module: String::from("dut"),
+            ports: vec![packed_enum_port(
+                "signed_state",
+                PortDirection::Input,
+                4,
+                true,
+                vec![
+                    PackedEnumVariant {
+                        name: String::from("SIGNED_NEG"),
+                        value: 0xD,
+                    },
+                    PackedEnumVariant {
+                        name: String::from("SIGNED_ZERO"),
+                        value: 0,
+                    },
+                ],
+            )],
+        };
+
+        validate_supported(&metadata)
+    }
+
+    #[test]
     fn rejects_aggregate_ports_after_normalization() -> Result<(), Box<dyn std::error::Error>> {
         let metadata = aggregate_ports_metadata()?;
 
         assert!(matches!(
             validate_supported(&metadata),
-            Err(BuildError::UnsupportedPackedEnumPort { port }) if port == "state"
+            Err(BuildError::UnsupportedUnpackedArrayPort { port }) if port == "unpacked_bytes"
         ));
 
         Ok(())
@@ -2144,7 +2355,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_packed_enum_port() {
+    fn rejects_empty_packed_enum() {
         let metadata = DutMetadata {
             name: String::from("dut"),
             top_module: String::from("dut"),
@@ -2158,6 +2369,110 @@ mod tests {
                     signed: false,
                     variants: vec![],
                 }),
+            )],
+        };
+
+        assert!(matches!(
+            validate_supported(&metadata),
+            Err(BuildError::UnsupportedPackedEnumPort { port }) if port == "state"
+        ));
+    }
+
+    #[test]
+    fn rejects_packed_enum_wider_than_sixty_four_bits() {
+        let metadata = DutMetadata {
+            name: String::from("dut"),
+            top_module: String::from("dut"),
+            ports: vec![packed_enum_port(
+                "state",
+                PortDirection::Input,
+                65,
+                false,
+                vec![PackedEnumVariant {
+                    name: String::from("STATE_IDLE"),
+                    value: 0,
+                }],
+            )],
+        };
+
+        assert!(matches!(
+            validate_supported(&metadata),
+            Err(BuildError::UnsupportedPackedEnumPort { port }) if port == "state"
+        ));
+    }
+
+    #[test]
+    fn rejects_packed_enum_value_outside_declared_width() {
+        let metadata = DutMetadata {
+            name: String::from("dut"),
+            top_module: String::from("dut"),
+            ports: vec![packed_enum_port(
+                "state",
+                PortDirection::Input,
+                3,
+                false,
+                vec![PackedEnumVariant {
+                    name: String::from("STATE_BUSY"),
+                    value: 8,
+                }],
+            )],
+        };
+
+        assert!(matches!(
+            validate_supported(&metadata),
+            Err(BuildError::UnsupportedPackedEnumPort { port }) if port == "state"
+        ));
+    }
+
+    #[test]
+    fn rejects_duplicate_packed_enum_discriminants() {
+        let metadata = DutMetadata {
+            name: String::from("dut"),
+            top_module: String::from("dut"),
+            ports: vec![packed_enum_port(
+                "state",
+                PortDirection::Input,
+                3,
+                false,
+                vec![
+                    PackedEnumVariant {
+                        name: String::from("STATE_IDLE"),
+                        value: 0,
+                    },
+                    PackedEnumVariant {
+                        name: String::from("STATE_ALIAS"),
+                        value: 0,
+                    },
+                ],
+            )],
+        };
+
+        assert!(matches!(
+            validate_supported(&metadata),
+            Err(BuildError::UnsupportedPackedEnumPort { port }) if port == "state"
+        ));
+    }
+
+    #[test]
+    fn rejects_duplicate_packed_enum_variant_names() {
+        let metadata = DutMetadata {
+            name: String::from("dut"),
+            top_module: String::from("dut"),
+            ports: vec![packed_enum_port(
+                "state",
+                PortDirection::Input,
+                3,
+                false,
+                vec![
+                    PackedEnumVariant {
+                        name: String::from("STATE_IDLE"),
+                        value: 0,
+                    },
+                    PackedEnumVariant {
+                        name: String::from("STATE_IDLE"),
+                        value: 1,
+                    },
+                ],
             )],
         };
 

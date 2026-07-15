@@ -94,14 +94,14 @@ pub(crate) mod test;
 pub use vvm_core::{
     Bits, CheckFailure, Clock, CycleTiming, DetailedTestReport, Drive, Dut, ExactScoreboard,
     FailurePolicy, IntoTestOutcome, InvalidBitVectorWordCount, InvalidFailureLimit,
-    InvalidTimeStep, Mismatch, PackedFieldLayout, PackedLayout, PackedLayoutError, PackedRange,
-    PackedValue, ParseReplayTokenError, RandomAlgorithm, RandomContext, Randomize, ReferenceModel,
-    ReplayToken, ReplayableSequence, Sample, Scoreboard, Seed, SignedBits, SimulationError,
-    SimulationStage, SimulationTime, TestCapabilities, TestDescriptor, TestFunction, TestOutcome,
-    TestRegistry, TestRegistryError, TestResult, TestRun, TestRunConfig, TestStatistics,
-    TestStatus, TestSummary, Testbench, TimeStep, TraceableDut, extract_packed, extract_signed,
-    extract_signed_packed, extract_unsigned, insert_packed, insert_signed, insert_signed_packed,
-    insert_unsigned,
+    InvalidTimeStep, Mismatch, PackedEnumLayout, PackedEnumVariantLayout, PackedFieldLayout,
+    PackedLayout, PackedLayoutError, PackedRange, PackedValue, ParseReplayTokenError,
+    RandomAlgorithm, RandomContext, Randomize, ReferenceModel, ReplayToken, ReplayableSequence,
+    Sample, Scoreboard, Seed, SignedBits, SimulationError, SimulationStage, SimulationTime,
+    TestCapabilities, TestDescriptor, TestFunction, TestOutcome, TestRegistry, TestRegistryError,
+    TestResult, TestRun, TestRunConfig, TestStatistics, TestStatus, TestSummary, Testbench,
+    TimeStep, TraceableDut, extract_packed, extract_signed, extract_signed_packed,
+    extract_unsigned, insert_packed, insert_signed, insert_signed_packed, insert_unsigned,
 };
 #[doc(inline)]
 pub use vvm_macros::{Clock, Drive, Sample, test};

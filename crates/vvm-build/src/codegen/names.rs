@@ -3,7 +3,7 @@
 use std::collections::HashSet;
 
 use crate::builder::validate_identifier;
-use crate::codegen::types::{PackedArrayType, PackedStructType};
+use crate::codegen::types::{PackedArrayType, PackedEnumType, PackedStructType};
 use crate::metadata::{DutMetadata, PortDirection};
 use crate::{BuildError, BuildResult};
 
@@ -46,6 +46,12 @@ pub struct PortNames {
 
     /// Generated packed-struct field methods.
     pub struct_fields: Vec<PackedStructFieldNames>,
+
+    /// Generated known-variant companion type.
+    pub enum_variant_type: Option<String>,
+
+    /// Validated Rust identifiers for declared variants.
+    pub enum_variants: Vec<String>,
 }
 
 /// Generated methods for one packed-struct field.
@@ -118,6 +124,8 @@ pub fn resolve(metadata: &DutMetadata, model_prefix: &str) -> BuildResult<DutNam
         }
 
         let rust_type = aggregate_rust_type(port)?;
+        let enum_variant_type = packed_enum_variant_type(rust_type.as_ref(), port);
+        let enum_variants = packed_enum_variant_names(port)?;
 
         if let Some(ref rust_type) = rust_type {
             validate_rust_identifier("Rust packed aggregate type", rust_type)?;
@@ -129,6 +137,16 @@ pub fn resolve(metadata: &DutMetadata, model_prefix: &str) -> BuildResult<DutNam
             }
         }
 
+        if let Some(ref enum_variant_type) = enum_variant_type {
+            validate_rust_identifier("Rust packed-enum variant type", enum_variant_type)?;
+
+            if !used_rust_types.insert(enum_variant_type.clone()) {
+                return Err(BuildError::GeneratedNameCollision {
+                    name: enum_variant_type.clone(),
+                });
+            }
+        }
+
         let struct_fields = packed_struct_field_names(port)?;
 
         ports.push(PortNames {
@@ -136,6 +154,8 @@ pub fn resolve(metadata: &DutMetadata, model_prefix: &str) -> BuildResult<DutNam
             method,
             rust_type,
             struct_fields,
+            enum_variant_type,
+            enum_variants,
         });
     }
 
@@ -152,8 +172,9 @@ pub fn resolve(metadata: &DutMetadata, model_prefix: &str) -> BuildResult<DutNam
 
 /// Returns the generated Rust wrapper type for one supported packed aggregate port.
 fn aggregate_rust_type(port: &crate::metadata::Port) -> BuildResult<Option<String>> {
-    let supported =
-        PackedArrayType::from_port(port).is_some() || PackedStructType::from_port(port).is_some();
+    let supported = PackedArrayType::from_port(port).is_some()
+        || PackedStructType::from_port(port).is_some()
+        || PackedEnumType::from_port(port).is_some();
 
     if !supported {
         return Ok(None);
@@ -170,6 +191,41 @@ fn aggregate_rust_type(port: &crate::metadata::Port) -> BuildResult<Option<Strin
     }
 
     Ok(Some(rust_type))
+}
+
+/// Returns the generated companion known-variant type for one supported packed-enum port.
+fn packed_enum_variant_type(
+    rust_type: Option<&String>,
+    port: &crate::metadata::Port,
+) -> Option<String> {
+    let _enum_type = PackedEnumType::from_port(port)?;
+    let rust_type = rust_type?;
+
+    Some(format!("{rust_type}Variant"))
+}
+
+/// Returns generated companion variant identifiers for one supported packed-enum port.
+fn packed_enum_variant_names(port: &crate::metadata::Port) -> BuildResult<Vec<String>> {
+    let Some(enum_type) = PackedEnumType::from_port(port) else {
+        return Ok(Vec::new());
+    };
+
+    let mut used_variants = HashSet::new();
+    let variants = enum_type
+        .variants()
+        .map(|variant| {
+            let name = variant.name.clone();
+            validate_rust_identifier("Rust packed-enum variant", &name)?;
+
+            if !used_variants.insert(name.clone()) {
+                return Err(BuildError::GeneratedNameCollision { name });
+            }
+
+            Ok(name)
+        })
+        .collect::<BuildResult<Vec<_>>>()?;
+
+    Ok(variants)
 }
 
 /// Returns generated field method names for one supported packed struct port.
@@ -441,8 +497,9 @@ mod tests {
     use super::resolve;
     use crate::BuildError;
     use crate::metadata::{
-        ArrayDimension, BitWidth, DutMetadata, PackedArrayShape, PackedScalarShape,
-        PackedStructField, PackedStructShape, Port, PortDirection, PortShape,
+        ArrayDimension, BitWidth, DutMetadata, PackedArrayShape, PackedEnumShape,
+        PackedEnumVariant, PackedScalarShape, PackedStructField, PackedStructShape, Port,
+        PortDirection, PortShape,
     };
 
     fn port(name: &str, direction: PortDirection) -> Port {
@@ -501,6 +558,27 @@ mod tests {
                 width,
                 fields,
                 signed: false,
+            }),
+        }
+    }
+
+    fn packed_enum_port(
+        name: &str,
+        direction: PortDirection,
+        signed: bool,
+        variants: Vec<PackedEnumVariant>,
+    ) -> Port {
+        let width = BitWidth::new(NonZeroU32::new(4).unwrap_or(NonZeroU32::MIN));
+
+        Port {
+            name: name.to_owned(),
+            direction,
+            width,
+            signed,
+            shape: PortShape::PackedEnum(PackedEnumShape {
+                width,
+                signed,
+                variants,
             }),
         }
     }
@@ -834,6 +912,193 @@ mod tests {
         assert!(matches!(
             resolve(&metadata, "Vpacked_struct_ports"),
             Err(BuildError::GeneratedNameCollision { name }) if name == "set_foo"
+        ));
+    }
+
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn resolves_packed_enum_type_names() -> Result<(), BuildError> {
+        let metadata = metadata(
+            "packed_enum_ports",
+            vec![
+                port("clk", PortDirection::Input),
+                packed_enum_port(
+                    "state",
+                    PortDirection::Input,
+                    false,
+                    vec![
+                        PackedEnumVariant {
+                            name: String::from("STATE_IDLE"),
+                            value: 0,
+                        },
+                        PackedEnumVariant {
+                            name: String::from("STATE_BUSY"),
+                            value: 2,
+                        },
+                    ],
+                ),
+                packed_enum_port(
+                    "state_out",
+                    PortDirection::Output,
+                    false,
+                    vec![PackedEnumVariant {
+                        name: String::from("STATE_IDLE"),
+                        value: 0,
+                    }],
+                ),
+                packed_enum_port(
+                    "signed_state",
+                    PortDirection::Input,
+                    true,
+                    vec![PackedEnumVariant {
+                        name: String::from("SIGNED_NEG"),
+                        value: 0xD,
+                    }],
+                ),
+                packed_enum_port(
+                    "signed_state_out",
+                    PortDirection::Output,
+                    true,
+                    vec![PackedEnumVariant {
+                        name: String::from("SIGNED_NEG"),
+                        value: 0xD,
+                    }],
+                ),
+            ],
+        );
+
+        let names = resolve(&metadata, "Vpacked_enum_ports")?;
+
+        assert_eq!(
+            names
+                .ports
+                .get(1)
+                .and_then(|port| port.rust_type.as_deref()),
+            Some("State")
+        );
+        assert_eq!(
+            names
+                .ports
+                .get(1)
+                .and_then(|port| port.enum_variant_type.as_deref()),
+            Some("StateVariant")
+        );
+        assert_eq!(
+            names
+                .ports
+                .get(2)
+                .and_then(|port| port.rust_type.as_deref()),
+            Some("StateOut")
+        );
+        assert_eq!(
+            names
+                .ports
+                .get(2)
+                .and_then(|port| port.enum_variant_type.as_deref()),
+            Some("StateOutVariant")
+        );
+        assert_eq!(
+            names
+                .ports
+                .get(3)
+                .and_then(|port| port.rust_type.as_deref()),
+            Some("SignedState")
+        );
+        assert_eq!(
+            names
+                .ports
+                .get(3)
+                .and_then(|port| port.enum_variant_type.as_deref()),
+            Some("SignedStateVariant")
+        );
+        assert_eq!(
+            names
+                .ports
+                .get(4)
+                .and_then(|port| port.rust_type.as_deref()),
+            Some("SignedStateOut")
+        );
+        assert_eq!(
+            names
+                .ports
+                .get(4)
+                .and_then(|port| port.enum_variant_type.as_deref()),
+            Some("SignedStateOutVariant")
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_packed_enum_companion_type_collision() {
+        let metadata = metadata(
+            "packed_enum_ports",
+            vec![
+                packed_enum_port(
+                    "state",
+                    PortDirection::Input,
+                    false,
+                    vec![PackedEnumVariant {
+                        name: String::from("STATE_IDLE"),
+                        value: 0,
+                    }],
+                ),
+                packed_array_port("state_variant", PortDirection::Output),
+            ],
+        );
+
+        assert!(matches!(
+            resolve(&metadata, "Vpacked_enum_ports"),
+            Err(BuildError::GeneratedNameCollision { name }) if name == "StateVariant"
+        ));
+    }
+
+    #[test]
+    fn rejects_rust_keyword_packed_enum_variant() {
+        let metadata = metadata(
+            "packed_enum_ports",
+            vec![packed_enum_port(
+                "state",
+                PortDirection::Input,
+                false,
+                vec![PackedEnumVariant {
+                    name: String::from("match"),
+                    value: 0,
+                }],
+            )],
+        );
+
+        assert!(matches!(
+            resolve(&metadata, "Vpacked_enum_ports"),
+            Err(BuildError::UnsupportedCodegenName { role, name, .. })
+                if role == "Rust packed-enum variant" && name == "match"
+        ));
+    }
+
+    #[test]
+    fn rejects_duplicate_packed_enum_variant_identifier() {
+        let metadata = metadata(
+            "packed_enum_ports",
+            vec![packed_enum_port(
+                "state",
+                PortDirection::Input,
+                false,
+                vec![
+                    PackedEnumVariant {
+                        name: String::from("STATE_IDLE"),
+                        value: 0,
+                    },
+                    PackedEnumVariant {
+                        name: String::from("STATE_IDLE"),
+                        value: 1,
+                    },
+                ],
+            )],
+        );
+
+        assert!(matches!(
+            resolve(&metadata, "Vpacked_enum_ports"),
+            Err(BuildError::GeneratedNameCollision { name }) if name == "STATE_IDLE"
         ));
     }
 }

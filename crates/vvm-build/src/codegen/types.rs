@@ -1,6 +1,6 @@
 use crate::metadata::{
-    BitWidth, DutMetadata, PackedArrayShape, PackedScalarShape, PackedStructField,
-    PackedStructShape, Port, PortShape,
+    BitWidth, DutMetadata, PackedArrayShape, PackedEnumShape, PackedEnumVariant, PackedScalarShape,
+    PackedStructField, PackedStructShape, Port, PortShape,
 };
 
 /// Public generated type used by adapter methods.
@@ -37,6 +37,16 @@ pub struct PackedStructType<'a> {
 
     /// Packed-struct shape.
     shape: &'a PackedStructShape,
+}
+
+/// Supported generated packed-enum descriptor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PackedEnumType<'a> {
+    /// Original normalized port.
+    port: &'a Port,
+
+    /// Packed-enum shape.
+    shape: &'a PackedEnumShape,
 }
 
 /// Supported packed-struct field descriptor.
@@ -262,6 +272,58 @@ impl<'a> PackedStructType<'a> {
     }
 }
 
+impl<'a> PackedEnumType<'a> {
+    /// Returns a supported packed-enum descriptor.
+    #[allow(clippy::pattern_type_mismatch)]
+    pub const fn from_port(port: &'a Port) -> Option<Self> {
+        let PortShape::PackedEnum(shape) = &port.shape else {
+            return None;
+        };
+
+        if shape.width.get() > 64 || shape.variants.is_empty() {
+            return None;
+        }
+
+        Some(Self { port, shape })
+    }
+
+    /// Returns total packed width.
+    pub const fn total_width(self) -> u32 {
+        self.shape.width.get()
+    }
+
+    /// Returns storage signedness.
+    pub const fn storage_signed(self) -> bool {
+        self.shape.signed
+    }
+
+    /// Returns generated canonical storage type.
+    pub fn storage_rust_type(self) -> String {
+        WideType::new(self.shape.width, self.shape.signed).rust_value_type()
+    }
+
+    /// Returns generated storage constructor path.
+    pub fn storage_constructor_type(self) -> String {
+        WideType::new(self.shape.width, self.shape.signed).rust_constructor_type()
+    }
+
+    /// Returns flattened native transfer type.
+    pub const fn storage_port_type(self) -> PortType {
+        PortType::from_port(self.port)
+    }
+
+    /// Returns normalized enum shape.
+    #[allow(dead_code)]
+    pub const fn shape(self) -> &'a PackedEnumShape {
+        self.shape
+    }
+
+    /// Returns declared variants.
+    pub fn variants(self) -> impl ExactSizeIterator<Item = &'a PackedEnumVariant> {
+        self.shape.variants.iter()
+    }
+}
+
 impl<'a> PackedStructFieldType<'a> {
     /// Creates a descriptor for one scalar packed-struct field.
     #[allow(clippy::pattern_type_mismatch)]
@@ -418,9 +480,19 @@ pub fn contains_packed_struct_ports(metadata: &DutMetadata) -> bool {
         .any(|port| PackedStructType::from_port(port).is_some())
 }
 
+/// Returns whether any port uses a supported packed-enum wrapper.
+pub fn contains_packed_enum_ports(metadata: &DutMetadata) -> bool {
+    metadata
+        .ports
+        .iter()
+        .any(|port| PackedEnumType::from_port(port).is_some())
+}
+
 /// Returns whether any port uses a supported packed aggregate wrapper.
 pub fn contains_packed_aggregate_ports(metadata: &DutMetadata) -> bool {
-    contains_packed_array_ports(metadata) || contains_packed_struct_ports(metadata)
+    contains_packed_array_ports(metadata)
+        || contains_packed_struct_ports(metadata)
+        || contains_packed_enum_ports(metadata)
 }
 
 /// Public scalar type used by generated adapter method.
@@ -555,13 +627,13 @@ mod tests {
     use std::num::NonZeroU32;
 
     use super::{
-        PackedArrayType, PackedStructFieldValueType, PackedStructType, PortType, SignalType,
-        WideType, contains_packed_aggregate_ports, contains_packed_array_ports,
-        contains_packed_struct_ports, contains_wide_ports,
+        PackedArrayType, PackedEnumType, PackedStructFieldValueType, PackedStructType, PortType,
+        SignalType, WideType, contains_packed_aggregate_ports, contains_packed_array_ports,
+        contains_packed_enum_ports, contains_packed_struct_ports, contains_wide_ports,
     };
     use crate::metadata::{
-        ArrayDimension, BitWidth, PackedArrayShape, PackedScalarShape, PackedStructField,
-        PackedStructShape, Port, PortDirection, PortShape,
+        ArrayDimension, BitWidth, PackedArrayShape, PackedEnumShape, PackedEnumVariant,
+        PackedScalarShape, PackedStructField, PackedStructShape, Port, PortDirection, PortShape,
     };
 
     fn width(value: u32) -> Result<BitWidth, io::Error> {
@@ -649,6 +721,26 @@ mod tests {
                 width: total_width,
                 fields,
                 signed,
+            }),
+        })
+    }
+
+    fn packed_enum_port(
+        width_bits: u32,
+        signed: bool,
+        variants: Vec<PackedEnumVariant>,
+    ) -> Result<Port, io::Error> {
+        let total_width = width(width_bits)?;
+
+        Ok(Port {
+            name: String::from("state"),
+            direction: PortDirection::Input,
+            width: total_width,
+            signed,
+            shape: PortShape::PackedEnum(PackedEnumShape {
+                width: total_width,
+                signed,
+                variants,
             }),
         })
     }
@@ -1100,6 +1192,118 @@ mod tests {
         assert_eq!(
             field.value_type(),
             PackedStructFieldValueType::Scalar(SignalType::Bool)
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn detects_supported_packed_enum_ports() -> Result<(), Box<dyn std::error::Error>> {
+        let metadata = crate::metadata::DutMetadata {
+            name: String::from("packed"),
+            top_module: String::from("packed"),
+            ports: vec![packed_enum_port(
+                3,
+                false,
+                vec![
+                    PackedEnumVariant {
+                        name: String::from("STATE_IDLE"),
+                        value: 0,
+                    },
+                    PackedEnumVariant {
+                        name: String::from("STATE_DONE"),
+                        value: 5,
+                    },
+                ],
+            )?],
+        };
+
+        assert!(contains_packed_enum_ports(&metadata));
+        assert!(contains_packed_aggregate_ports(&metadata));
+
+        Ok(())
+    }
+
+    #[test]
+    fn describes_supported_unsigned_packed_enum_type() -> Result<(), Box<dyn std::error::Error>> {
+        let port = packed_enum_port(
+            3,
+            false,
+            vec![
+                PackedEnumVariant {
+                    name: String::from("STATE_IDLE"),
+                    value: 0,
+                },
+                PackedEnumVariant {
+                    name: String::from("STATE_BUSY"),
+                    value: 2,
+                },
+                PackedEnumVariant {
+                    name: String::from("STATE_DONE"),
+                    value: 5,
+                },
+            ],
+        )?;
+
+        let enum_type = PackedEnumType::from_port(&port)
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "expected packed enum"))?;
+
+        assert_eq!(enum_type.total_width(), 3);
+        assert!(!enum_type.storage_signed());
+        assert_eq!(enum_type.shape().width.get(), 3);
+        assert_eq!(enum_type.storage_rust_type(), "::vvm::Bits<3>");
+        assert_eq!(enum_type.storage_constructor_type(), "::vvm::Bits::<3>");
+        assert_eq!(
+            enum_type.storage_port_type(),
+            PortType::Scalar(SignalType::U8)
+        );
+
+        let variants: Vec<_> = enum_type.variants().collect();
+        assert_eq!(variants.len(), 3);
+        assert_eq!(
+            variants.first().map(|variant| variant.name.as_str()),
+            Some("STATE_IDLE")
+        );
+        assert_eq!(variants.get(1).map(|variant| variant.value), Some(2));
+        assert_eq!(
+            variants.get(2).map(|variant| variant.name.as_str()),
+            Some("STATE_DONE")
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn describes_supported_signed_packed_enum_type() -> Result<(), Box<dyn std::error::Error>> {
+        let port = packed_enum_port(
+            4,
+            true,
+            vec![
+                PackedEnumVariant {
+                    name: String::from("SIGNED_NEG"),
+                    value: 0xD,
+                },
+                PackedEnumVariant {
+                    name: String::from("SIGNED_ZERO"),
+                    value: 0,
+                },
+            ],
+        )?;
+
+        let enum_type = PackedEnumType::from_port(&port)
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "expected packed enum"))?;
+
+        assert_eq!(enum_type.total_width(), 4);
+        assert!(enum_type.storage_signed());
+        assert!(enum_type.shape().signed);
+        assert_eq!(enum_type.storage_rust_type(), "::vvm::SignedBits<4>");
+        assert_eq!(
+            enum_type.storage_constructor_type(),
+            "::vvm::SignedBits::<4>"
+        );
+        assert_eq!(
+            enum_type.storage_port_type(),
+            PortType::Scalar(SignalType::I8)
         );
 
         Ok(())

@@ -160,6 +160,94 @@ impl PackedLayout {
     }
 }
 
+/// One declared packed-enum variant.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct PackedEnumVariantLayout {
+    /// Original HDL variant name.
+    name: &'static str,
+
+    /// Canonical raw discriminant bit pattern.
+    value: u64,
+}
+
+impl PackedEnumVariantLayout {
+    /// Creates one packed-enum variant descriptor.
+    #[must_use]
+    pub const fn new(name: &'static str, value: u64) -> Self {
+        Self { name, value }
+    }
+
+    /// Returns the original HDL variant name.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        self.name
+    }
+
+    /// Returns the canonical raw discriminant.
+    #[must_use]
+    pub const fn value(self) -> u64 {
+        self.value
+    }
+}
+
+/// Complete packed-enum layout.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct PackedEnumLayout {
+    /// Generated packed-enum wrapper name.
+    name: &'static str,
+
+    /// Packed storage width.
+    width: usize,
+
+    /// Whether the HDL enum storage is signed.
+    signed: bool,
+
+    /// Variants in HDL declaration order.
+    variants: &'static [PackedEnumVariantLayout],
+}
+
+impl PackedEnumLayout {
+    /// Creates a packed-enum layout.
+    #[must_use]
+    pub const fn new(
+        name: &'static str,
+        width: usize,
+        signed: bool,
+        variants: &'static [PackedEnumVariantLayout],
+    ) -> Self {
+        Self {
+            name,
+            width,
+            signed,
+            variants,
+        }
+    }
+
+    /// Returns the generated wrapper name.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        self.name
+    }
+
+    /// Returns the packed width.
+    #[must_use]
+    pub const fn width(self) -> usize {
+        self.width
+    }
+
+    /// Returns whether storage is signed.
+    #[must_use]
+    pub const fn signed(self) -> bool {
+        self.signed
+    }
+
+    /// Returns declared variants in HDL order.
+    #[must_use]
+    pub const fn variants(self) -> &'static [PackedEnumVariantLayout] {
+        self.variants
+    }
+}
+
 /// Validated packed bit range.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PackedRange {
@@ -771,9 +859,13 @@ pub fn insert_signed_packed<const N: usize>(
 
 #[cfg(test)]
 mod tests {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
     use super::{
-        PackedFieldLayout, PackedLayout, PackedLayoutError, PackedRange, extract_packed,
-        extract_signed, extract_unsigned, insert_packed, insert_signed, insert_unsigned,
+        PackedEnumLayout, PackedEnumVariantLayout, PackedFieldLayout, PackedLayout,
+        PackedLayoutError, PackedRange, extract_packed, extract_signed, extract_unsigned,
+        insert_packed, insert_signed, insert_unsigned,
     };
     use crate::{Bits, SignedBits};
 
@@ -845,6 +937,62 @@ mod tests {
         assert_eq!(layout.name(), "byte_pair");
         assert_eq!(layout.width(), 16);
         assert_eq!(layout.fields(), &FIELDS);
+    }
+
+    #[test]
+    fn packed_enum_variant_layout_getters_work() {
+        let variant = PackedEnumVariantLayout::new("STATE_BUSY", 2);
+
+        assert_eq!(variant.name(), "STATE_BUSY");
+        assert_eq!(variant.value(), 2);
+    }
+
+    #[test]
+    fn packed_enum_layout_getters_work() {
+        const VARIANTS: [PackedEnumVariantLayout; 3] = [
+            PackedEnumVariantLayout::new("SIGNED_NEG", 0xD),
+            PackedEnumVariantLayout::new("SIGNED_ZERO", 0),
+            PackedEnumVariantLayout::new("SIGNED_POS", 5),
+        ];
+
+        let layout = PackedEnumLayout::new("SignedState", 4, true, &VARIANTS);
+
+        assert_eq!(layout.name(), "SignedState");
+        assert_eq!(layout.width(), 4);
+        assert!(layout.signed());
+        assert_eq!(layout.variants(), &VARIANTS);
+        assert_eq!(
+            layout.variants().first().map(|variant| variant.name()),
+            Some("SIGNED_NEG")
+        );
+        assert_eq!(
+            layout.variants().get(1).map(|variant| variant.name()),
+            Some("SIGNED_ZERO")
+        );
+        assert_eq!(
+            layout.variants().get(2).map(|variant| variant.name()),
+            Some("SIGNED_POS")
+        );
+    }
+
+    #[test]
+    fn packed_enum_layout_equality_and_hash_are_stable() {
+        const VARIANTS: [PackedEnumVariantLayout; 2] = [
+            PackedEnumVariantLayout::new("STATE_IDLE", 0),
+            PackedEnumVariantLayout::new("STATE_DONE", 5),
+        ];
+
+        let first = PackedEnumLayout::new("State", 3, false, &VARIANTS);
+        let second = PackedEnumLayout::new("State", 3, false, &VARIANTS);
+
+        let mut first_hasher = DefaultHasher::new();
+        let mut second_hasher = DefaultHasher::new();
+
+        first.hash(&mut first_hasher);
+        second.hash(&mut second_hasher);
+
+        assert_eq!(first, second);
+        assert_eq!(first_hasher.finish(), second_hasher.finish());
     }
 
     #[test]

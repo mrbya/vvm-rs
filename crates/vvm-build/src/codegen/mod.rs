@@ -197,6 +197,26 @@ mod tests {
         )?)
     }
 
+    fn packed_enum_ports_metadata()
+    -> Result<crate::metadata::DutMetadata, Box<dyn std::error::Error>> {
+        let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+
+        let metadata_fixture = manifest
+            .join("tests")
+            .join("fixtures")
+            .join("verilator")
+            .join("5.048")
+            .join("packed_enum_ports");
+
+        let raw = RawMetadata::from_paths(
+            VerilatorVersion::new(5, 48),
+            &metadata_fixture.join("packed_enum_ports.tree.json"),
+            &metadata_fixture.join("packed_enum_ports.tree.meta.json"),
+        )?;
+
+        Ok(normalize("packed_enum_ports", "packed_enum_ports", &raw)?)
+    }
+
     fn expected_codegen_directory(name: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("tests")
@@ -780,6 +800,75 @@ mod tests {
         assert!(wrapper.contains("value: impl ::core::borrow::Borrow<Packet>"));
         assert!(wrapper.contains("pub fn packet_out(&self) -> Result<PacketOut> {"));
         assert!(wrapper.contains("PackedLayoutFailed"));
+
+        Ok(())
+    }
+
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn packed_enum_codegen_generates_wrappers_and_flattened_transfer()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let metadata = packed_enum_ports_metadata()?;
+        let output = tempdir()?;
+        let generated = generate(&metadata, "Vpacked_enum_ports", output.path(), None)?;
+        let expected_directory = expected_codegen_directory("packed-enum-ports");
+
+        assert_generated_artifacts_match(&generated, &expected_directory, "packed_enum_ports")?;
+
+        let header = std::fs::read_to_string(&generated.cpp_header)?;
+        let bridge = std::fs::read_to_string(&generated.cxx_bridge)?;
+        let wrapper = std::fs::read_to_string(&generated.rust_wrapper)?;
+
+        assert!(header.contains("void set_state(std::uint8_t value) noexcept;"));
+        assert!(header.contains("[[nodiscard]] std::uint8_t state_out() const noexcept;"));
+        assert!(header.contains("void set_signed_state(std::int8_t value) noexcept;"));
+        assert!(header.contains("[[nodiscard]] std::int8_t signed_state_out() const noexcept;"));
+
+        assert!(bridge.contains("fn set_state(self: Pin<&mut PackedEnumPorts>, value: u8);"));
+        assert!(bridge.contains("fn state_out(self: &PackedEnumPorts) -> u8;"));
+        assert!(
+            bridge.contains("fn set_signed_state(self: Pin<&mut PackedEnumPorts>, value: i8);")
+        );
+        assert!(bridge.contains("fn signed_state_out(self: &PackedEnumPorts) -> i8;"));
+
+        assert!(wrapper.contains("pub struct State {"));
+        assert!(wrapper.contains("pub enum StateVariant {"));
+        assert!(wrapper.contains("STATE_IDLE"));
+        assert!(wrapper.contains("STATE_BUSY"));
+        assert!(wrapper.contains("STATE_DONE"));
+        assert!(wrapper.contains("STATE_ERROR"));
+        assert!(
+            wrapper.contains("pub const VARIANTS: &'static [::vvm::PackedEnumVariantLayout] = &[")
+        );
+        assert!(wrapper.contains("pub const LAYOUT: ::vvm::PackedEnumLayout ="));
+        assert!(wrapper.contains("pub fn from_raw(value: u64) -> Self {"));
+        assert!(
+            wrapper.contains(
+                "pub fn raw(&self) -> std::result::Result<u64, ::vvm::PackedLayoutError> {"
+            )
+        );
+        assert!(wrapper.contains("pub fn from_variant(variant: StateVariant) -> Self {"));
+        assert!(wrapper.contains(
+            "pub fn variant(&self) -> std::result::Result<Option<StateVariant>, \
+             ::vvm::PackedLayoutError> {"
+        ));
+        assert!(wrapper.contains(
+            "pub fn name(&self) -> std::result::Result<Option<&'static str>, \
+             ::vvm::PackedLayoutError> {"
+        ));
+        assert!(wrapper.contains(
+            "pub fn is_known(&self) -> std::result::Result<bool, ::vvm::PackedLayoutError> {"
+        ));
+        assert!(wrapper.contains("impl From<StateVariant> for State {"));
+        assert!(wrapper.contains("impl ::vvm::PackedValue for State {"));
+        assert!(wrapper.contains("value: impl ::core::borrow::Borrow<State>"));
+        assert!(wrapper.contains("pub fn state_out(&self) -> Result<StateOut> {"));
+        assert!(wrapper.contains("PackedLayoutFailed"));
+        assert!(wrapper.contains("pub struct SignedState {"));
+        assert!(wrapper.contains("pub enum SignedStateVariant {"));
+        assert!(wrapper.contains("SIGNED_NEG"));
+        assert!(wrapper.contains("SIGNED_ZERO"));
+        assert!(wrapper.contains("SIGNED_POS"));
 
         Ok(())
     }

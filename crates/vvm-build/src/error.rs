@@ -374,8 +374,8 @@ pub enum BuildError {
         port: String,
     },
 
-    /// Packed enum ports are recognized but not yet supported by generated code.
-    #[error("port `{port}` is a packed enum; packed enum ports are not supported yet")]
+    /// Packed enum ports are recognized but only a constrained subset is supported.
+    #[error("port `{port}` uses an unsupported packed-enum shape")]
     UnsupportedPackedEnumPort {
         /// HDL port name.
         port: String,

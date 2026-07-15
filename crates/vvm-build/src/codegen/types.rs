@@ -239,7 +239,7 @@ mod tests {
     use std::num::NonZeroU32;
 
     use super::{PortType, SignalType, WideType, contains_wide_ports};
-    use crate::metadata::{BitWidth, Port, PortDirection};
+    use crate::metadata::{BitWidth, PackedScalarShape, Port, PortDirection, PortShape};
 
     fn width(value: u32) -> Result<BitWidth, io::Error> {
         NonZeroU32::new(value).map(BitWidth::new).ok_or_else(|| {
@@ -248,22 +248,26 @@ mod tests {
     }
 
     fn signal_type(bits: u32, signed: bool) -> Result<SignalType, io::Error> {
+        let width = width(bits)?;
         let port = Port {
             name: String::from("value"),
             direction: PortDirection::Input,
-            width: width(bits)?,
+            width,
             signed,
+            shape: PortShape::PackedScalar(PackedScalarShape { width, signed }),
         };
 
         Ok(SignalType::from_scalar_port(&port))
     }
 
     fn port_type(bits: u32, signed: bool) -> Result<PortType, io::Error> {
+        let width = width(bits)?;
         let port = Port {
             name: String::from("value"),
             direction: PortDirection::Input,
-            width: width(bits)?,
+            width,
             signed,
+            shape: PortShape::PackedScalar(PackedScalarShape { width, signed }),
         };
 
         Ok(PortType::from_port(&port))
@@ -476,21 +480,37 @@ mod tests {
         let scalar = crate::metadata::DutMetadata {
             name: "scalar".to_owned(),
             top_module: "scalar".to_owned(),
-            ports: vec![Port {
-                name: "value".to_owned(),
-                direction: PortDirection::Input,
-                width: width(64)?,
-                signed: false,
+            ports: vec![{
+                let width = width(64)?;
+
+                Port {
+                    name: "value".to_owned(),
+                    direction: PortDirection::Input,
+                    width,
+                    signed: false,
+                    shape: PortShape::PackedScalar(PackedScalarShape {
+                        width,
+                        signed: false,
+                    }),
+                }
             }],
         };
         let wide = crate::metadata::DutMetadata {
             name: "wide".to_owned(),
             top_module: "wide".to_owned(),
-            ports: vec![Port {
-                name: "value".to_owned(),
-                direction: PortDirection::Input,
-                width: width(65)?,
-                signed: false,
+            ports: vec![{
+                let width = width(65)?;
+
+                Port {
+                    name: "value".to_owned(),
+                    direction: PortDirection::Input,
+                    width,
+                    signed: false,
+                    shape: PortShape::PackedScalar(PackedScalarShape {
+                        width,
+                        signed: false,
+                    }),
+                }
             }],
         };
 

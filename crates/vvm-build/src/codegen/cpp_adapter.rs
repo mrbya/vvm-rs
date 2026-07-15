@@ -898,7 +898,9 @@ mod tests {
     use std::num::NonZeroU32;
 
     use super::{render_getter, render_setter, render_signed_output_decoder};
-    use crate::metadata::{BitWidth, DutMetadata, Port, PortDirection};
+    use crate::metadata::{
+        BitWidth, DutMetadata, PackedScalarShape, Port, PortDirection, PortShape,
+    };
 
     fn width(value: u32) -> Result<BitWidth, io::Error> {
         NonZeroU32::new(value).map(BitWidth::new).ok_or_else(|| {
@@ -907,11 +909,14 @@ mod tests {
     }
 
     fn port(direction: PortDirection, bits: u32, signed: bool) -> Result<Port, io::Error> {
+        let width = width(bits)?;
+
         Ok(Port {
             name: String::from("value"),
             direction,
-            width: width(bits)?,
+            width,
             signed,
+            shape: PortShape::PackedScalar(PackedScalarShape { width, signed }),
         })
     }
 

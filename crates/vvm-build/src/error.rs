@@ -360,6 +360,34 @@ pub enum BuildError {
         port: String,
     },
 
+    /// Packed array ports are recognized but not yet supported by generated code.
+    #[error("port `{port}` is a packed array; packed array ports are not supported yet")]
+    UnsupportedPackedArrayPort {
+        /// HDL port name.
+        port: String,
+    },
+
+    /// Packed struct ports are recognized but not yet supported by generated code.
+    #[error("port `{port}` is a packed struct; packed struct ports are not supported yet")]
+    UnsupportedPackedStructPort {
+        /// HDL port name.
+        port: String,
+    },
+
+    /// Packed enum ports are recognized but not yet supported by generated code.
+    #[error("port `{port}` is a packed enum; packed enum ports are not supported yet")]
+    UnsupportedPackedEnumPort {
+        /// HDL port name.
+        port: String,
+    },
+
+    /// Unpacked array ports are recognized but not yet supported by generated code.
+    #[error("port `{port}` is an unpacked array; unpacked array ports are not supported yet")]
+    UnsupportedUnpackedArrayPort {
+        /// HDL port name.
+        port: String,
+    },
+
     /// A metadata name cannot be represented by the initial generator.
     #[error("cannot generate {role} from `{name}`: {reason}")]
     UnsupportedCodegenName {

@@ -340,14 +340,22 @@ mod tests {
 
     use super::resolve;
     use crate::BuildError;
-    use crate::metadata::{BitWidth, DutMetadata, Port, PortDirection};
+    use crate::metadata::{
+        BitWidth, DutMetadata, PackedScalarShape, Port, PortDirection, PortShape,
+    };
 
     fn port(name: &str, direction: PortDirection) -> Port {
+        let width = BitWidth::new(NonZeroU32::MIN);
+
         Port {
             name: name.to_owned(),
             direction,
-            width: BitWidth::new(NonZeroU32::MIN),
+            width,
             signed: false,
+            shape: PortShape::PackedScalar(PackedScalarShape {
+                width,
+                signed: false,
+            }),
         }
     }
 

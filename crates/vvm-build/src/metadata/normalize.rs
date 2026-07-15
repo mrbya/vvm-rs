@@ -4,7 +4,11 @@ use std::path::Path;
 
 use serde_json::{Map, Value};
 
-use crate::metadata::{BitWidth, DutMetadata, Port, PortDirection, RawMetadata};
+use crate::metadata::{
+    ArrayDimension, BitWidth, DutMetadata, PackedArrayShape, PackedEnumShape, PackedEnumVariant,
+    PackedScalarShape, PackedStructField, PackedStructShape, Port, PortDirection, PortShape,
+    RawMetadata, UnpackedArrayShape,
+};
 use crate::{BuildError, BuildResult};
 
 /// Main Verilator AST metadata role.
@@ -95,11 +99,39 @@ pub fn normalize(dut_name: &str, top_module: &str, raw: &RawMetadata) -> BuildRe
 ///
 /// # Errors
 ///
-/// Returns an error for inout ports.
+/// Returns an error for inout ports and aggregate port shapes.
 pub fn validate_supported(metadata: &DutMetadata) -> BuildResult<()> {
     for port in &metadata.ports {
         if port.direction == PortDirection::Inout {
             return Err(BuildError::UnsupportedInoutPort {
+                port: port.name.clone(),
+            });
+        }
+
+        if port.shape.is_plain_packed_scalar() {
+            continue;
+        }
+
+        if matches!(&port.shape, &PortShape::PackedArray(_)) {
+            return Err(BuildError::UnsupportedPackedArrayPort {
+                port: port.name.clone(),
+            });
+        }
+
+        if matches!(&port.shape, &PortShape::PackedStruct(_)) {
+            return Err(BuildError::UnsupportedPackedStructPort {
+                port: port.name.clone(),
+            });
+        }
+
+        if matches!(&port.shape, &PortShape::PackedEnum(_)) {
+            return Err(BuildError::UnsupportedPackedEnumPort {
+                port: port.name.clone(),
+            });
+        }
+
+        if matches!(&port.shape, &PortShape::UnpackedArray(_)) {
+            return Err(BuildError::UnsupportedUnpackedArrayPort {
                 port: port.name.clone(),
             });
         }
@@ -181,13 +213,16 @@ fn normalize_port(
                 path: path.to_path_buf(),
             })?;
 
-    let (width, signed) = normalize_data_type(&name, dtype, path)?;
+    let shape = normalize_data_type(&name, dtype, index, path)?;
+    let width = compatibility_width(&name, &shape)?;
+    let signed = shape.signed();
 
     Ok(Port {
         name,
         direction,
         width,
         signed,
+        shape,
     })
 }
 
@@ -217,18 +252,28 @@ fn normalize_direction(port: &str, direction: &str) -> BuildResult<PortDirection
 fn normalize_data_type(
     port: &str,
     dtype: &Map<String, Value>,
+    index: &AstIndex<'_>,
     path: &Path,
-) -> BuildResult<(BitWidth, bool)> {
+) -> BuildResult<PortShape> {
     let node_type = required_string(dtype, "type", path)?;
 
-    if node_type != "BASICDTYPE" {
-        return Err(BuildError::UnsupportedPortDataType {
-            port: port.to_owned(),
-            kind: node_type.to_owned(),
-        });
-    }
+    match node_type {
+        "BASICDTYPE" => normalize_basic_data_type(port, dtype, path),
+        "PACKARRAYDTYPE" => normalize_array_data_type(port, dtype, index, path, true),
+        "UNPACKARRAYDTYPE" => normalize_array_data_type(port, dtype, index, path, false),
+        "STRUCTDTYPE" => normalize_struct_data_type(port, dtype, index, path),
+        "ENUMDTYPE" => normalize_enum_data_type(port, dtype, index, path),
+        "REFDTYPE" => {
+            let reference = required_string(dtype, "refDTypep", path)?;
+            let resolved = resolve_dtype_reference(port, reference, index, path)?;
 
-    normalize_basic_data_type(port, dtype, path)
+            normalize_data_type(port, resolved, index, path)
+        }
+        other => Err(BuildError::UnsupportedPortDataType {
+            port: port.to_owned(),
+            kind: other.to_owned(),
+        }),
+    }
 }
 
 /// Normalizes an integral Verilator `BASICDTYPE`.
@@ -236,7 +281,7 @@ fn normalize_basic_data_type(
     port: &str,
     dtype: &Map<String, Value>,
     path: &Path,
-) -> BuildResult<(BitWidth, bool)> {
+) -> BuildResult<PortShape> {
     let keyword = required_string(dtype, "keyword", path)?;
 
     // Keep the first implementation deliberately narrow. Other BASICDTYPE
@@ -253,7 +298,211 @@ fn normalize_basic_data_type(
     let width = parse_bit_width(port, range)?;
     let signed = basic_data_type_signed(dtype, path)?;
 
-    Ok((width, signed))
+    Ok(PortShape::PackedScalar(PackedScalarShape { width, signed }))
+}
+
+/// Resolves one referenced dtype node.
+fn resolve_dtype_reference<'a>(
+    port: &str,
+    reference: &str,
+    index: &'a AstIndex<'_>,
+    path: &Path,
+) -> BuildResult<&'a Map<String, Value>> {
+    index
+        .resolve(reference)
+        .ok_or_else(|| BuildError::UnresolvedPortDataType {
+            port: port.to_owned(),
+            reference: reference.to_owned(),
+            path: path.to_path_buf(),
+        })
+}
+
+/// Normalizes one Verilator array dtype node.
+fn normalize_array_data_type(
+    port: &str,
+    dtype: &Map<String, Value>,
+    index: &AstIndex<'_>,
+    path: &Path,
+    packed: bool,
+) -> BuildResult<PortShape> {
+    let reference = required_string(dtype, "refDTypep", path)?;
+    let element_dtype = resolve_dtype_reference(port, reference, index, path)?;
+    let element_shape = normalize_data_type(port, element_dtype, index, path)?;
+
+    let decl_range = required_string(dtype, "declRange", path)?;
+    let dimension = parse_decl_dimension(port, decl_range)?;
+
+    if packed {
+        let element_width = compatibility_width(port, &element_shape)?;
+        let width = checked_multiply_width(port, element_width, dimension.length)?;
+        let signed = element_shape.signed();
+
+        return Ok(match element_shape {
+            PortShape::PackedArray(mut shape) => {
+                let mut dimensions = vec![dimension];
+                dimensions.append(&mut shape.dimensions);
+
+                PortShape::PackedArray(PackedArrayShape {
+                    element: shape.element,
+                    dimensions,
+                    width: checked_multiply_width(port, shape.width, dimension.length)?,
+                    signed,
+                })
+            }
+            shape => PortShape::PackedArray(PackedArrayShape {
+                element: Box::new(shape),
+                dimensions: vec![dimension],
+                width,
+                signed,
+            }),
+        });
+    }
+
+    Ok(match element_shape {
+        PortShape::UnpackedArray(mut shape) => {
+            let mut dimensions = vec![dimension];
+            dimensions.append(&mut shape.dimensions);
+
+            PortShape::UnpackedArray(UnpackedArrayShape {
+                element: shape.element,
+                dimensions,
+            })
+        }
+        shape => PortShape::UnpackedArray(UnpackedArrayShape {
+            element: Box::new(shape),
+            dimensions: vec![dimension],
+        }),
+    })
+}
+
+/// Normalizes one Verilator packed struct dtype node.
+fn normalize_struct_data_type(
+    port: &str,
+    dtype: &Map<String, Value>,
+    index: &AstIndex<'_>,
+    path: &Path,
+) -> BuildResult<PortShape> {
+    let members = required_array(dtype, "membersp", path)?;
+    let signed = metadata_signed(dtype, path)?;
+
+    let mut fields = Vec::with_capacity(members.len());
+    let mut offset = 0_u32;
+
+    for member in members.iter().rev() {
+        let member = member
+            .as_object()
+            .ok_or_else(|| BuildError::InvalidMetadataFieldType {
+                role: TREE_ROLE,
+                path: path.to_path_buf(),
+                field: "membersp element",
+                expected: "an object",
+            })?;
+
+        if optional_string(member, "type", path)? != Some("MEMBERDTYPE") {
+            return Err(BuildError::UnsupportedPortDataType {
+                port: port.to_owned(),
+                kind: String::from("STRUCTDTYPE(member)"),
+            });
+        }
+
+        let name = required_string(member, "name", path)?.to_owned();
+        let reference = required_string(member, "refDTypep", path)?;
+        let member_dtype = resolve_dtype_reference(port, reference, index, path)?;
+        let shape = normalize_data_type(port, member_dtype, index, path)?;
+        let width = compatibility_width(port, &shape)?;
+        let field_signed = shape.signed();
+
+        fields.push(PackedStructField {
+            name,
+            shape,
+            lsb_offset: offset,
+            width,
+            signed: field_signed,
+        });
+
+        offset = offset
+            .checked_add(width.get())
+            .ok_or_else(|| BuildError::InvalidPortRange {
+                port: port.to_owned(),
+                range: String::from("packed struct width overflow"),
+            })?;
+    }
+
+    let total_width = NonZeroU32::new(offset).ok_or_else(|| BuildError::InvalidPortRange {
+        port: port.to_owned(),
+        range: String::from("zero-width packed struct"),
+    })?;
+
+    Ok(PortShape::PackedStruct(PackedStructShape {
+        width: BitWidth::new(total_width),
+        fields,
+        signed,
+    }))
+}
+
+/// Normalizes one Verilator packed enum dtype node.
+fn normalize_enum_data_type(
+    port: &str,
+    dtype: &Map<String, Value>,
+    index: &AstIndex<'_>,
+    path: &Path,
+) -> BuildResult<PortShape> {
+    let reference = required_string(dtype, "refDTypep", path)?;
+    let storage_dtype = resolve_dtype_reference(port, reference, index, path)?;
+    let storage_shape = normalize_data_type(port, storage_dtype, index, path)?;
+    let width = compatibility_width(port, &storage_shape)?;
+    let signed = storage_shape.signed();
+    let items = required_array(dtype, "itemsp", path)?;
+
+    let mut variants = Vec::with_capacity(items.len());
+
+    for item in items {
+        let item = item
+            .as_object()
+            .ok_or_else(|| BuildError::InvalidMetadataFieldType {
+                role: TREE_ROLE,
+                path: path.to_path_buf(),
+                field: "itemsp element",
+                expected: "an object",
+            })?;
+
+        if optional_string(item, "type", path)? != Some("ENUMITEM") {
+            return Err(BuildError::UnsupportedPortDataType {
+                port: port.to_owned(),
+                kind: String::from("ENUMDTYPE(item)"),
+            });
+        }
+
+        let name = required_string(item, "name", path)?.to_owned();
+        let values = required_array(item, "valuep", path)?;
+        let value = values
+            .first()
+            .ok_or_else(|| BuildError::MissingMetadataField {
+                role: TREE_ROLE,
+                path: path.to_path_buf(),
+                field: "valuep element",
+            })?
+            .as_object()
+            .ok_or_else(|| BuildError::InvalidMetadataFieldType {
+                role: TREE_ROLE,
+                path: path.to_path_buf(),
+                field: "valuep element",
+                expected: "an object",
+            })?;
+
+        let raw_value = parse_const_value(required_string(value, "name", path)?)?;
+
+        variants.push(PackedEnumVariant {
+            name,
+            value: raw_value,
+        });
+    }
+
+    Ok(PortShape::PackedEnum(PackedEnumShape {
+        width,
+        signed,
+        variants,
+    }))
 }
 
 /// Reads signedness from a Verilator basic datatype.
@@ -285,6 +534,11 @@ fn basic_data_type_signed(dtype: &Map<String, Value>, path: &Path) -> BuildResul
             expected: "a boolean or string",
         }),
     }
+}
+
+/// Reads optional dtype signedness when aggregate nodes expose it.
+fn metadata_signed(dtype: &Map<String, Value>, path: &Path) -> BuildResult<bool> {
+    basic_data_type_signed(dtype, path)
 }
 
 /// Converts a Verilator packed range into a non-zero width.
@@ -327,6 +581,150 @@ fn parse_bit_width(port: &str, range: Option<&str>) -> BuildResult<BitWidth> {
     })?;
 
     Ok(BitWidth::new(width))
+}
+
+/// Converts a Verilator array range into one normalized dimension.
+fn parse_dimension(port: &str, range: &str) -> BuildResult<ArrayDimension> {
+    let Some((left, right)) = range.split_once(':') else {
+        return Err(BuildError::InvalidPortRange {
+            port: port.to_owned(),
+            range: range.to_owned(),
+        });
+    };
+
+    let left = parse_range_bound(port, range, left)?;
+    let right = parse_range_bound(port, range, right)?;
+
+    let distance = left.abs_diff(right);
+    let length = distance
+        .checked_add(1)
+        .ok_or_else(|| BuildError::InvalidPortRange {
+            port: port.to_owned(),
+            range: range.to_owned(),
+        })?;
+
+    let length =
+        u32::try_from(length).map_err(|_conversion_error| BuildError::InvalidPortRange {
+            port: port.to_owned(),
+            range: range.to_owned(),
+        })?;
+
+    let length = NonZeroU32::new(length).ok_or_else(|| BuildError::InvalidPortRange {
+        port: port.to_owned(),
+        range: range.to_owned(),
+    })?;
+
+    Ok(ArrayDimension {
+        left,
+        right,
+        length,
+    })
+}
+
+/// Parses a Verilator bracketed declaration range like `[3:0]`.
+fn parse_decl_dimension(port: &str, range: &str) -> BuildResult<ArrayDimension> {
+    let range = range
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+        .ok_or_else(|| BuildError::InvalidPortRange {
+            port: port.to_owned(),
+            range: range.to_owned(),
+        })?;
+
+    parse_dimension(port, range)
+}
+
+/// Multiplies a packed width by an element count with overflow checking.
+fn checked_multiply_width(port: &str, width: BitWidth, count: NonZeroU32) -> BuildResult<BitWidth> {
+    let bits =
+        width
+            .get()
+            .checked_mul(count.get())
+            .ok_or_else(|| BuildError::InvalidPortRange {
+                port: port.to_owned(),
+                range: format!("{} * {}", width.get(), count),
+            })?;
+
+    let bits = NonZeroU32::new(bits).ok_or_else(|| BuildError::InvalidPortRange {
+        port: port.to_owned(),
+        range: String::from("zero-width aggregate"),
+    })?;
+
+    Ok(BitWidth::new(bits))
+}
+
+/// Returns flattened compatibility width used by existing scalar/wide codegen.
+fn compatibility_width(port: &str, shape: &PortShape) -> BuildResult<BitWidth> {
+    if let Some(width) = shape.packed_width() {
+        return Ok(width);
+    }
+
+    debug_assert!(shape.is_aggregate());
+
+    match *shape {
+        PortShape::UnpackedArray(ref shape) => compatibility_width_for_unpacked_array(port, shape),
+        PortShape::PackedScalar(_)
+        | PortShape::PackedArray(_)
+        | PortShape::PackedStruct(_)
+        | PortShape::PackedEnum(_) => Err(BuildError::UnsupportedPortDataType {
+            port: port.to_owned(),
+            kind: String::from("shape width resolution failed"),
+        }),
+    }
+}
+
+/// Returns a flattened compatibility width for unsupported unpacked arrays.
+fn compatibility_width_for_unpacked_array(
+    port: &str,
+    shape: &UnpackedArrayShape,
+) -> BuildResult<BitWidth> {
+    let mut width = compatibility_width(port, &shape.element)?;
+
+    for dimension in &shape.dimensions {
+        width = checked_multiply_width(port, width, dimension.length)?;
+    }
+
+    Ok(width)
+}
+
+/// Parses a Verilator constant literal like `2'h3` into a raw bit pattern.
+fn parse_const_value(literal: &str) -> BuildResult<u64> {
+    let Some((_, digits)) = literal.split_once('h') else {
+        let Some((_, digits)) = literal.split_once('d') else {
+            let Some((_, digits)) = literal.split_once('b') else {
+                return digits_only_const_value(literal);
+            };
+
+            return u64::from_str_radix(digits, 2).map_err(|_parse_error| {
+                BuildError::InvalidPortRange {
+                    port: String::from("enum"),
+                    range: literal.to_owned(),
+                }
+            });
+        };
+
+        return digits
+            .parse::<u64>()
+            .map_err(|_parse_error| BuildError::InvalidPortRange {
+                port: String::from("enum"),
+                range: literal.to_owned(),
+            });
+    };
+
+    u64::from_str_radix(digits, 16).map_err(|_parse_error| BuildError::InvalidPortRange {
+        port: String::from("enum"),
+        range: literal.to_owned(),
+    })
+}
+
+/// Parses a plain integer literal without an explicit Verilog base.
+fn digits_only_const_value(literal: &str) -> BuildResult<u64> {
+    literal
+        .parse::<u64>()
+        .map_err(|_parse_error| BuildError::InvalidPortRange {
+            port: String::from("enum"),
+            range: literal.to_owned(),
+        })
 }
 
 /// Parses one numeric bound of a packed range.
@@ -458,7 +856,11 @@ mod tests {
 
     use super::{normalize, parse_bit_width, validate_supported};
     use crate::error::BuildError;
-    use crate::metadata::model::{BitWidth, DutMetadata, Port, PortDirection};
+    use crate::metadata::model::{
+        ArrayDimension, BitWidth, DutMetadata, PackedArrayShape, PackedEnumShape,
+        PackedEnumVariant, PackedScalarShape, PackedStructField, PackedStructShape, Port,
+        PortDirection, PortShape, UnpackedArrayShape,
+    };
     use crate::metadata::raw::RawMetadata;
     use crate::verilator::VerilatorVersion;
 
@@ -466,6 +868,80 @@ mod tests {
         let value = NonZeroU32::new(value).expect("test bit width must be non-zero");
 
         BitWidth::new(value)
+    }
+
+    fn dimension(left: i64, right: i64, length: u32) -> ArrayDimension {
+        ArrayDimension {
+            left,
+            right,
+            length: NonZeroU32::new(length).expect("test dimension length must be non-zero"),
+        }
+    }
+
+    fn scalar_port(name: &str, direction: PortDirection, bit_width: u32, signed: bool) -> Port {
+        let width = width(bit_width);
+
+        Port {
+            name: name.to_owned(),
+            direction,
+            width,
+            signed,
+            shape: PortShape::PackedScalar(PackedScalarShape { width, signed }),
+        }
+    }
+
+    fn aggregate_port(
+        name: &str,
+        direction: PortDirection,
+        width: BitWidth,
+        signed: bool,
+        shape: PortShape,
+    ) -> Port {
+        Port {
+            name: name.to_owned(),
+            direction,
+            width,
+            signed,
+            shape,
+        }
+    }
+
+    fn aggregate_ports_fixture() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("verilator")
+            .join("5.048")
+            .join("aggregate_ports")
+    }
+
+    fn aggregate_ports_metadata() -> Result<DutMetadata, Box<dyn std::error::Error>> {
+        let fixture = aggregate_ports_fixture();
+
+        let raw = RawMetadata::from_paths(
+            VerilatorVersion::new(5, 48),
+            &fixture.join("aggregate_ports.tree.json"),
+            &fixture.join("aggregate_ports.tree.meta.json"),
+        )?;
+
+        Ok(normalize("aggregate_ports", "aggregate_ports", &raw)?)
+    }
+
+    fn find_port<'a>(
+        metadata: &'a DutMetadata,
+        name: &str,
+    ) -> Result<&'a Port, Box<dyn std::error::Error>> {
+        metadata
+            .ports
+            .iter()
+            .find(|port| port.name == name)
+            .ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!("missing port `{name}` in normalized metadata"),
+                )
+                .into()
+            })
     }
 
     fn counter_fixture() -> PathBuf {
@@ -511,30 +987,10 @@ mod tests {
             name: "counter".to_owned(),
             top_module: "counter".to_owned(),
             ports: vec![
-                Port {
-                    name: "clk".to_owned(),
-                    direction: PortDirection::Input,
-                    width: width(1),
-                    signed: false,
-                },
-                Port {
-                    name: "reset_n".to_owned(),
-                    direction: PortDirection::Input,
-                    width: width(1),
-                    signed: false,
-                },
-                Port {
-                    name: "enable".to_owned(),
-                    direction: PortDirection::Input,
-                    width: width(1),
-                    signed: false,
-                },
-                Port {
-                    name: "count".to_owned(),
-                    direction: PortDirection::Output,
-                    width: width(8),
-                    signed: false,
-                },
+                scalar_port("clk", PortDirection::Input, 1, false),
+                scalar_port("reset_n", PortDirection::Input, 1, false),
+                scalar_port("enable", PortDirection::Input, 1, false),
+                scalar_port("count", PortDirection::Output, 8, false),
             ],
         };
 
@@ -570,12 +1026,7 @@ mod tests {
             ("output_i64", PortDirection::Output, 64),
         ]
         .into_iter()
-        .map(|(name, direction, bit_width)| Port {
-            name: name.to_owned(),
-            direction,
-            width: width(bit_width),
-            signed: true,
-        })
+        .map(|(name, direction, bit_width)| scalar_port(name, direction, bit_width, true))
         .collect();
 
         let expected = DutMetadata {
@@ -618,12 +1069,7 @@ mod tests {
             ("output_i129", PortDirection::Output, 129, true),
         ]
         .into_iter()
-        .map(|(name, direction, bit_width, signed)| Port {
-            name: name.to_owned(),
-            direction,
-            width: width(bit_width),
-            signed,
-        })
+        .map(|(name, direction, bit_width, signed)| scalar_port(name, direction, bit_width, signed))
         .collect();
 
         let expected = DutMetadata {
@@ -682,6 +1128,172 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
+    fn normalizes_aggregate_ports_fixture() -> Result<(), Box<dyn std::error::Error>> {
+        let actual = aggregate_ports_metadata()?;
+
+        let clk = find_port(&actual, "clk")?;
+        assert_eq!(clk.direction, PortDirection::Input);
+        assert_eq!(clk.width, width(1));
+        assert!(!clk.signed);
+        assert_eq!(
+            clk.shape,
+            PortShape::PackedScalar(PackedScalarShape {
+                width: width(1),
+                signed: false,
+            })
+        );
+
+        let packed_bytes = find_port(&actual, "packed_bytes")?;
+        assert_eq!(packed_bytes.direction, PortDirection::Input);
+        assert_eq!(packed_bytes.width, width(32));
+        assert!(!packed_bytes.signed);
+        assert_eq!(
+            packed_bytes.shape,
+            PortShape::PackedArray(PackedArrayShape {
+                element: Box::new(PortShape::PackedScalar(PackedScalarShape {
+                    width: width(8),
+                    signed: false,
+                })),
+                dimensions: vec![dimension(3, 0, 4)],
+                width: width(32),
+                signed: false,
+            })
+        );
+
+        let packed_bytes_out = find_port(&actual, "packed_bytes_out")?;
+        assert_eq!(packed_bytes_out.direction, PortDirection::Output);
+        assert_eq!(packed_bytes_out.width, width(32));
+        assert!(!packed_bytes_out.signed);
+
+        let packet = find_port(&actual, "packet")?;
+        assert_eq!(packet.direction, PortDirection::Input);
+        assert_eq!(packet.width, width(16));
+        assert!(!packet.signed);
+        assert_eq!(
+            packet.shape,
+            PortShape::PackedStruct(PackedStructShape {
+                width: width(16),
+                fields: vec![
+                    PackedStructField {
+                        name: String::from("payload"),
+                        shape: PortShape::PackedScalar(PackedScalarShape {
+                            width: width(8),
+                            signed: false,
+                        }),
+                        lsb_offset: 0,
+                        width: width(8),
+                        signed: false,
+                    },
+                    PackedStructField {
+                        name: String::from("flags"),
+                        shape: PortShape::PackedScalar(PackedScalarShape {
+                            width: width(3),
+                            signed: false,
+                        }),
+                        lsb_offset: 8,
+                        width: width(3),
+                        signed: false,
+                    },
+                    PackedStructField {
+                        name: String::from("valid"),
+                        shape: PortShape::PackedScalar(PackedScalarShape {
+                            width: width(1),
+                            signed: false,
+                        }),
+                        lsb_offset: 11,
+                        width: width(1),
+                        signed: false,
+                    },
+                    PackedStructField {
+                        name: String::from("opcode"),
+                        shape: PortShape::PackedScalar(PackedScalarShape {
+                            width: width(4),
+                            signed: false,
+                        }),
+                        lsb_offset: 12,
+                        width: width(4),
+                        signed: false,
+                    },
+                ],
+                signed: false,
+            })
+        );
+
+        let packet_out = find_port(&actual, "packet_out")?;
+        assert_eq!(packet_out.direction, PortDirection::Output);
+        assert_eq!(packet_out.width, width(16));
+        assert!(!packet_out.signed);
+
+        let state = find_port(&actual, "state")?;
+        assert_eq!(state.direction, PortDirection::Input);
+        assert_eq!(state.width, width(2));
+        assert!(!state.signed);
+        assert_eq!(
+            state.shape,
+            PortShape::PackedEnum(PackedEnumShape {
+                width: width(2),
+                signed: false,
+                variants: vec![
+                    PackedEnumVariant {
+                        name: String::from("STATE_IDLE"),
+                        value: 0,
+                    },
+                    PackedEnumVariant {
+                        name: String::from("STATE_BUSY"),
+                        value: 1,
+                    },
+                    PackedEnumVariant {
+                        name: String::from("STATE_DONE"),
+                        value: 2,
+                    },
+                    PackedEnumVariant {
+                        name: String::from("STATE_ERR"),
+                        value: 3,
+                    },
+                ],
+            })
+        );
+
+        let state_out = find_port(&actual, "state_out")?;
+        assert_eq!(state_out.direction, PortDirection::Output);
+        assert_eq!(state_out.width, width(2));
+        assert!(!state_out.signed);
+
+        let unpacked_bytes = find_port(&actual, "unpacked_bytes")?;
+        assert_eq!(unpacked_bytes.direction, PortDirection::Input);
+        assert_eq!(unpacked_bytes.width, width(32));
+        assert!(!unpacked_bytes.signed);
+        assert_eq!(
+            unpacked_bytes.shape,
+            PortShape::UnpackedArray(UnpackedArrayShape {
+                element: Box::new(PortShape::PackedScalar(PackedScalarShape {
+                    width: width(8),
+                    signed: false,
+                })),
+                dimensions: vec![dimension(0, 3, 4)],
+            })
+        );
+
+        let unpacked_bytes_out = find_port(&actual, "unpacked_bytes_out")?;
+        assert_eq!(unpacked_bytes_out.direction, PortDirection::Output);
+        assert_eq!(unpacked_bytes_out.width, width(32));
+        assert!(!unpacked_bytes_out.signed);
+        assert_eq!(
+            unpacked_bytes_out.shape,
+            PortShape::UnpackedArray(UnpackedArrayShape {
+                element: Box::new(PortShape::PackedScalar(PackedScalarShape {
+                    width: width(8),
+                    signed: false,
+                })),
+                dimensions: vec![dimension(0, 3, 4)],
+            })
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn parses_descending_packed_range() -> Result<(), BuildError> {
         assert_eq!(parse_bit_width("value", Some("7:0"))?.get(), 8);
 
@@ -720,12 +1332,7 @@ mod tests {
         let metadata = DutMetadata {
             name: "dut".to_owned(),
             top_module: "dut".to_owned(),
-            ports: vec![Port {
-                name: "bus".to_owned(),
-                direction: PortDirection::Inout,
-                width: width(1),
-                signed: false,
-            }],
+            ports: vec![scalar_port("bus", PortDirection::Inout, 1, false)],
         };
 
         assert!(matches!(
@@ -741,33 +1348,127 @@ mod tests {
             name: "dut".to_owned(),
             top_module: "dut".to_owned(),
             ports: vec![
-                Port {
-                    name: "input_u65".to_owned(),
-                    direction: PortDirection::Input,
-                    width: width(65),
-                    signed: false,
-                },
-                Port {
-                    name: "input_i129".to_owned(),
-                    direction: PortDirection::Input,
-                    width: width(129),
-                    signed: true,
-                },
-                Port {
-                    name: "output_u256".to_owned(),
-                    direction: PortDirection::Output,
-                    width: width(256),
-                    signed: false,
-                },
-                Port {
-                    name: "output_i129".to_owned(),
-                    direction: PortDirection::Output,
-                    width: width(129),
-                    signed: true,
-                },
+                scalar_port("input_u65", PortDirection::Input, 65, false),
+                scalar_port("input_i129", PortDirection::Input, 129, true),
+                scalar_port("output_u256", PortDirection::Output, 256, false),
+                scalar_port("output_i129", PortDirection::Output, 129, true),
             ],
         };
 
         validate_supported(&metadata)
+    }
+
+    #[test]
+    fn rejects_aggregate_ports_after_normalization() -> Result<(), Box<dyn std::error::Error>> {
+        let metadata = aggregate_ports_metadata()?;
+
+        assert!(matches!(
+            validate_supported(&metadata),
+            Err(BuildError::UnsupportedPackedArrayPort { port }) if port == "packed_bytes"
+        ));
+
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_packed_array_port() {
+        let metadata = DutMetadata {
+            name: String::from("dut"),
+            top_module: String::from("dut"),
+            ports: vec![aggregate_port(
+                "packed",
+                PortDirection::Input,
+                width(32),
+                false,
+                PortShape::PackedArray(PackedArrayShape {
+                    element: Box::new(PortShape::PackedScalar(PackedScalarShape {
+                        width: width(8),
+                        signed: false,
+                    })),
+                    dimensions: vec![dimension(3, 0, 4)],
+                    width: width(32),
+                    signed: false,
+                }),
+            )],
+        };
+
+        assert!(matches!(
+            validate_supported(&metadata),
+            Err(BuildError::UnsupportedPackedArrayPort { port }) if port == "packed"
+        ));
+    }
+
+    #[test]
+    fn rejects_packed_struct_port() {
+        let metadata = DutMetadata {
+            name: String::from("dut"),
+            top_module: String::from("dut"),
+            ports: vec![aggregate_port(
+                "packet",
+                PortDirection::Input,
+                width(16),
+                false,
+                PortShape::PackedStruct(PackedStructShape {
+                    width: width(16),
+                    fields: vec![],
+                    signed: false,
+                }),
+            )],
+        };
+
+        assert!(matches!(
+            validate_supported(&metadata),
+            Err(BuildError::UnsupportedPackedStructPort { port }) if port == "packet"
+        ));
+    }
+
+    #[test]
+    fn rejects_packed_enum_port() {
+        let metadata = DutMetadata {
+            name: String::from("dut"),
+            top_module: String::from("dut"),
+            ports: vec![aggregate_port(
+                "state",
+                PortDirection::Input,
+                width(2),
+                false,
+                PortShape::PackedEnum(PackedEnumShape {
+                    width: width(2),
+                    signed: false,
+                    variants: vec![],
+                }),
+            )],
+        };
+
+        assert!(matches!(
+            validate_supported(&metadata),
+            Err(BuildError::UnsupportedPackedEnumPort { port }) if port == "state"
+        ));
+    }
+
+    #[test]
+    fn rejects_unpacked_array_port() {
+        let metadata = DutMetadata {
+            name: String::from("dut"),
+            top_module: String::from("dut"),
+            ports: vec![aggregate_port(
+                "bytes",
+                PortDirection::Input,
+                width(32),
+                false,
+                PortShape::UnpackedArray(UnpackedArrayShape {
+                    element: Box::new(PortShape::PackedScalar(PackedScalarShape {
+                        width: width(8),
+                        signed: false,
+                    })),
+                    dimensions: vec![dimension(0, 3, 4)],
+                }),
+            )],
+        };
+
+        assert!(matches!(
+            validate_supported(&metadata),
+            Err(BuildError::UnsupportedUnpackedArrayPort { port }) if port == "bytes"
+        ));
     }
 }

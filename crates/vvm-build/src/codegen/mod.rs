@@ -90,7 +90,10 @@ mod tests {
 
     use super::generate;
     use crate::TraceOptions;
-    use crate::metadata::{BitWidth, DutMetadata, Port, PortDirection, RawMetadata, normalize};
+    use crate::metadata::{
+        BitWidth, DutMetadata, PackedScalarShape, Port, PortDirection, PortShape, RawMetadata,
+        normalize,
+    };
     use crate::verilator::VerilatorVersion;
 
     fn wide_ports_metadata() -> Result<DutMetadata, Box<dyn std::error::Error>> {
@@ -234,6 +237,16 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    fn scalar_port(name: &str, direction: PortDirection, width: BitWidth, signed: bool) -> Port {
+        Port {
+            name: name.to_owned(),
+            direction,
+            width,
+            signed,
+            shape: PortShape::PackedScalar(PackedScalarShape { width, signed }),
+        }
     }
 
     #[test]
@@ -592,24 +605,9 @@ mod tests {
             name: "ordered".to_owned(),
             top_module: "ordered".to_owned(),
             ports: vec![
-                Port {
-                    name: "z_input".to_owned(),
-                    direction: PortDirection::Input,
-                    width,
-                    signed: false,
-                },
-                Port {
-                    name: "a_input".to_owned(),
-                    direction: PortDirection::Input,
-                    width,
-                    signed: false,
-                },
-                Port {
-                    name: "m_output".to_owned(),
-                    direction: PortDirection::Output,
-                    width,
-                    signed: false,
-                },
+                scalar_port("z_input", PortDirection::Input, width, false),
+                scalar_port("a_input", PortDirection::Input, width, false),
+                scalar_port("m_output", PortDirection::Output, width, false),
             ],
         };
 

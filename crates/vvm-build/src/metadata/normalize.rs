@@ -99,7 +99,8 @@ pub fn normalize(dut_name: &str, top_module: &str, raw: &RawMetadata) -> BuildRe
 ///
 /// # Errors
 ///
-/// Returns an error for inout ports and aggregate port shapes.
+/// Returns an error for inout ports and unsupported aggregate port shapes.
+#[allow(clippy::pattern_type_mismatch)]
 pub fn validate_supported(metadata: &DutMetadata) -> BuildResult<()> {
     for port in &metadata.ports {
         if port.direction == PortDirection::Inout {
@@ -108,18 +109,10 @@ pub fn validate_supported(metadata: &DutMetadata) -> BuildResult<()> {
             });
         }
 
-        if port.shape.is_plain_packed_scalar() {
-            continue;
-        }
-
-        match port.shape {
+        match &port.shape {
             PortShape::PackedScalar(_) => {}
-            PortShape::PackedArray(ref shape) => validate_supported_packed_array(port, shape)?,
-            PortShape::PackedStruct(_) => {
-                return Err(BuildError::UnsupportedPackedStructPort {
-                    port: port.name.clone(),
-                });
-            }
+            PortShape::PackedArray(shape) => validate_supported_packed_array(port, shape)?,
+            PortShape::PackedStruct(shape) => validate_supported_packed_struct(port, shape)?,
             PortShape::PackedEnum(_) => {
                 return Err(BuildError::UnsupportedPackedEnumPort {
                     port: port.name.clone(),
@@ -158,6 +151,81 @@ fn validate_supported_packed_array(port: &Port, shape: &PackedArrayShape) -> Bui
 
     if element.width.get() > 64 {
         return Err(BuildError::UnsupportedPackedArrayPort {
+            port: port.name.clone(),
+        });
+    }
+
+    Ok(())
+}
+
+/// Verifies that a packed-struct shape is within the currently supported subset.
+#[allow(clippy::pattern_type_mismatch)]
+fn validate_supported_packed_struct(port: &Port, shape: &PackedStructShape) -> BuildResult<()> {
+    if shape.fields.is_empty() {
+        return Err(BuildError::UnsupportedPackedStructPort {
+            port: port.name.clone(),
+        });
+    }
+
+    for field in &shape.fields {
+        let PortShape::PackedScalar(field_shape) = &field.shape else {
+            return Err(BuildError::UnsupportedPackedStructPort {
+                port: port.name.clone(),
+            });
+        };
+
+        if field.width != field_shape.width || field.signed != field_shape.signed {
+            return Err(BuildError::UnsupportedPackedStructPort {
+                port: port.name.clone(),
+            });
+        }
+
+        let Some(end) = field.lsb_offset.checked_add(field.width.get()) else {
+            return Err(BuildError::UnsupportedPackedStructPort {
+                port: port.name.clone(),
+            });
+        };
+
+        if end > shape.width.get() {
+            return Err(BuildError::UnsupportedPackedStructPort {
+                port: port.name.clone(),
+            });
+        }
+    }
+
+    validate_packed_struct_coverage(port, shape)
+}
+
+/// Verifies that packed-struct fields cover the full flattened bit range.
+fn validate_packed_struct_coverage(port: &Port, shape: &PackedStructShape) -> BuildResult<()> {
+    let mut ranges = Vec::with_capacity(shape.fields.len());
+
+    for field in &shape.fields {
+        let Some(end) = field.lsb_offset.checked_add(field.width.get()) else {
+            return Err(BuildError::UnsupportedPackedStructPort {
+                port: port.name.clone(),
+            });
+        };
+
+        ranges.push((field.lsb_offset, end));
+    }
+
+    ranges.sort_unstable_by_key(|&(start, _end)| start);
+
+    let mut expected_start = 0_u32;
+
+    for (start, end) in ranges {
+        if start != expected_start {
+            return Err(BuildError::UnsupportedPackedStructPort {
+                port: port.name.clone(),
+            });
+        }
+
+        expected_start = end;
+    }
+
+    if expected_start != shape.width.get() {
+        return Err(BuildError::UnsupportedPackedStructPort {
             port: port.name.clone(),
         });
     }
@@ -411,9 +479,9 @@ fn normalize_struct_data_type(
     let signed = metadata_signed(dtype, path)?;
 
     let mut fields = Vec::with_capacity(members.len());
-    let mut offset = 0_u32;
+    let mut remaining_width = 0_u32;
 
-    for member in members.iter().rev() {
+    for member in members {
         let member = member
             .as_object()
             .ok_or_else(|| BuildError::InvalidMetadataFieldType {
@@ -437,26 +505,37 @@ fn normalize_struct_data_type(
         let width = compatibility_width(port, &shape)?;
         let field_signed = shape.signed();
 
+        remaining_width = remaining_width.checked_add(width.get()).ok_or_else(|| {
+            BuildError::InvalidPortRange {
+                port: port.to_owned(),
+                range: String::from("packed struct width overflow"),
+            }
+        })?;
+
         fields.push(PackedStructField {
             name,
             shape,
-            lsb_offset: offset,
+            lsb_offset: 0,
             width,
             signed: field_signed,
         });
-
-        offset = offset
-            .checked_add(width.get())
-            .ok_or_else(|| BuildError::InvalidPortRange {
-                port: port.to_owned(),
-                range: String::from("packed struct width overflow"),
-            })?;
     }
 
-    let total_width = NonZeroU32::new(offset).ok_or_else(|| BuildError::InvalidPortRange {
-        port: port.to_owned(),
-        range: String::from("zero-width packed struct"),
-    })?;
+    let total_width =
+        NonZeroU32::new(remaining_width).ok_or_else(|| BuildError::InvalidPortRange {
+            port: port.to_owned(),
+            range: String::from("zero-width packed struct"),
+        })?;
+
+    for field in &mut fields {
+        remaining_width = remaining_width
+            .checked_sub(field.width.get())
+            .ok_or_else(|| BuildError::InvalidPortRange {
+                port: port.to_owned(),
+                range: String::from("packed struct width underflow"),
+            })?;
+        field.lsb_offset = remaining_width;
+    }
 
     Ok(PortShape::PackedStruct(PackedStructShape {
         width: BitWidth::new(total_width),
@@ -959,6 +1038,28 @@ mod tests {
         )
     }
 
+    fn packed_struct_port(
+        name: &str,
+        direction: PortDirection,
+        width_bits: u32,
+        signed: bool,
+        fields: Vec<PackedStructField>,
+    ) -> Port {
+        let total_width = width(width_bits);
+
+        aggregate_port(
+            name,
+            direction,
+            total_width,
+            signed,
+            PortShape::PackedStruct(PackedStructShape {
+                width: total_width,
+                fields,
+                signed,
+            }),
+        )
+    }
+
     fn aggregate_ports_fixture() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("tests")
@@ -975,6 +1076,15 @@ mod tests {
             .join("verilator")
             .join("5.048")
             .join("packed_array_ports")
+    }
+
+    fn packed_struct_ports_fixture() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("verilator")
+            .join("5.048")
+            .join("packed_struct_ports")
     }
 
     fn aggregate_ports_metadata() -> Result<DutMetadata, Box<dyn std::error::Error>> {
@@ -999,6 +1109,22 @@ mod tests {
         )?;
 
         Ok(normalize("packed_array_ports", "packed_array_ports", &raw)?)
+    }
+
+    fn packed_struct_ports_metadata() -> Result<DutMetadata, Box<dyn std::error::Error>> {
+        let fixture = packed_struct_ports_fixture();
+
+        let raw = RawMetadata::from_paths(
+            VerilatorVersion::new(5, 48),
+            &fixture.join("packed_struct_ports.tree.json"),
+            &fixture.join("packed_struct_ports.tree.meta.json"),
+        )?;
+
+        Ok(normalize(
+            "packed_struct_ports",
+            "packed_struct_ports",
+            &raw,
+        )?)
     }
 
     fn find_port<'a>(
@@ -1250,23 +1376,13 @@ mod tests {
                 width: width(16),
                 fields: vec![
                     PackedStructField {
-                        name: String::from("payload"),
+                        name: String::from("opcode"),
                         shape: PortShape::PackedScalar(PackedScalarShape {
-                            width: width(8),
+                            width: width(4),
                             signed: false,
                         }),
-                        lsb_offset: 0,
-                        width: width(8),
-                        signed: false,
-                    },
-                    PackedStructField {
-                        name: String::from("flags"),
-                        shape: PortShape::PackedScalar(PackedScalarShape {
-                            width: width(3),
-                            signed: false,
-                        }),
-                        lsb_offset: 8,
-                        width: width(3),
+                        lsb_offset: 12,
+                        width: width(4),
                         signed: false,
                     },
                     PackedStructField {
@@ -1280,13 +1396,23 @@ mod tests {
                         signed: false,
                     },
                     PackedStructField {
-                        name: String::from("opcode"),
+                        name: String::from("flags"),
                         shape: PortShape::PackedScalar(PackedScalarShape {
-                            width: width(4),
+                            width: width(3),
                             signed: false,
                         }),
-                        lsb_offset: 12,
-                        width: width(4),
+                        lsb_offset: 8,
+                        width: width(3),
+                        signed: false,
+                    },
+                    PackedStructField {
+                        name: String::from("payload"),
+                        shape: PortShape::PackedScalar(PackedScalarShape {
+                            width: width(8),
+                            signed: false,
+                        }),
+                        lsb_offset: 0,
+                        width: width(8),
                         signed: false,
                     },
                 ],
@@ -1407,6 +1533,111 @@ mod tests {
     }
 
     #[test]
+    fn normalizes_packed_struct_ports_fixture() -> Result<(), Box<dyn std::error::Error>> {
+        let actual = packed_struct_ports_metadata()?;
+
+        let packet = find_port(&actual, "packet")?;
+        assert_eq!(packet.direction, PortDirection::Input);
+        assert_eq!(packet.width, width(32));
+        assert_eq!(
+            packet.shape,
+            PortShape::PackedStruct(PackedStructShape {
+                width: width(32),
+                fields: vec![
+                    PackedStructField {
+                        name: String::from("opcode"),
+                        shape: PortShape::PackedScalar(PackedScalarShape {
+                            width: width(4),
+                            signed: false,
+                        }),
+                        lsb_offset: 28,
+                        width: width(4),
+                        signed: false,
+                    },
+                    PackedStructField {
+                        name: String::from("valid"),
+                        shape: PortShape::PackedScalar(PackedScalarShape {
+                            width: width(1),
+                            signed: false,
+                        }),
+                        lsb_offset: 27,
+                        width: width(1),
+                        signed: false,
+                    },
+                    PackedStructField {
+                        name: String::from("delta"),
+                        shape: PortShape::PackedScalar(PackedScalarShape {
+                            width: width(7),
+                            signed: true,
+                        }),
+                        lsb_offset: 20,
+                        width: width(7),
+                        signed: true,
+                    },
+                    PackedStructField {
+                        name: String::from("flags"),
+                        shape: PortShape::PackedScalar(PackedScalarShape {
+                            width: width(4),
+                            signed: false,
+                        }),
+                        lsb_offset: 16,
+                        width: width(4),
+                        signed: false,
+                    },
+                    PackedStructField {
+                        name: String::from("payload"),
+                        shape: PortShape::PackedScalar(PackedScalarShape {
+                            width: width(16),
+                            signed: false,
+                        }),
+                        lsb_offset: 0,
+                        width: width(16),
+                        signed: false,
+                    },
+                ],
+                signed: false,
+            })
+        );
+
+        let wide_packet = find_port(&actual, "wide_packet")?;
+        assert_eq!(wide_packet.direction, PortDirection::Input);
+        assert_eq!(wide_packet.width, width(136));
+        assert_eq!(
+            wide_packet.shape,
+            PortShape::PackedStruct(PackedStructShape {
+                width: width(136),
+                fields: vec![
+                    PackedStructField {
+                        name: String::from("tag"),
+                        shape: PortShape::PackedScalar(PackedScalarShape {
+                            width: width(7),
+                            signed: false,
+                        }),
+                        lsb_offset: 129,
+                        width: width(7),
+                        signed: false,
+                    },
+                    PackedStructField {
+                        name: String::from("payload"),
+                        shape: PortShape::PackedScalar(PackedScalarShape {
+                            width: width(129),
+                            signed: true,
+                        }),
+                        lsb_offset: 0,
+                        width: width(129),
+                        signed: true,
+                    },
+                ],
+                signed: false,
+            })
+        );
+
+        validate_supported(&actual)?;
+
+        Ok(())
+    }
+
+    #[test]
     fn parses_descending_packed_range() -> Result<(), BuildError> {
         assert_eq!(parse_bit_width("value", Some("7:0"))?.get(), 8);
 
@@ -1491,12 +1722,88 @@ mod tests {
     }
 
     #[test]
+    fn accepts_supported_packed_struct() -> Result<(), BuildError> {
+        let metadata = DutMetadata {
+            name: String::from("dut"),
+            top_module: String::from("dut"),
+            ports: vec![packed_struct_port(
+                "packet",
+                PortDirection::Input,
+                16,
+                false,
+                vec![
+                    PackedStructField {
+                        name: String::from("payload"),
+                        shape: PortShape::PackedScalar(PackedScalarShape {
+                            width: width(8),
+                            signed: false,
+                        }),
+                        lsb_offset: 0,
+                        width: width(8),
+                        signed: false,
+                    },
+                    PackedStructField {
+                        name: String::from("opcode"),
+                        shape: PortShape::PackedScalar(PackedScalarShape {
+                            width: width(8),
+                            signed: false,
+                        }),
+                        lsb_offset: 8,
+                        width: width(8),
+                        signed: false,
+                    },
+                ],
+            )],
+        };
+
+        validate_supported(&metadata)
+    }
+
+    #[test]
+    fn accepts_packed_struct_with_wide_scalar_field() -> Result<(), BuildError> {
+        let metadata = DutMetadata {
+            name: String::from("dut"),
+            top_module: String::from("dut"),
+            ports: vec![packed_struct_port(
+                "wide_packet",
+                PortDirection::Input,
+                136,
+                false,
+                vec![
+                    PackedStructField {
+                        name: String::from("payload"),
+                        shape: PortShape::PackedScalar(PackedScalarShape {
+                            width: width(129),
+                            signed: true,
+                        }),
+                        lsb_offset: 0,
+                        width: width(129),
+                        signed: true,
+                    },
+                    PackedStructField {
+                        name: String::from("tag"),
+                        shape: PortShape::PackedScalar(PackedScalarShape {
+                            width: width(7),
+                            signed: false,
+                        }),
+                        lsb_offset: 129,
+                        width: width(7),
+                        signed: false,
+                    },
+                ],
+            )],
+        };
+
+        validate_supported(&metadata)
+    }
+
+    #[test]
     fn rejects_aggregate_ports_after_normalization() -> Result<(), Box<dyn std::error::Error>> {
         let metadata = aggregate_ports_metadata()?;
 
         assert!(matches!(
             validate_supported(&metadata),
-            Err(BuildError::UnsupportedPackedStructPort { port }) if port == "packet"
+            Err(BuildError::UnsupportedPackedEnumPort { port }) if port == "state"
         ));
 
         Ok(())
@@ -1576,7 +1883,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_packed_struct_port() {
+    fn rejects_empty_packed_struct() {
         let metadata = DutMetadata {
             name: String::from("dut"),
             top_module: String::from("dut"),
@@ -1590,6 +1897,243 @@ mod tests {
                     fields: vec![],
                     signed: false,
                 }),
+            )],
+        };
+
+        assert!(matches!(
+            validate_supported(&metadata),
+            Err(BuildError::UnsupportedPackedStructPort { port }) if port == "packet"
+        ));
+    }
+
+    #[test]
+    fn rejects_packed_struct_with_packed_array_field() {
+        let metadata = DutMetadata {
+            name: String::from("dut"),
+            top_module: String::from("dut"),
+            ports: vec![packed_struct_port(
+                "packet",
+                PortDirection::Input,
+                16,
+                false,
+                vec![PackedStructField {
+                    name: String::from("bytes"),
+                    shape: PortShape::PackedArray(PackedArrayShape {
+                        element: Box::new(PortShape::PackedScalar(PackedScalarShape {
+                            width: width(8),
+                            signed: false,
+                        })),
+                        dimensions: vec![dimension(1, 0, 2)],
+                        width: width(16),
+                        signed: false,
+                    }),
+                    lsb_offset: 0,
+                    width: width(16),
+                    signed: false,
+                }],
+            )],
+        };
+
+        assert!(matches!(
+            validate_supported(&metadata),
+            Err(BuildError::UnsupportedPackedStructPort { port }) if port == "packet"
+        ));
+    }
+
+    #[test]
+    fn rejects_nested_packed_struct_field() {
+        let metadata = DutMetadata {
+            name: String::from("dut"),
+            top_module: String::from("dut"),
+            ports: vec![packed_struct_port(
+                "packet",
+                PortDirection::Input,
+                16,
+                false,
+                vec![PackedStructField {
+                    name: String::from("inner"),
+                    shape: PortShape::PackedStruct(PackedStructShape {
+                        width: width(16),
+                        fields: vec![],
+                        signed: false,
+                    }),
+                    lsb_offset: 0,
+                    width: width(16),
+                    signed: false,
+                }],
+            )],
+        };
+
+        assert!(matches!(
+            validate_supported(&metadata),
+            Err(BuildError::UnsupportedPackedStructPort { port }) if port == "packet"
+        ));
+    }
+
+    #[test]
+    fn rejects_packed_struct_with_enum_field() {
+        let metadata = DutMetadata {
+            name: String::from("dut"),
+            top_module: String::from("dut"),
+            ports: vec![packed_struct_port(
+                "packet",
+                PortDirection::Input,
+                2,
+                false,
+                vec![PackedStructField {
+                    name: String::from("state"),
+                    shape: PortShape::PackedEnum(PackedEnumShape {
+                        width: width(2),
+                        signed: false,
+                        variants: vec![],
+                    }),
+                    lsb_offset: 0,
+                    width: width(2),
+                    signed: false,
+                }],
+            )],
+        };
+
+        assert!(matches!(
+            validate_supported(&metadata),
+            Err(BuildError::UnsupportedPackedStructPort { port }) if port == "packet"
+        ));
+    }
+
+    #[test]
+    fn rejects_packed_struct_with_unpacked_field() {
+        let metadata = DutMetadata {
+            name: String::from("dut"),
+            top_module: String::from("dut"),
+            ports: vec![packed_struct_port(
+                "packet",
+                PortDirection::Input,
+                8,
+                false,
+                vec![PackedStructField {
+                    name: String::from("bytes"),
+                    shape: PortShape::UnpackedArray(UnpackedArrayShape {
+                        element: Box::new(PortShape::PackedScalar(PackedScalarShape {
+                            width: width(8),
+                            signed: false,
+                        })),
+                        dimensions: vec![dimension(0, 0, 1)],
+                    }),
+                    lsb_offset: 0,
+                    width: width(8),
+                    signed: false,
+                }],
+            )],
+        };
+
+        assert!(matches!(
+            validate_supported(&metadata),
+            Err(BuildError::UnsupportedPackedStructPort { port }) if port == "packet"
+        ));
+    }
+
+    #[test]
+    fn rejects_overlapping_packed_struct_fields() {
+        let metadata = DutMetadata {
+            name: String::from("dut"),
+            top_module: String::from("dut"),
+            ports: vec![packed_struct_port(
+                "packet",
+                PortDirection::Input,
+                16,
+                false,
+                vec![
+                    PackedStructField {
+                        name: String::from("low"),
+                        shape: PortShape::PackedScalar(PackedScalarShape {
+                            width: width(8),
+                            signed: false,
+                        }),
+                        lsb_offset: 0,
+                        width: width(8),
+                        signed: false,
+                    },
+                    PackedStructField {
+                        name: String::from("high"),
+                        shape: PortShape::PackedScalar(PackedScalarShape {
+                            width: width(8),
+                            signed: false,
+                        }),
+                        lsb_offset: 4,
+                        width: width(8),
+                        signed: false,
+                    },
+                ],
+            )],
+        };
+
+        assert!(matches!(
+            validate_supported(&metadata),
+            Err(BuildError::UnsupportedPackedStructPort { port }) if port == "packet"
+        ));
+    }
+
+    #[test]
+    fn rejects_gapped_packed_struct_fields() {
+        let metadata = DutMetadata {
+            name: String::from("dut"),
+            top_module: String::from("dut"),
+            ports: vec![packed_struct_port(
+                "packet",
+                PortDirection::Input,
+                16,
+                false,
+                vec![
+                    PackedStructField {
+                        name: String::from("low"),
+                        shape: PortShape::PackedScalar(PackedScalarShape {
+                            width: width(7),
+                            signed: false,
+                        }),
+                        lsb_offset: 0,
+                        width: width(7),
+                        signed: false,
+                    },
+                    PackedStructField {
+                        name: String::from("high"),
+                        shape: PortShape::PackedScalar(PackedScalarShape {
+                            width: width(8),
+                            signed: false,
+                        }),
+                        lsb_offset: 8,
+                        width: width(8),
+                        signed: false,
+                    },
+                ],
+            )],
+        };
+
+        assert!(matches!(
+            validate_supported(&metadata),
+            Err(BuildError::UnsupportedPackedStructPort { port }) if port == "packet"
+        ));
+    }
+
+    #[test]
+    fn rejects_out_of_bounds_packed_struct_field() {
+        let metadata = DutMetadata {
+            name: String::from("dut"),
+            top_module: String::from("dut"),
+            ports: vec![packed_struct_port(
+                "packet",
+                PortDirection::Input,
+                8,
+                false,
+                vec![PackedStructField {
+                    name: String::from("field"),
+                    shape: PortShape::PackedScalar(PackedScalarShape {
+                        width: width(8),
+                        signed: false,
+                    }),
+                    lsb_offset: 1,
+                    width: width(8),
+                    signed: false,
+                }],
             )],
         };
 

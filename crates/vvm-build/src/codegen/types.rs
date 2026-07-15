@@ -1,5 +1,6 @@
 use crate::metadata::{
-    BitWidth, DutMetadata, PackedArrayShape, PackedScalarShape, Port, PortShape,
+    BitWidth, DutMetadata, PackedArrayShape, PackedScalarShape, PackedStructField,
+    PackedStructShape, Port, PortShape,
 };
 
 /// Public generated type used by adapter methods.
@@ -26,6 +27,36 @@ pub struct PackedArrayType<'a> {
 
     /// Single supported packed dimension.
     dimension: &'a crate::metadata::ArrayDimension,
+}
+
+/// Supported generated packed-struct type descriptor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PackedStructType<'a> {
+    /// Original normalized port.
+    port: &'a Port,
+
+    /// Packed-struct shape.
+    shape: &'a PackedStructShape,
+}
+
+/// Supported packed-struct field descriptor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PackedStructFieldType<'a> {
+    /// Original normalized field.
+    field: &'a PackedStructField,
+
+    /// Scalar field shape.
+    scalar: &'a PackedScalarShape,
+}
+
+/// Generated Rust representation of one packed-struct field.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PackedStructFieldValueType {
+    /// Primitive scalar field.
+    Scalar(SignalType),
+
+    /// Wide packed scalar field.
+    Wide(WideType),
 }
 
 impl PortType {
@@ -169,6 +200,122 @@ impl<'a> PackedArrayType<'a> {
     }
 }
 
+impl<'a> PackedStructType<'a> {
+    /// Returns a supported packed-struct descriptor.
+    #[allow(clippy::pattern_type_mismatch)]
+    pub fn from_port(port: &'a Port) -> Option<Self> {
+        let PortShape::PackedStruct(shape) = &port.shape else {
+            return None;
+        };
+
+        if shape.fields.is_empty() {
+            return None;
+        }
+
+        if shape
+            .fields
+            .iter()
+            .any(|field| !matches!(field.shape, PortShape::PackedScalar(_)))
+        {
+            return None;
+        }
+
+        Some(Self { port, shape })
+    }
+
+    /// Returns the total packed width.
+    pub const fn total_width(self) -> u32 {
+        self.shape.width.get()
+    }
+
+    /// Returns the storage signedness.
+    pub const fn storage_signed(self) -> bool {
+        self.shape.signed
+    }
+
+    /// Returns the generated Rust storage type.
+    pub fn storage_rust_type(self) -> String {
+        WideType::new(self.shape.width, self.shape.signed).rust_value_type()
+    }
+
+    /// Returns the generated Rust storage constructor type.
+    pub fn storage_constructor_type(self) -> String {
+        WideType::new(self.shape.width, self.shape.signed).rust_constructor_type()
+    }
+
+    /// Returns the flattened native transfer type.
+    pub const fn storage_port_type(self) -> PortType {
+        PortType::from_port(self.port)
+    }
+
+    /// Returns the normalized packed-struct shape.
+    pub const fn shape(self) -> &'a PackedStructShape {
+        self.shape
+    }
+
+    /// Returns generated field descriptors.
+    pub fn fields(self) -> impl Iterator<Item = PackedStructFieldType<'a>> {
+        self.shape
+            .fields
+            .iter()
+            .filter_map(PackedStructFieldType::from_field)
+    }
+}
+
+impl<'a> PackedStructFieldType<'a> {
+    /// Creates a descriptor for one scalar packed-struct field.
+    #[allow(clippy::pattern_type_mismatch)]
+    pub const fn from_field(field: &'a PackedStructField) -> Option<Self> {
+        let PortShape::PackedScalar(scalar) = &field.shape else {
+            return None;
+        };
+
+        Some(Self { field, scalar })
+    }
+
+    /// Returns the HDL field name.
+    pub fn name(self) -> &'a str {
+        &self.field.name
+    }
+
+    /// Returns the field width.
+    pub const fn width(self) -> u32 {
+        self.scalar().width.get()
+    }
+
+    /// Returns the field signedness.
+    pub const fn signed(self) -> bool {
+        self.scalar().signed
+    }
+
+    /// Returns the field LSB offset.
+    pub const fn offset(self) -> u32 {
+        self.field.lsb_offset
+    }
+
+    /// Returns whether this is an unsigned one-bit field.
+    pub const fn is_bool(self) -> bool {
+        !self.signed() && self.width() == 1
+    }
+
+    /// Returns the generated field representation.
+    pub const fn value_type(self) -> PackedStructFieldValueType {
+        if self.width() <= 64 {
+            PackedStructFieldValueType::Scalar(SignalType::from_width_signed(
+                self.width(),
+                self.signed(),
+            ))
+        } else {
+            PackedStructFieldValueType::Wide(WideType::new(self.field.width, self.signed()))
+        }
+    }
+
+    /// Returns the normalized scalar shape.
+    pub const fn scalar(self) -> &'a PackedScalarShape {
+        self.scalar
+    }
+}
+
 /// Public wide type used by generated adapter methods.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct WideType {
@@ -261,6 +408,19 @@ pub fn contains_packed_array_ports(metadata: &DutMetadata) -> bool {
         .ports
         .iter()
         .any(|port| PackedArrayType::from_port(port).is_some())
+}
+
+/// Returns whether any port uses a supported packed-struct wrapper.
+pub fn contains_packed_struct_ports(metadata: &DutMetadata) -> bool {
+    metadata
+        .ports
+        .iter()
+        .any(|port| PackedStructType::from_port(port).is_some())
+}
+
+/// Returns whether any port uses a supported packed aggregate wrapper.
+pub fn contains_packed_aggregate_ports(metadata: &DutMetadata) -> bool {
+    contains_packed_array_ports(metadata) || contains_packed_struct_ports(metadata)
 }
 
 /// Public scalar type used by generated adapter method.
@@ -395,12 +555,13 @@ mod tests {
     use std::num::NonZeroU32;
 
     use super::{
-        PackedArrayType, PortType, SignalType, WideType, contains_packed_array_ports,
-        contains_wide_ports,
+        PackedArrayType, PackedStructFieldValueType, PackedStructType, PortType, SignalType,
+        WideType, contains_packed_aggregate_ports, contains_packed_array_ports,
+        contains_packed_struct_ports, contains_wide_ports,
     };
     use crate::metadata::{
-        ArrayDimension, BitWidth, PackedArrayShape, PackedScalarShape, Port, PortDirection,
-        PortShape,
+        ArrayDimension, BitWidth, PackedArrayShape, PackedScalarShape, PackedStructField,
+        PackedStructShape, Port, PortDirection, PortShape,
     };
 
     fn width(value: u32) -> Result<BitWidth, io::Error> {
@@ -467,6 +628,26 @@ mod tests {
                 })),
                 dimensions,
                 width: total_width,
+                signed,
+            }),
+        })
+    }
+
+    fn packed_struct_port(
+        width_bits: u32,
+        signed: bool,
+        fields: Vec<PackedStructField>,
+    ) -> Result<Port, io::Error> {
+        let total_width = width(width_bits)?;
+
+        Ok(Port {
+            name: String::from("packet"),
+            direction: PortDirection::Input,
+            width: total_width,
+            signed,
+            shape: PortShape::PackedStruct(PackedStructShape {
+                width: total_width,
+                fields,
                 signed,
             }),
         })
@@ -770,6 +951,155 @@ mod tests {
         assert_eq!(
             array_type.storage_port_type(),
             PortType::Scalar(SignalType::U32)
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn detects_supported_packed_struct_ports() -> Result<(), Box<dyn std::error::Error>> {
+        let metadata = crate::metadata::DutMetadata {
+            name: String::from("packed"),
+            top_module: String::from("packed"),
+            ports: vec![packed_struct_port(
+                16,
+                false,
+                vec![
+                    PackedStructField {
+                        name: String::from("low"),
+                        shape: PortShape::PackedScalar(PackedScalarShape {
+                            width: width(8)?,
+                            signed: false,
+                        }),
+                        lsb_offset: 0,
+                        width: width(8)?,
+                        signed: false,
+                    },
+                    PackedStructField {
+                        name: String::from("high"),
+                        shape: PortShape::PackedScalar(PackedScalarShape {
+                            width: width(8)?,
+                            signed: false,
+                        }),
+                        lsb_offset: 8,
+                        width: width(8)?,
+                        signed: false,
+                    },
+                ],
+            )?],
+        };
+
+        assert!(contains_packed_struct_ports(&metadata));
+        assert!(contains_packed_aggregate_ports(&metadata));
+
+        Ok(())
+    }
+
+    #[test]
+    fn describes_supported_packed_struct_type() -> Result<(), Box<dyn std::error::Error>> {
+        let port = packed_struct_port(
+            136,
+            false,
+            vec![
+                PackedStructField {
+                    name: String::from("tag"),
+                    shape: PortShape::PackedScalar(PackedScalarShape {
+                        width: width(7)?,
+                        signed: false,
+                    }),
+                    lsb_offset: 129,
+                    width: width(7)?,
+                    signed: false,
+                },
+                PackedStructField {
+                    name: String::from("payload"),
+                    shape: PortShape::PackedScalar(PackedScalarShape {
+                        width: width(129)?,
+                        signed: true,
+                    }),
+                    lsb_offset: 0,
+                    width: width(129)?,
+                    signed: true,
+                },
+            ],
+        )?;
+
+        let struct_type = PackedStructType::from_port(&port).ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                "expected supported packed struct",
+            )
+        })?;
+
+        assert_eq!(struct_type.total_width(), 136);
+        assert!(!struct_type.storage_signed());
+        assert_eq!(struct_type.storage_rust_type(), "::vvm::Bits<136>");
+        assert_eq!(struct_type.storage_constructor_type(), "::vvm::Bits::<136>");
+        assert_eq!(
+            struct_type.storage_port_type(),
+            PortType::Wide(WideType::new(width(136)?, false))
+        );
+
+        let fields: Vec<_> = struct_type.fields().collect();
+        let tag = fields
+            .first()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing tag field"))?;
+        let payload = fields
+            .get(1)
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing payload field"))?;
+
+        assert_eq!(fields.len(), 2);
+        assert_eq!(tag.name(), "tag");
+        assert_eq!(tag.offset(), 129);
+        assert_eq!(tag.width(), 7);
+        assert!(!tag.signed());
+        assert!(!tag.is_bool());
+        assert_eq!(tag.scalar().width.get(), 7);
+        assert_eq!(
+            tag.value_type(),
+            PackedStructFieldValueType::Scalar(SignalType::U8)
+        );
+
+        assert_eq!(payload.name(), "payload");
+        assert_eq!(payload.offset(), 0);
+        assert_eq!(payload.width(), 129);
+        assert!(payload.signed());
+        assert_eq!(payload.scalar().width.get(), 129);
+        assert_eq!(
+            payload.value_type(),
+            PackedStructFieldValueType::Wide(WideType::new(width(129)?, true))
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn packed_struct_bool_field_maps_to_bool() -> Result<(), Box<dyn std::error::Error>> {
+        let port = packed_struct_port(
+            1,
+            false,
+            vec![PackedStructField {
+                name: String::from("valid"),
+                shape: PortShape::PackedScalar(PackedScalarShape {
+                    width: width(1)?,
+                    signed: false,
+                }),
+                lsb_offset: 0,
+                width: width(1)?,
+                signed: false,
+            }],
+        )?;
+
+        let field = PackedStructType::from_port(&port)
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "expected packed struct"))?
+            .fields()
+            .next()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing field"))?;
+
+        assert!(field.is_bool());
+        assert_eq!(
+            field.value_type(),
+            PackedStructFieldValueType::Scalar(SignalType::Bool)
         );
 
         Ok(())

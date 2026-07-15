@@ -367,8 +367,8 @@ pub enum BuildError {
         port: String,
     },
 
-    /// Packed struct ports are recognized but not yet supported by generated code.
-    #[error("port `{port}` is a packed struct; packed struct ports are not supported yet")]
+    /// Packed struct ports are recognized but only a constrained subset is supported.
+    #[error("port `{port}` uses an unsupported packed-struct shape")]
     UnsupportedPackedStructPort {
         /// HDL port name.
         port: String,

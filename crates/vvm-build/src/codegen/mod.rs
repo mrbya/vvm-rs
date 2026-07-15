@@ -173,6 +173,30 @@ mod tests {
         Ok(normalize("packed_array_ports", "packed_array_ports", &raw)?)
     }
 
+    fn packed_struct_ports_metadata()
+    -> Result<crate::metadata::DutMetadata, Box<dyn std::error::Error>> {
+        let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+
+        let metadata_fixture = manifest
+            .join("tests")
+            .join("fixtures")
+            .join("verilator")
+            .join("5.048")
+            .join("packed_struct_ports");
+
+        let raw = RawMetadata::from_paths(
+            VerilatorVersion::new(5, 48),
+            &metadata_fixture.join("packed_struct_ports.tree.json"),
+            &metadata_fixture.join("packed_struct_ports.tree.meta.json"),
+        )?;
+
+        Ok(normalize(
+            "packed_struct_ports",
+            "packed_struct_ports",
+            &raw,
+        )?)
+    }
+
     fn expected_codegen_directory(name: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("tests")
@@ -665,6 +689,97 @@ mod tests {
         assert!(wrapper.contains("let raw: u32 = u32::try_from(raw)"));
         assert!(wrapper.contains("let bits = ::vvm::Bits::<32>::from("));
         assert!(wrapper.contains("Ok(PackedBytesOut::from_bits(bits))"));
+
+        Ok(())
+    }
+
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn packed_struct_codegen_generates_newtypes_and_flattened_transfer()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let metadata = packed_struct_ports_metadata()?;
+        let output = tempdir()?;
+        let generated = generate(&metadata, "Vpacked_struct_ports", output.path(), None)?;
+
+        let header = std::fs::read_to_string(&generated.cpp_header)?;
+        let bridge = std::fs::read_to_string(&generated.cxx_bridge)?;
+        let wrapper = std::fs::read_to_string(&generated.rust_wrapper)?;
+
+        assert!(header.contains("void set_packet(std::uint32_t value) noexcept;"));
+        assert!(header.contains("[[nodiscard]] std::uint32_t packet_out() const noexcept;"));
+        assert!(
+            header
+                .contains("bool set_wide_packet(rust::Slice<const std::uint32_t> words) noexcept;")
+        );
+        assert!(
+            header
+                .contains("bool wide_packet_out(rust::Slice<std::uint32_t> words) const noexcept;")
+        );
+
+        assert!(bridge.contains("fn set_packet(self: Pin<&mut PackedStructPorts>, value: u32);"));
+        assert!(bridge.contains("fn packet_out(self: &PackedStructPorts) -> u32;"));
+        assert!(bridge.contains(
+            "fn set_wide_packet(self: Pin<&mut PackedStructPorts>, words: &[u32]) -> bool;"
+        ));
+        assert!(
+            bridge.contains(
+                "fn wide_packet_out(self: &PackedStructPorts, words: &mut [u32]) -> bool;"
+            )
+        );
+
+        assert!(wrapper.contains("pub struct Packet {"));
+        assert!(wrapper.contains("pub struct PacketOut {"));
+        assert!(wrapper.contains("pub struct WidePacket {"));
+        assert!(wrapper.contains("pub struct WidePacketOut {"));
+        assert!(wrapper.contains("pub const FIELDS: &'static [::vvm::PackedFieldLayout] = &["));
+        assert!(wrapper.contains("pub const LAYOUT: ::vvm::PackedLayout ="));
+        assert!(wrapper.contains(
+            "pub fn opcode(&self) -> std::result::Result<u8, ::vvm::PackedLayoutError> {"
+        ));
+        assert!(wrapper.contains(
+            "pub fn set_opcode(&mut self, value: u8) -> std::result::Result<(), \
+             ::vvm::PackedLayoutError> {"
+        ));
+        assert!(wrapper.contains(
+            "pub fn valid(&self) -> std::result::Result<bool, ::vvm::PackedLayoutError> {"
+        ));
+        assert!(wrapper.contains(
+            "pub fn set_valid(&mut self, value: bool) -> std::result::Result<(), \
+             ::vvm::PackedLayoutError> {"
+        ));
+        assert!(wrapper.contains(
+            "pub fn delta(&self) -> std::result::Result<i8, ::vvm::PackedLayoutError> {"
+        ));
+        assert!(wrapper.contains(
+            "pub fn set_delta(&mut self, value: i8) -> std::result::Result<(), \
+             ::vvm::PackedLayoutError> {"
+        ));
+        assert!(wrapper.contains(
+            "pub fn payload(&self) -> std::result::Result<u16, ::vvm::PackedLayoutError> {"
+        ));
+        assert!(wrapper.contains(
+            "pub fn set_payload(&mut self, value: u16) -> std::result::Result<(), \
+             ::vvm::PackedLayoutError> {"
+        ));
+        assert!(wrapper.contains(
+            "pub fn payload(&self) -> std::result::Result<::vvm::SignedBits<129>, \
+             ::vvm::PackedLayoutError> {"
+        ));
+        assert!(wrapper.contains(
+            "pub fn set_payload(&mut self, value: impl \
+             ::core::borrow::Borrow<::vvm::SignedBits<129>>) -> std::result::Result<(), \
+             ::vvm::PackedLayoutError> {"
+        ));
+        assert!(wrapper.contains("::vvm::extract_unsigned"));
+        assert!(wrapper.contains("::vvm::insert_unsigned"));
+        assert!(wrapper.contains("::vvm::extract_signed"));
+        assert!(wrapper.contains("::vvm::insert_signed"));
+        assert!(wrapper.contains("::vvm::extract_packed::<::vvm::SignedBits<129>>("));
+        assert!(wrapper.contains("::vvm::insert_packed("));
+        assert!(wrapper.contains("impl ::vvm::PackedValue for Packet {"));
+        assert!(wrapper.contains("value: impl ::core::borrow::Borrow<Packet>"));
+        assert!(wrapper.contains("pub fn packet_out(&self) -> Result<PacketOut> {"));
+        assert!(wrapper.contains("PackedLayoutFailed"));
 
         Ok(())
     }

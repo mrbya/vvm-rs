@@ -3,7 +3,7 @@
 use std::collections::HashSet;
 
 use crate::builder::validate_identifier;
-use crate::codegen::types::PackedArrayType;
+use crate::codegen::types::{PackedArrayType, PackedStructType};
 use crate::metadata::{DutMetadata, PortDirection};
 use crate::{BuildError, BuildResult};
 
@@ -43,6 +43,19 @@ pub struct PortNames {
 
     /// Generated safe Rust aggregate value type.
     pub rust_type: Option<String>,
+
+    /// Generated packed-struct field methods.
+    pub struct_fields: Vec<PackedStructFieldNames>,
+}
+
+/// Generated methods for one packed-struct field.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PackedStructFieldNames {
+    /// Generated field getter method.
+    pub getter: String,
+
+    /// Generated field setter method.
+    pub setter: String,
 }
 
 /// Resolves and validates all names needed by the C++ adapter.
@@ -104,10 +117,10 @@ pub fn resolve(metadata: &DutMetadata, model_prefix: &str) -> BuildResult<DutNam
             return Err(BuildError::GeneratedNameCollision { name: method });
         }
 
-        let rust_type = packed_array_rust_type(port)?;
+        let rust_type = aggregate_rust_type(port)?;
 
         if let Some(ref rust_type) = rust_type {
-            validate_rust_identifier("Rust packed-array type", rust_type)?;
+            validate_rust_identifier("Rust packed aggregate type", rust_type)?;
 
             if !used_rust_types.insert(rust_type.clone()) {
                 return Err(BuildError::GeneratedNameCollision {
@@ -116,10 +129,13 @@ pub fn resolve(metadata: &DutMetadata, model_prefix: &str) -> BuildResult<DutNam
             }
         }
 
+        let struct_fields = packed_struct_field_names(port)?;
+
         ports.push(PortNames {
             accessor: port.name.clone(),
             method,
             rust_type,
+            struct_fields,
         });
     }
 
@@ -134,23 +150,69 @@ pub fn resolve(metadata: &DutMetadata, model_prefix: &str) -> BuildResult<DutNam
     })
 }
 
-/// Returns the generated Rust wrapper type for one supported packed-array port.
-fn packed_array_rust_type(port: &crate::metadata::Port) -> BuildResult<Option<String>> {
-    let Some(_array_type) = PackedArrayType::from_port(port) else {
+/// Returns the generated Rust wrapper type for one supported packed aggregate port.
+fn aggregate_rust_type(port: &crate::metadata::Port) -> BuildResult<Option<String>> {
+    let supported =
+        PackedArrayType::from_port(port).is_some() || PackedStructType::from_port(port).is_some();
+
+    if !supported {
         return Ok(None);
-    };
+    }
 
     let rust_type = to_pascal_case(&port.name);
 
     if rust_type.is_empty() {
         return Err(BuildError::UnsupportedCodegenName {
-            role: "Rust packed-array type",
+            role: "Rust packed aggregate type",
             name: port.name.clone(),
             reason: "the transformed type name is empty",
         });
     }
 
     Ok(Some(rust_type))
+}
+
+/// Returns generated field method names for one supported packed struct port.
+fn packed_struct_field_names(
+    port: &crate::metadata::Port,
+) -> BuildResult<Vec<PackedStructFieldNames>> {
+    let Some(struct_type) = PackedStructType::from_port(port) else {
+        return Ok(Vec::new());
+    };
+
+    let mut used_methods = HashSet::<String>::from([
+        "zero".to_owned(),
+        "from_bits".to_owned(),
+        "bits".to_owned(),
+        "into_bits".to_owned(),
+        "from_words_le".to_owned(),
+        "words_le".to_owned(),
+        "layout".to_owned(),
+        "fields".to_owned(),
+        "width".to_owned(),
+    ]);
+
+    let mut names = Vec::with_capacity(struct_type.shape().fields.len());
+
+    for field in struct_type.fields() {
+        let getter = field.name().to_owned();
+        let setter = format!("set_{}", field.name());
+
+        validate_rust_identifier("Rust packed-struct field getter", &getter)?;
+        validate_rust_identifier("Rust packed-struct field setter", &setter)?;
+
+        if !used_methods.insert(getter.clone()) {
+            return Err(BuildError::GeneratedNameCollision { name: getter });
+        }
+
+        if !used_methods.insert(setter.clone()) {
+            return Err(BuildError::GeneratedNameCollision { name: setter });
+        }
+
+        names.push(PackedStructFieldNames { getter, setter });
+    }
+
+    Ok(names)
 }
 
 /// Verifies that a name is safe for direct C++ emission.
@@ -379,8 +441,8 @@ mod tests {
     use super::resolve;
     use crate::BuildError;
     use crate::metadata::{
-        ArrayDimension, BitWidth, DutMetadata, PackedArrayShape, PackedScalarShape, Port,
-        PortDirection, PortShape,
+        ArrayDimension, BitWidth, DutMetadata, PackedArrayShape, PackedScalarShape,
+        PackedStructField, PackedStructShape, Port, PortDirection, PortShape,
     };
 
     fn port(name: &str, direction: PortDirection) -> Port {
@@ -418,6 +480,26 @@ mod tests {
                     length: NonZeroU32::new(4).unwrap_or(NonZeroU32::MIN),
                 }],
                 width,
+                signed: false,
+            }),
+        }
+    }
+
+    fn packed_struct_port(
+        name: &str,
+        direction: PortDirection,
+        fields: Vec<PackedStructField>,
+    ) -> Port {
+        let width = BitWidth::new(NonZeroU32::new(32).unwrap_or(NonZeroU32::MIN));
+
+        Port {
+            name: name.to_owned(),
+            direction,
+            width,
+            signed: false,
+            shape: PortShape::PackedStruct(PackedStructShape {
+                width,
+                fields,
                 signed: false,
             }),
         }
@@ -612,6 +694,146 @@ mod tests {
         assert!(matches!(
             resolve(&metadata, "Vdut"),
             Err(BuildError::GeneratedNameCollision { name }) if name == "PackedBytes"
+        ));
+    }
+
+    #[test]
+    fn resolves_packed_struct_type_and_field_names() -> Result<(), BuildError> {
+        let field_width = BitWidth::new(NonZeroU32::new(4).unwrap_or(NonZeroU32::MIN));
+        let bool_width = BitWidth::new(NonZeroU32::MIN);
+        let scalar = |name: &str, offset: u32, width: BitWidth, signed: bool| PackedStructField {
+            name: name.to_owned(),
+            shape: PortShape::PackedScalar(PackedScalarShape { width, signed }),
+            lsb_offset: offset,
+            width,
+            signed,
+        };
+
+        let metadata = metadata(
+            "packed_struct_ports",
+            vec![
+                port("clk", PortDirection::Input),
+                packed_struct_port(
+                    "packet",
+                    PortDirection::Input,
+                    vec![
+                        scalar("opcode", 28, field_width, false),
+                        scalar("valid", 27, bool_width, false),
+                        scalar("flags", 16, field_width, false),
+                    ],
+                ),
+                packed_struct_port(
+                    "packet_out",
+                    PortDirection::Output,
+                    vec![
+                        scalar("opcode", 28, field_width, false),
+                        scalar("valid", 27, bool_width, false),
+                        scalar("flags", 16, field_width, false),
+                    ],
+                ),
+            ],
+        );
+
+        let names = resolve(&metadata, "Vpacked_struct_ports")?;
+        let packet = names
+            .ports
+            .get(1)
+            .ok_or_else(|| BuildError::GeneratedNameCollision {
+                name: String::from("missing packet port"),
+            })?;
+        let packet_out = names
+            .ports
+            .get(2)
+            .ok_or_else(|| BuildError::GeneratedNameCollision {
+                name: String::from("missing packet_out port"),
+            })?;
+
+        assert_eq!(packet.rust_type.as_deref(), Some("Packet"));
+        assert_eq!(packet_out.rust_type.as_deref(), Some("PacketOut"));
+        assert_eq!(
+            packet
+                .struct_fields
+                .first()
+                .map(|field| field.getter.as_str()),
+            Some("opcode")
+        );
+        assert_eq!(
+            packet
+                .struct_fields
+                .first()
+                .map(|field| field.setter.as_str()),
+            Some("set_opcode")
+        );
+        assert_eq!(
+            packet
+                .struct_fields
+                .get(1)
+                .map(|field| field.getter.as_str()),
+            Some("valid")
+        );
+        assert_eq!(
+            packet
+                .struct_fields
+                .get(1)
+                .map(|field| field.setter.as_str()),
+            Some("set_valid")
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_reserved_packed_struct_field_method_name() {
+        let field_width = BitWidth::new(NonZeroU32::new(8).unwrap_or(NonZeroU32::MIN));
+        let metadata = metadata(
+            "packed_struct_ports",
+            vec![packed_struct_port(
+                "packet",
+                PortDirection::Input,
+                vec![PackedStructField {
+                    name: String::from("bits"),
+                    shape: PortShape::PackedScalar(PackedScalarShape {
+                        width: field_width,
+                        signed: false,
+                    }),
+                    lsb_offset: 0,
+                    width: field_width,
+                    signed: false,
+                }],
+            )],
+        );
+
+        assert!(matches!(
+            resolve(&metadata, "Vpacked_struct_ports"),
+            Err(BuildError::GeneratedNameCollision { name }) if name == "bits"
+        ));
+    }
+
+    #[test]
+    fn rejects_conflicting_packed_struct_field_methods() {
+        let field_width = BitWidth::new(NonZeroU32::new(16).unwrap_or(NonZeroU32::MIN));
+        let scalar = |name: &str, offset: u32| PackedStructField {
+            name: name.to_owned(),
+            shape: PortShape::PackedScalar(PackedScalarShape {
+                width: field_width,
+                signed: false,
+            }),
+            lsb_offset: offset,
+            width: field_width,
+            signed: false,
+        };
+        let metadata = metadata(
+            "packed_struct_ports",
+            vec![packed_struct_port(
+                "packet",
+                PortDirection::Input,
+                vec![scalar("foo", 0), scalar("set_foo", 16)],
+            )],
+        );
+
+        assert!(matches!(
+            resolve(&metadata, "Vpacked_struct_ports"),
+            Err(BuildError::GeneratedNameCollision { name }) if name == "set_foo"
         ));
     }
 }

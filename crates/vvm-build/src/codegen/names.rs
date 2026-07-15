@@ -496,12 +496,12 @@ mod tests {
     use std::num::NonZeroU32;
 
     use super::resolve;
+    use crate::BuildError;
     use crate::metadata::{
         ArrayDimension, BitWidth, DutMetadata, PackedArrayShape, PackedEnumShape,
         PackedEnumVariant, PackedScalarShape, PackedStructField, PackedStructShape, Port,
         PortDirection, PortShape,
     };
-    use crate::BuildError;
 
     fn port(name: &str, direction: PortDirection) -> Port {
         let width = BitWidth::new(NonZeroU32::MIN);
@@ -590,6 +590,74 @@ mod tests {
             top_module: name.to_owned(),
             ports,
         }
+    }
+
+    fn packed_enum_ports_metadata() -> DutMetadata {
+        metadata(
+            "packed_enum_ports",
+            vec![
+                port("clk", PortDirection::Input),
+                packed_enum_port(
+                    "state",
+                    PortDirection::Input,
+                    false,
+                    vec![
+                        PackedEnumVariant {
+                            name: String::from("STATE_IDLE"),
+                            value: 0,
+                        },
+                        PackedEnumVariant {
+                            name: String::from("STATE_BUSY"),
+                            value: 2,
+                        },
+                    ],
+                ),
+                packed_enum_port(
+                    "state_out",
+                    PortDirection::Output,
+                    false,
+                    vec![PackedEnumVariant {
+                        name: String::from("STATE_IDLE"),
+                        value: 0,
+                    }],
+                ),
+                packed_enum_port(
+                    "signed_state",
+                    PortDirection::Input,
+                    true,
+                    vec![PackedEnumVariant {
+                        name: String::from("SIGNED_NEG"),
+                        value: 0xD,
+                    }],
+                ),
+                packed_enum_port(
+                    "signed_state_out",
+                    PortDirection::Output,
+                    true,
+                    vec![PackedEnumVariant {
+                        name: String::from("SIGNED_NEG"),
+                        value: 0xD,
+                    }],
+                ),
+            ],
+        )
+    }
+
+    fn assert_packed_enum_type_names(
+        names: &super::DutNames,
+        index: usize,
+        rust_type: &str,
+        variant_type: &str,
+    ) {
+        let port = names.ports.get(index);
+        assert_eq!(
+            port.and_then(|port| port.rust_type.as_deref()),
+            Some(rust_type)
+        );
+        assert_eq!(
+            port.and_then(|port| port.enum_variant_type.as_deref()),
+            Some(variant_type)
+        );
     }
 
     #[test]
@@ -918,113 +986,13 @@ mod tests {
 
     #[test]
     fn resolves_packed_enum_type_names() -> Result<(), BuildError> {
-        let metadata = metadata(
-            "packed_enum_ports",
-            vec![
-                port("clk", PortDirection::Input),
-                packed_enum_port(
-                    "state",
-                    PortDirection::Input,
-                    false,
-                    vec![
-                        PackedEnumVariant {
-                            name: String::from("STATE_IDLE"),
-                            value: 0,
-                        },
-                        PackedEnumVariant {
-                            name: String::from("STATE_BUSY"),
-                            value: 2,
-                        },
-                    ],
-                ),
-                packed_enum_port(
-                    "state_out",
-                    PortDirection::Output,
-                    false,
-                    vec![PackedEnumVariant {
-                        name: String::from("STATE_IDLE"),
-                        value: 0,
-                    }],
-                ),
-                packed_enum_port(
-                    "signed_state",
-                    PortDirection::Input,
-                    true,
-                    vec![PackedEnumVariant {
-                        name: String::from("SIGNED_NEG"),
-                        value: 0xD,
-                    }],
-                ),
-                packed_enum_port(
-                    "signed_state_out",
-                    PortDirection::Output,
-                    true,
-                    vec![PackedEnumVariant {
-                        name: String::from("SIGNED_NEG"),
-                        value: 0xD,
-                    }],
-                ),
-            ],
-        );
-
+        let metadata = packed_enum_ports_metadata();
         let names = resolve(&metadata, "Vpacked_enum_ports")?;
 
-        assert_eq!(
-            names
-                .ports
-                .get(1)
-                .and_then(|port| port.rust_type.as_deref()),
-            Some("State")
-        );
-        assert_eq!(
-            names
-                .ports
-                .get(1)
-                .and_then(|port| port.enum_variant_type.as_deref()),
-            Some("StateVariant")
-        );
-        assert_eq!(
-            names
-                .ports
-                .get(2)
-                .and_then(|port| port.rust_type.as_deref()),
-            Some("StateOut")
-        );
-        assert_eq!(
-            names
-                .ports
-                .get(2)
-                .and_then(|port| port.enum_variant_type.as_deref()),
-            Some("StateOutVariant")
-        );
-        assert_eq!(
-            names
-                .ports
-                .get(3)
-                .and_then(|port| port.rust_type.as_deref()),
-            Some("SignedState")
-        );
-        assert_eq!(
-            names
-                .ports
-                .get(3)
-                .and_then(|port| port.enum_variant_type.as_deref()),
-            Some("SignedStateVariant")
-        );
-        assert_eq!(
-            names
-                .ports
-                .get(4)
-                .and_then(|port| port.rust_type.as_deref()),
-            Some("SignedStateOut")
-        );
-        assert_eq!(
-            names
-                .ports
-                .get(4)
-                .and_then(|port| port.enum_variant_type.as_deref()),
-            Some("SignedStateOutVariant")
-        );
+        assert_packed_enum_type_names(&names, 1, "State", "StateVariant");
+        assert_packed_enum_type_names(&names, 2, "StateOut", "StateOutVariant");
+        assert_packed_enum_type_names(&names, 3, "SignedState", "SignedStateVariant");
+        assert_packed_enum_type_names(&names, 4, "SignedStateOut", "SignedStateOutVariant");
 
         Ok(())
     }

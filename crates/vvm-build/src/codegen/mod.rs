@@ -89,12 +89,12 @@ mod tests {
     use tempfile::tempdir;
 
     use super::generate;
+    use crate::TraceOptions;
     use crate::metadata::{
-        normalize, BitWidth, DutMetadata, PackedScalarShape, Port, PortDirection, PortShape,
-        RawMetadata,
+        BitWidth, DutMetadata, PackedScalarShape, Port, PortDirection, PortShape, RawMetadata,
+        normalize,
     };
     use crate::verilator::VerilatorVersion;
-    use crate::TraceOptions;
 
     fn wide_ports_metadata() -> Result<DutMetadata, Box<dyn std::error::Error>> {
         let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -153,8 +153,8 @@ mod tests {
         Ok(normalize("signed_ports", "signed_ports", &raw)?)
     }
 
-    fn packed_array_ports_metadata(
-    ) -> Result<crate::metadata::DutMetadata, Box<dyn std::error::Error>> {
+    fn packed_array_ports_metadata()
+    -> Result<crate::metadata::DutMetadata, Box<dyn std::error::Error>> {
         let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 
         let metadata_fixture = manifest
@@ -188,8 +188,8 @@ mod tests {
         )?)
     }
 
-    fn packed_struct_ports_metadata(
-    ) -> Result<crate::metadata::DutMetadata, Box<dyn std::error::Error>> {
+    fn packed_struct_ports_metadata()
+    -> Result<crate::metadata::DutMetadata, Box<dyn std::error::Error>> {
         let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 
         let metadata_fixture = manifest
@@ -212,8 +212,8 @@ mod tests {
         )?)
     }
 
-    fn packed_enum_ports_metadata(
-    ) -> Result<crate::metadata::DutMetadata, Box<dyn std::error::Error>> {
+    fn packed_enum_ports_metadata()
+    -> Result<crate::metadata::DutMetadata, Box<dyn std::error::Error>> {
         let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 
         let metadata_fixture = manifest
@@ -326,6 +326,95 @@ mod tests {
             signed,
             shape: PortShape::PackedScalar(PackedScalarShape { width, signed }),
         }
+    }
+
+    fn assert_wide_header_artifacts(header: &str) {
+        assert!(header.contains("#include \"rust/cxx.h\""));
+        for width in [65, 96, 129, 256] {
+            assert!(header.contains(&format!(
+                "bool set_input_u{width}(rust::Slice<const std::uint32_t> words) noexcept;"
+            )));
+            assert!(header.contains(&format!(
+                "bool output_u{width}(rust::Slice<std::uint32_t> words) const noexcept;"
+            )));
+        }
+        for width in [65, 129] {
+            assert!(header.contains(&format!(
+                "bool set_input_i{width}(rust::Slice<const std::uint32_t> words) noexcept;"
+            )));
+            assert!(header.contains(&format!(
+                "bool output_i{width}(rust::Slice<std::uint32_t> words) const noexcept;"
+            )));
+        }
+        assert!(!header.contains("set_input_u65(std::uint64_t value) noexcept"));
+        assert!(!header.contains("set_input_u96(std::uint64_t value) noexcept"));
+        assert!(!header.contains("output_u96() const noexcept"));
+        assert!(!header.contains("output_u256() const noexcept"));
+    }
+
+    fn assert_wide_source_artifacts(source: &str) {
+        for word_count in [3, 5, 8] {
+            assert!(source.contains(&format!(
+                "constexpr std::size_t expected_words{{{word_count}}};"
+            )));
+        }
+        assert!(source.contains("static_assert(RawType::Words == expected_words);"));
+        assert!(source.contains("if (words.size() != expected_words) {"));
+        assert!(source.contains("return false;"));
+        assert!(source.contains("raw_value[index] = words[index];"));
+        assert!(source.contains("words[index] = raw_value[index];"));
+        for index in [2, 4] {
+            assert!(source.contains(&format!("raw_value[{index}] &= 0x1U;")));
+            assert!(source.contains(&format!("words[{index}] &= 0x1U;")));
+        }
+        for index in [2, 7] {
+            assert!(!source.contains(&format!("raw_value[{index}] &= 0xFFFFFFFFU;")));
+            assert!(!source.contains(&format!("words[{index}] &= 0xFFFFFFFFU;")));
+        }
+    }
+
+    fn assert_wide_bridge_artifacts(bridge: &str) {
+        for width in [65, 96, 129, 256] {
+            assert!(bridge.contains(&format!(
+                "fn set_input_u{width}(self: Pin<&mut WidePorts>, words: &[u32]) -> bool;"
+            )));
+            assert!(bridge.contains(&format!(
+                "fn output_u{width}(self: &WidePorts, words: &mut [u32]) -> bool;"
+            )));
+        }
+        for width in [65, 129] {
+            assert!(bridge.contains(&format!(
+                "fn set_input_i{width}(self: Pin<&mut WidePorts>, words: &[u32]) -> bool;"
+            )));
+            assert!(bridge.contains(&format!(
+                "fn output_i{width}(self: &WidePorts, words: &mut [u32]) -> bool;"
+            )));
+        }
+    }
+
+    fn assert_wide_wrapper_artifacts(wrapper: &str) {
+        for width in [65, 96, 129, 256] {
+            assert!(wrapper.contains(&format!(
+                "value: impl ::core::borrow::Borrow<::vvm::Bits<{width}>>"
+            )));
+            assert!(wrapper.contains(&format!(
+                "pub fn output_u{width}(&self) -> Result<::vvm::Bits<{width}>> {{"
+            )));
+            assert!(wrapper.contains(&format!("vec![0_u32; ::vvm::Bits::<{width}>::WORDS];")));
+        }
+        for width in [65, 129] {
+            assert!(wrapper.contains(&format!(
+                "value: impl ::core::borrow::Borrow<::vvm::SignedBits<{width}>>"
+            )));
+            assert!(wrapper.contains(&format!(
+                "pub fn output_i{width}(&self) -> Result<::vvm::SignedBits<{width}>> {{"
+            )));
+            assert!(wrapper.contains(&format!(
+                "vec![0_u32; ::vvm::SignedBits::<{width}>::WORDS];"
+            )));
+        }
+        assert!(wrapper.contains("WidePortTransferFailed"));
+        assert!(wrapper.contains(".map_err(|_error| {"));
     }
 
     #[test]
@@ -508,8 +597,8 @@ mod tests {
     }
 
     #[test]
-    fn traced_wrapper_generation_encodes_trace_lifecycle_rules(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn traced_wrapper_generation_encodes_trace_lifecycle_rules()
+    -> Result<(), Box<dyn std::error::Error>> {
         let metadata = counter_metadata()?;
         let output = tempdir()?;
         let generated = generate(
@@ -531,8 +620,10 @@ mod tests {
         assert!(wrapper.contains("self.trace_configured = TraceFlag::new(true);"));
         assert!(wrapper.contains("TraceOpenFailed"));
         assert!(wrapper.contains("self.evaluated = TraceFlag::new(true);"));
-        assert!(wrapper
-            .contains("self.trace_open = TraceFlag::new(self.inner_ref()?.trace_is_open());"));
+        assert!(
+            wrapper
+                .contains("self.trace_open = TraceFlag::new(self.inner_ref()?.trace_is_open());")
+        );
         assert!(wrapper.contains(
             "if self.finished {\n            self.trace_open = TraceFlag::new(false);\n            return Ok(());"
         ));
@@ -562,114 +653,20 @@ mod tests {
         let bridge = std::fs::read_to_string(&generated.cxx_bridge)?;
         let wrapper = std::fs::read_to_string(&generated.rust_wrapper)?;
 
-        assert!(header.contains("#include \"rust/cxx.h\""));
-        assert!(
-            header.contains("bool set_input_u65(rust::Slice<const std::uint32_t> words) noexcept;")
-        );
-        assert!(
-            header.contains("bool set_input_u96(rust::Slice<const std::uint32_t> words) noexcept;")
-        );
-        assert!(header
-            .contains("bool set_input_u129(rust::Slice<const std::uint32_t> words) noexcept;"));
-        assert!(header
-            .contains("bool set_input_u256(rust::Slice<const std::uint32_t> words) noexcept;"));
-        assert!(
-            header.contains("bool set_input_i65(rust::Slice<const std::uint32_t> words) noexcept;")
-        );
-        assert!(header
-            .contains("bool set_input_i129(rust::Slice<const std::uint32_t> words) noexcept;"));
-        assert!(
-            header.contains("bool output_u65(rust::Slice<std::uint32_t> words) const noexcept;")
-        );
-        assert!(
-            header.contains("bool output_u96(rust::Slice<std::uint32_t> words) const noexcept;")
-        );
-        assert!(
-            header.contains("bool output_u129(rust::Slice<std::uint32_t> words) const noexcept;")
-        );
-        assert!(
-            header.contains("bool output_u256(rust::Slice<std::uint32_t> words) const noexcept;")
-        );
-        assert!(
-            header.contains("bool output_i65(rust::Slice<std::uint32_t> words) const noexcept;")
-        );
-        assert!(
-            header.contains("bool output_i129(rust::Slice<std::uint32_t> words) const noexcept;")
-        );
-        assert!(!header.contains("set_input_u65(std::uint64_t value) noexcept"));
-        assert!(!header.contains("set_input_u96(std::uint64_t value) noexcept"));
-        assert!(!header.contains("output_u96() const noexcept"));
-        assert!(!header.contains("output_u256() const noexcept"));
+        assert_wide_header_artifacts(&header);
 
-        assert!(source.contains("constexpr std::size_t expected_words{3};"));
-        assert!(source.contains("constexpr std::size_t expected_words{5};"));
-        assert!(source.contains("constexpr std::size_t expected_words{8};"));
-        assert!(source.contains("static_assert(RawType::Words == expected_words);"));
-        assert!(source.contains("if (words.size() != expected_words) {"));
-        assert!(source.contains("return false;"));
-        assert!(source.contains("raw_value[index] = words[index];"));
-        assert!(source.contains("words[index] = raw_value[index];"));
-        assert!(source.contains("raw_value[2] &= 0x1U;"));
-        assert!(source.contains("raw_value[4] &= 0x1U;"));
-        assert!(source.contains("words[2] &= 0x1U;"));
-        assert!(source.contains("words[4] &= 0x1U;"));
-        assert!(!source.contains("raw_value[2] &= 0xFFFFFFFFU;"));
-        assert!(!source.contains("words[2] &= 0xFFFFFFFFU;"));
-        assert!(!source.contains("raw_value[7] &= 0xFFFFFFFFU;"));
-        assert!(!source.contains("words[7] &= 0xFFFFFFFFU;"));
+        assert_wide_source_artifacts(&source);
 
-        assert!(
-            bridge.contains("fn set_input_u65(self: Pin<&mut WidePorts>, words: &[u32]) -> bool;")
-        );
-        assert!(
-            bridge.contains("fn set_input_u96(self: Pin<&mut WidePorts>, words: &[u32]) -> bool;")
-        );
-        assert!(
-            bridge.contains("fn set_input_u129(self: Pin<&mut WidePorts>, words: &[u32]) -> bool;")
-        );
-        assert!(
-            bridge.contains("fn set_input_u256(self: Pin<&mut WidePorts>, words: &[u32]) -> bool;")
-        );
-        assert!(
-            bridge.contains("fn set_input_i65(self: Pin<&mut WidePorts>, words: &[u32]) -> bool;")
-        );
-        assert!(
-            bridge.contains("fn set_input_i129(self: Pin<&mut WidePorts>, words: &[u32]) -> bool;")
-        );
-        assert!(bridge.contains("fn output_u65(self: &WidePorts, words: &mut [u32]) -> bool;"));
-        assert!(bridge.contains("fn output_u96(self: &WidePorts, words: &mut [u32]) -> bool;"));
-        assert!(bridge.contains("fn output_u129(self: &WidePorts, words: &mut [u32]) -> bool;"));
-        assert!(bridge.contains("fn output_u256(self: &WidePorts, words: &mut [u32]) -> bool;"));
-        assert!(bridge.contains("fn output_i65(self: &WidePorts, words: &mut [u32]) -> bool;"));
-        assert!(bridge.contains("fn output_i129(self: &WidePorts, words: &mut [u32]) -> bool;"));
+        assert_wide_bridge_artifacts(&bridge);
 
-        assert!(wrapper.contains("value: impl ::core::borrow::Borrow<::vvm::Bits<65>>"));
-        assert!(wrapper.contains("value: impl ::core::borrow::Borrow<::vvm::Bits<96>>"));
-        assert!(wrapper.contains("value: impl ::core::borrow::Borrow<::vvm::Bits<129>>"));
-        assert!(wrapper.contains("value: impl ::core::borrow::Borrow<::vvm::Bits<256>>"));
-        assert!(wrapper.contains("value: impl ::core::borrow::Borrow<::vvm::SignedBits<65>>"));
-        assert!(wrapper.contains("value: impl ::core::borrow::Borrow<::vvm::SignedBits<129>>"));
-        assert!(wrapper.contains("pub fn output_u65(&self) -> Result<::vvm::Bits<65>> {"));
-        assert!(wrapper.contains("pub fn output_u96(&self) -> Result<::vvm::Bits<96>> {"));
-        assert!(wrapper.contains("pub fn output_u129(&self) -> Result<::vvm::Bits<129>> {"));
-        assert!(wrapper.contains("pub fn output_u256(&self) -> Result<::vvm::Bits<256>> {"));
-        assert!(wrapper.contains("pub fn output_i65(&self) -> Result<::vvm::SignedBits<65>> {"));
-        assert!(wrapper.contains("pub fn output_i129(&self) -> Result<::vvm::SignedBits<129>> {"));
-        assert!(wrapper.contains("vec![0_u32; ::vvm::Bits::<65>::WORDS];"));
-        assert!(wrapper.contains("vec![0_u32; ::vvm::Bits::<96>::WORDS];"));
-        assert!(wrapper.contains("vec![0_u32; ::vvm::Bits::<129>::WORDS];"));
-        assert!(wrapper.contains("vec![0_u32; ::vvm::Bits::<256>::WORDS];"));
-        assert!(wrapper.contains("vec![0_u32; ::vvm::SignedBits::<65>::WORDS];"));
-        assert!(wrapper.contains("vec![0_u32; ::vvm::SignedBits::<129>::WORDS];"));
-        assert!(wrapper.contains("WidePortTransferFailed"));
-        assert!(wrapper.contains(".map_err(|_error| {"));
+        assert_wide_wrapper_artifacts(&wrapper);
 
         Ok(())
     }
 
     #[test]
-    fn packed_array_codegen_generates_newtypes_and_flattened_transfer(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn packed_array_codegen_generates_newtypes_and_flattened_transfer()
+    -> Result<(), Box<dyn std::error::Error>> {
         let metadata = packed_array_ports_metadata()?;
         let output = tempdir()?;
         let generated = generate(&metadata, "Vpacked_array_ports", output.path(), None)?;
@@ -744,8 +741,8 @@ mod tests {
     }
 
     #[test]
-    fn packed_struct_codegen_generates_newtypes_and_flattened_transfer(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn packed_struct_codegen_generates_newtypes_and_flattened_transfer()
+    -> Result<(), Box<dyn std::error::Error>> {
         let metadata = packed_struct_ports_metadata()?;
         let output = tempdir()?;
         let generated = generate(&metadata, "Vpacked_struct_ports", output.path(), None)?;
@@ -756,18 +753,25 @@ mod tests {
 
         assert!(header.contains("void set_packet(std::uint32_t value) noexcept;"));
         assert!(header.contains("[[nodiscard]] std::uint32_t packet_out() const noexcept;"));
-        assert!(header
-            .contains("bool set_wide_packet(rust::Slice<const std::uint32_t> words) noexcept;"));
-        assert!(header
-            .contains("bool wide_packet_out(rust::Slice<std::uint32_t> words) const noexcept;"));
+        assert!(
+            header
+                .contains("bool set_wide_packet(rust::Slice<const std::uint32_t> words) noexcept;")
+        );
+        assert!(
+            header
+                .contains("bool wide_packet_out(rust::Slice<std::uint32_t> words) const noexcept;")
+        );
 
         assert!(bridge.contains("fn set_packet(self: Pin<&mut PackedStructPorts>, value: u32);"));
         assert!(bridge.contains("fn packet_out(self: &PackedStructPorts) -> u32;"));
         assert!(bridge.contains(
             "fn set_wide_packet(self: Pin<&mut PackedStructPorts>, words: &[u32]) -> bool;"
         ));
-        assert!(bridge
-            .contains("fn wide_packet_out(self: &PackedStructPorts, words: &mut [u32]) -> bool;"));
+        assert!(
+            bridge.contains(
+                "fn wide_packet_out(self: &PackedStructPorts, words: &mut [u32]) -> bool;"
+            )
+        );
 
         assert!(wrapper.contains("pub struct Packet {"));
         assert!(wrapper.contains("pub struct PacketOut {"));
@@ -827,8 +831,8 @@ mod tests {
     }
 
     #[test]
-    fn packed_enum_codegen_generates_wrappers_and_flattened_transfer(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn packed_enum_codegen_generates_wrappers_and_flattened_transfer()
+    -> Result<(), Box<dyn std::error::Error>> {
         let metadata = packed_enum_ports_metadata()?;
         let output = tempdir()?;
         let generated = generate(&metadata, "Vpacked_enum_ports", output.path(), None)?;
@@ -847,7 +851,9 @@ mod tests {
 
         assert!(bridge.contains("fn set_state(self: Pin<&mut PackedEnumPorts>, value: u8);"));
         assert!(bridge.contains("fn state_out(self: &PackedEnumPorts) -> u8;"));
-        assert!(bridge.contains("fn set_signed_state(self: Pin<&mut PackedEnumPorts>, value: i8);"));
+        assert!(
+            bridge.contains("fn set_signed_state(self: Pin<&mut PackedEnumPorts>, value: i8);")
+        );
         assert!(bridge.contains("fn signed_state_out(self: &PackedEnumPorts) -> i8;"));
 
         assert!(wrapper.contains("pub struct State {"));
@@ -861,8 +867,11 @@ mod tests {
         );
         assert!(wrapper.contains("pub const LAYOUT: ::vvm::PackedEnumLayout ="));
         assert!(wrapper.contains("pub fn from_raw(value: u64) -> Self {"));
-        assert!(wrapper
-            .contains("pub fn raw(&self) -> std::result::Result<u64, ::vvm::PackedLayoutError> {"));
+        assert!(
+            wrapper.contains(
+                "pub fn raw(&self) -> std::result::Result<u64, ::vvm::PackedLayoutError> {"
+            )
+        );
         assert!(wrapper.contains("pub fn from_variant(variant: StateVariant) -> Self {"));
         assert!(wrapper.contains(
             "pub fn variant(&self) -> std::result::Result<Option<StateVariant>, \

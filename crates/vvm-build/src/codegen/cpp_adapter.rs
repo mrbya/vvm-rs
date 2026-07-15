@@ -1,12 +1,12 @@
 use super::names::DutNames;
 use super::types::{
-    contains_slice_ports, PortType, SignalType, UnpackedArrayElementType, UnpackedArrayType,
-    WideType,
+    PortType, SignalType, UnpackedArrayElementType, UnpackedArrayType, WideType,
+    contains_slice_ports,
 };
+use crate::TraceOptions;
 use crate::codegen::GENERATED_NOTICE;
 use crate::metadata::{DutMetadata, Port, PortDirection};
 use crate::trace::TraceFormat;
-use crate::TraceOptions;
 
 /// Complete generated C++ adapter text.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -152,11 +152,13 @@ fn render_header_port_methods(output: &mut String, metadata: &DutMetadata, names
             let value_type = array_type.ffi_cpp_element_type();
             let declaration = match port.direction {
                 PortDirection::Input => format!(
-                    "    [[nodiscard]] bool {}(rust::Slice<const {value_type}> {value_name}) noexcept;",
+                    "    [[nodiscard]] bool {}(rust::Slice<const {value_type}> {value_name}) \
+                     noexcept;",
                     port_names.method
                 ),
                 PortDirection::Output => format!(
-                    "    [[nodiscard]] bool {}(rust::Slice<{value_type}> {value_name}) const noexcept;",
+                    "    [[nodiscard]] bool {}(rust::Slice<{value_type}> {value_name}) const \
+                     noexcept;",
                     port_names.method
                 ),
                 PortDirection::Inout => continue,
@@ -938,11 +940,46 @@ fn render_unpacked_array_setter(
     let Some(transfer_length) = array.transfer_length() else {
         return;
     };
-    let value_name = if matches!(array.element_type(), UnpackedArrayElementType::Wide(_)) {
+    let value_name = unpacked_array_value_name(array);
+    render_unpacked_array_setter_prelude(
+        output,
+        accessor,
+        cpp_type,
+        method,
+        array,
+        transfer_length,
+        value_name,
+    );
+    match array.element_type() {
+        UnpackedArrayElementType::Scalar(signal) => {
+            render_unpacked_scalar_setter(output, array, signal);
+        }
+        UnpackedArrayElementType::Wide(wide) => render_unpacked_wide_setter(output, array, wide),
+    }
+    push_line(output, &format!("    impl_->model->{accessor}(raw_value);"));
+    push_line(output, "    return true;");
+    push_line(output, "}");
+}
+
+/// Returns the generated C++ transfer parameter name for an unpacked array.
+const fn unpacked_array_value_name(array: UnpackedArrayType<'_>) -> &'static str {
+    if matches!(array.element_type(), UnpackedArrayElementType::Wide(_)) {
         "words"
     } else {
         "values"
-    };
+    }
+}
+
+/// Renders common unpacked-array input validation and storage setup.
+fn render_unpacked_array_setter_prelude(
+    output: &mut String,
+    accessor: &str,
+    cpp_type: &str,
+    method: &str,
+    array: UnpackedArrayType<'_>,
+    transfer_length: u32,
+    value_name: &str,
+) {
     let value_type = array.ffi_cpp_element_type();
     push_line(output, "");
     push_line(
@@ -976,104 +1013,116 @@ fn render_unpacked_array_setter(
     push_line(output, "    if (raw_value.size() != expected_elements) {");
     push_line(output, "        return false;");
     push_line(output, "    }");
-    match array.element_type() {
-        UnpackedArrayElementType::Scalar(signal) => {
-            push_line(
-                output,
-                "    using RawElement = std::decay_t<decltype(raw_value[0])>;",
-            );
-            push_line(
-                output,
-                "    for (std::size_t ordinal = 0; ordinal < expected_elements; ++ordinal) {",
-            );
-            if array.left() > array.right() {
-                push_line(
-                    output,
-                    "        const auto native_ordinal = expected_elements - 1U - ordinal;",
-                );
-            } else {
-                push_line(output, "        const auto native_ordinal = ordinal;");
-            }
-            let source = if array.element_is_bool() {
-                "values[ordinal] != 0U".to_owned()
-            } else if array.element_signed() {
-                let mask = signal
-                    .mask_literal(array.element_bit_width())
-                    .unwrap_or_else(|| "bits".to_owned());
-                let expression = if mask == "bits" {
-                    "bits".to_owned()
-                } else {
-                    format!("bits & {mask}")
-                };
-                push_line(
-                    output,
-                    &format!(
-                        "        using UnsignedType = {};",
-                        signal.unsigned_cpp_type()
-                    ),
-                );
-                push_line(
-                    output,
-                    "        const auto bits = static_cast<UnsignedType>(values[ordinal]);",
-                );
-                expression
-            } else {
-                signal.mask_literal(array.element_bit_width()).map_or_else(
-                    || "values[ordinal]".to_owned(),
-                    |mask| format!("values[ordinal] & {mask}"),
-                )
-            };
-            push_line(
-                output,
-                &format!("        raw_value[native_ordinal] = static_cast<RawElement>({source});"),
-            );
-            push_line(output, "    }");
-        }
-        UnpackedArrayElementType::Wide(wide) => {
-            push_line(
-                output,
-                &format!(
-                    "    constexpr std::size_t element_words{{{}}};",
-                    wide.word_count()
-                ),
-            );
-            push_line(
-                output,
-                "    for (std::size_t element = 0; element < expected_elements; ++element) {",
-            );
-            if array.left() > array.right() {
-                push_line(
-                    output,
-                    "        const auto native_element = expected_elements - 1U - element;",
-                );
-            } else {
-                push_line(output, "        const auto native_element = element;");
-            }
-            push_line(
-                output,
-                "        for (std::size_t word = 0; word < element_words; ++word) {",
-            );
-            push_line(
-                output,
-                "            raw_value[native_element][word] = words[element * element_words + word];",
-            );
-            push_line(output, "        }");
-            if wide.requires_final_word_mask() {
-                push_line(
-                    output,
-                    &format!(
-                        "        raw_value[native_element][{}] &= {};",
-                        wide.word_count().saturating_sub(1),
-                        wide.final_word_mask_literal()
-                    ),
-                );
-            }
-            push_line(output, "    }");
-        }
+}
+
+/// Renders scalar-element copies for an unpacked-array input.
+fn render_unpacked_scalar_setter(
+    output: &mut String,
+    array: UnpackedArrayType<'_>,
+    signal: SignalType,
+) {
+    push_line(
+        output,
+        "    using RawElement = std::decay_t<decltype(raw_value[0])>;",
+    );
+    push_line(
+        output,
+        "    for (std::size_t ordinal = 0; ordinal < expected_elements; ++ordinal) {",
+    );
+    render_unpacked_native_ordinal(output, array, "ordinal");
+    let source = render_unpacked_scalar_setter_source(output, array, signal);
+    push_line(
+        output,
+        &format!("        raw_value[native_ordinal] = static_cast<RawElement>({source});"),
+    );
+    push_line(output, "    }");
+}
+
+/// Renders the C++ source expression for one scalar unpacked-array input element.
+fn render_unpacked_scalar_setter_source(
+    output: &mut String,
+    array: UnpackedArrayType<'_>,
+    signal: SignalType,
+) -> String {
+    if array.element_is_bool() {
+        return "values[ordinal] != 0U".to_owned();
     }
-    push_line(output, &format!("    impl_->model->{accessor}(raw_value);"));
-    push_line(output, "    return true;");
-    push_line(output, "}");
+    if array.element_signed() {
+        let mask = signal.mask_literal(array.element_bit_width());
+        push_line(
+            output,
+            &format!(
+                "        using UnsignedType = {};",
+                signal.unsigned_cpp_type()
+            ),
+        );
+        push_line(
+            output,
+            "        const auto bits = static_cast<UnsignedType>(values[ordinal]);",
+        );
+        return mask.map_or_else(|| "bits".to_owned(), |mask| format!("bits & {mask}"));
+    }
+    signal.mask_literal(array.element_bit_width()).map_or_else(
+        || "values[ordinal]".to_owned(),
+        |mask| format!("values[ordinal] & {mask}"),
+    )
+}
+
+/// Renders wide-element copies for an unpacked-array input.
+fn render_unpacked_wide_setter(output: &mut String, array: UnpackedArrayType<'_>, wide: WideType) {
+    push_line(
+        output,
+        &format!(
+            "    constexpr std::size_t element_words{{{}}};",
+            wide.word_count()
+        ),
+    );
+    push_line(
+        output,
+        "    for (std::size_t element = 0; element < expected_elements; ++element) {",
+    );
+    render_unpacked_native_ordinal(output, array, "element");
+    push_line(
+        output,
+        "        for (std::size_t word = 0; word < element_words; ++word) {",
+    );
+    push_line(
+        output,
+        "            raw_value[native_element][word] = words[element * element_words + word];",
+    );
+    push_line(output, "        }");
+    if wide.requires_final_word_mask() {
+        push_line(
+            output,
+            &format!(
+                "        raw_value[native_element][{}] &= {};",
+                wide.word_count().saturating_sub(1),
+                wide.final_word_mask_literal()
+            ),
+        );
+    }
+    push_line(output, "    }");
+}
+
+/// Renders an HDL-to-native unpacked-array index conversion.
+fn render_unpacked_native_ordinal(
+    output: &mut String,
+    array: UnpackedArrayType<'_>,
+    ordinal: &str,
+) {
+    let name = if ordinal == "ordinal" {
+        "native_ordinal"
+    } else {
+        "native_element"
+    };
+    if array.left() > array.right() {
+        push_line(
+            output,
+            &format!("        const auto {name} = expected_elements - 1U - {ordinal};"),
+        );
+    } else {
+        push_line(output, &format!("        const auto {name} = {ordinal};"));
+    }
 }
 
 /// Renders one unpacked-array output transfer.
@@ -1087,11 +1136,36 @@ fn render_unpacked_array_getter(
     let Some(transfer_length) = array.transfer_length() else {
         return;
     };
-    let value_name = if matches!(array.element_type(), UnpackedArrayElementType::Wide(_)) {
-        "words"
-    } else {
-        "values"
-    };
+    let value_name = unpacked_array_value_name(array);
+    render_unpacked_array_getter_prelude(
+        output,
+        accessor,
+        cpp_type,
+        method,
+        array,
+        transfer_length,
+        value_name,
+    );
+    match array.element_type() {
+        UnpackedArrayElementType::Scalar(signal) => {
+            render_unpacked_scalar_getter(output, array, signal);
+        }
+        UnpackedArrayElementType::Wide(wide) => render_unpacked_wide_getter(output, array, wide),
+    }
+    push_line(output, "    return true;");
+    push_line(output, "}");
+}
+
+/// Renders common unpacked-array output validation and storage access.
+fn render_unpacked_array_getter_prelude(
+    output: &mut String,
+    accessor: &str,
+    cpp_type: &str,
+    method: &str,
+    array: UnpackedArrayType<'_>,
+    transfer_length: u32,
+    value_name: &str,
+) {
     let value_type = array.ffi_cpp_element_type();
     push_line(output, "");
     push_line(
@@ -1124,88 +1198,79 @@ fn render_unpacked_array_getter(
     push_line(output, "    if (raw_value.size() != expected_elements) {");
     push_line(output, "        return false;");
     push_line(output, "    }");
-    match array.element_type() {
-        UnpackedArrayElementType::Scalar(signal) => {
-            push_line(
-                output,
-                "    for (std::size_t ordinal = 0; ordinal < expected_elements; ++ordinal) {",
-            );
-            if array.left() > array.right() {
-                push_line(
-                    output,
-                    "        const auto native_ordinal = expected_elements - 1U - ordinal;",
-                );
-            } else {
-                push_line(output, "        const auto native_ordinal = ordinal;");
-            }
-            if signal == SignalType::Bool {
-                push_line(
-                    output,
-                    "        values[ordinal] = raw_value[native_ordinal] != 0 ? 1U : 0U;",
-                );
-            } else if array.element_signed() {
-                push_line(
-                    output,
-                    &format!(
-                        "        values[ordinal] = Impl::sign_extend<{}, {}>(raw_value[native_ordinal]);",
-                        signal.cpp_type(),
-                        array.element_width()
-                    ),
-                );
-            } else {
-                push_line(
-                    output,
-                    &format!(
-                        "        values[ordinal] = static_cast<{value_type}>(raw_value[native_ordinal]);"
-                    ),
-                );
-            }
-            push_line(output, "    }");
-        }
-        UnpackedArrayElementType::Wide(wide) => {
-            push_line(
-                output,
-                &format!(
-                    "    constexpr std::size_t element_words{{{}}};",
-                    wide.word_count()
-                ),
-            );
-            push_line(
-                output,
-                "    for (std::size_t element = 0; element < expected_elements; ++element) {",
-            );
-            if array.left() > array.right() {
-                push_line(
-                    output,
-                    "        const auto native_element = expected_elements - 1U - element;",
-                );
-            } else {
-                push_line(output, "        const auto native_element = element;");
-            }
-            push_line(
-                output,
-                "        for (std::size_t word = 0; word < element_words; ++word) {",
-            );
-            push_line(
-                output,
-                "            words[element * element_words + word] = raw_value[native_element][word];",
-            );
-            push_line(output, "        }");
-            if wide.requires_final_word_mask() {
-                push_line(
-                    output,
-                    &format!(
-                        "        words[element * element_words + {}] &= {};",
-                        wide.word_count().saturating_sub(1),
-                        wide.final_word_mask_literal()
-                    ),
-                );
-            }
-            push_line(output, "    }");
-        }
+}
+
+/// Renders scalar-element copies for an unpacked-array output.
+fn render_unpacked_scalar_getter(
+    output: &mut String,
+    array: UnpackedArrayType<'_>,
+    signal: SignalType,
+) {
+    push_line(
+        output,
+        "    for (std::size_t ordinal = 0; ordinal < expected_elements; ++ordinal) {",
+    );
+    render_unpacked_native_ordinal(output, array, "ordinal");
+    if signal == SignalType::Bool {
+        push_line(
+            output,
+            "        values[ordinal] = raw_value[native_ordinal] != 0 ? 1U : 0U;",
+        );
+    } else if array.element_signed() {
+        push_line(
+            output,
+            &format!(
+                "        values[ordinal] = Impl::sign_extend<{}, {}>(raw_value[native_ordinal]);",
+                signal.cpp_type(),
+                array.element_width()
+            ),
+        );
+    } else {
+        let value_type = array.ffi_cpp_element_type();
+        push_line(
+            output,
+            &format!(
+                "        values[ordinal] = static_cast<{value_type}>(raw_value[native_ordinal]);"
+            ),
+        );
     }
-    push_line(output, "    return true;");
-    push_line(output, "}");
+    push_line(output, "    }");
+}
+
+/// Renders wide-element copies for an unpacked-array output.
+fn render_unpacked_wide_getter(output: &mut String, array: UnpackedArrayType<'_>, wide: WideType) {
+    push_line(
+        output,
+        &format!(
+            "    constexpr std::size_t element_words{{{}}};",
+            wide.word_count()
+        ),
+    );
+    push_line(
+        output,
+        "    for (std::size_t element = 0; element < expected_elements; ++element) {",
+    );
+    render_unpacked_native_ordinal(output, array, "element");
+    push_line(
+        output,
+        "        for (std::size_t word = 0; word < element_words; ++word) {",
+    );
+    push_line(
+        output,
+        "            words[element * element_words + word] = raw_value[native_element][word];",
+    );
+    push_line(output, "        }");
+    if wide.requires_final_word_mask() {
+        push_line(
+            output,
+            &format!(
+                "        words[element * element_words + {}] &= {};",
+                wide.word_count().saturating_sub(1),
+                wide.final_word_mask_literal()
+            ),
+        );
+    }
+    push_line(output, "    }");
 }
 
 /// Appends one line and a Unix newline.
@@ -1333,8 +1398,8 @@ mod tests {
     }
 
     #[test]
-    fn wide_input_setter_emits_three_word_transfer_and_top_mask(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn wide_input_setter_emits_three_word_transfer_and_top_mask()
+    -> Result<(), Box<dyn std::error::Error>> {
         let mut output = String::new();
         let port = port(PortDirection::Input, 65, false)?;
 
@@ -1366,8 +1431,8 @@ mod tests {
     }
 
     #[test]
-    fn signed_wide_input_uses_same_transfer_logic_as_unsigned(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn signed_wide_input_uses_same_transfer_logic_as_unsigned()
+    -> Result<(), Box<dyn std::error::Error>> {
         let mut output = String::new();
         let port = port(PortDirection::Input, 129, true)?;
 
@@ -1382,8 +1447,8 @@ mod tests {
     }
 
     #[test]
-    fn wide_getter_rejects_invalid_slice_length_before_indexing(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn wide_getter_rejects_invalid_slice_length_before_indexing()
+    -> Result<(), Box<dyn std::error::Error>> {
         let mut output = String::new();
         let port = port(PortDirection::Output, 129, true)?;
 

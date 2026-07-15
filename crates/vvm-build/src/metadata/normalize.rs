@@ -108,12 +108,14 @@ pub fn validate_supported(metadata: &DutMetadata) -> BuildResult<()> {
             });
         }
 
-        match &port.shape {
+        match port.shape {
             PortShape::PackedScalar(_) => {}
-            PortShape::PackedArray(shape) => validate_supported_packed_array(port, shape)?,
-            PortShape::PackedStruct(shape) => validate_supported_packed_struct(port, shape)?,
-            PortShape::PackedEnum(shape) => validate_supported_packed_enum(port, shape)?,
-            PortShape::UnpackedArray(shape) => validate_supported_unpacked_array(port, shape)?,
+            PortShape::PackedArray(ref shape) => validate_supported_packed_array(port, shape)?,
+            PortShape::PackedStruct(ref shape) => validate_supported_packed_struct(port, shape)?,
+            PortShape::PackedEnum(ref shape) => validate_supported_packed_enum(port, shape)?,
+            PortShape::UnpackedArray(ref shape) => {
+                validate_supported_unpacked_array(port, shape)?;
+            }
         }
     }
 
@@ -127,7 +129,7 @@ fn validate_supported_unpacked_array(port: &Port, shape: &UnpackedArrayShape) ->
             port: port.name.clone(),
         });
     }
-    let PortShape::PackedScalar(element) = shape.element.as_ref() else {
+    let PortShape::PackedScalar(ref element) = *shape.element.as_ref() else {
         return Err(BuildError::UnsupportedUnpackedArrayPort {
             port: port.name.clone(),
         });
@@ -205,7 +207,7 @@ fn validate_supported_packed_struct(port: &Port, shape: &PackedStructShape) -> B
     }
 
     for field in &shape.fields {
-        let PortShape::PackedScalar(field_shape) = &field.shape else {
+        let PortShape::PackedScalar(ref field_shape) = field.shape else {
             return Err(BuildError::UnsupportedPackedStructPort {
                 port: port.name.clone(),
             });
@@ -1466,7 +1468,17 @@ mod tests {
     fn normalizes_aggregate_ports_fixture() -> Result<(), Box<dyn std::error::Error>> {
         let actual = aggregate_ports_metadata()?;
 
-        let clk = find_port(&actual, "clk")?;
+        assert_aggregate_scalar_and_array_ports(&actual)?;
+        assert_aggregate_struct_ports(&actual)?;
+        assert_aggregate_enum_and_unpacked_ports(&actual)?;
+
+        Ok(())
+    }
+
+    fn assert_aggregate_scalar_and_array_ports(
+        actual: &DutMetadata,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let clk = find_port(actual, "clk")?;
         assert_eq!(clk.direction, PortDirection::Input);
         assert_eq!(clk.width, width(1));
         assert!(!clk.signed);
@@ -1478,7 +1490,7 @@ mod tests {
             })
         );
 
-        let packed_bytes = find_port(&actual, "packed_bytes")?;
+        let packed_bytes = find_port(actual, "packed_bytes")?;
         assert_eq!(packed_bytes.direction, PortDirection::Input);
         assert_eq!(packed_bytes.width, width(32));
         assert!(!packed_bytes.signed);
@@ -1495,12 +1507,18 @@ mod tests {
             })
         );
 
-        let packed_bytes_out = find_port(&actual, "packed_bytes_out")?;
+        let packed_bytes_out = find_port(actual, "packed_bytes_out")?;
         assert_eq!(packed_bytes_out.direction, PortDirection::Output);
         assert_eq!(packed_bytes_out.width, width(32));
         assert!(!packed_bytes_out.signed);
 
-        let packet = find_port(&actual, "packet")?;
+        Ok(())
+    }
+
+    fn assert_aggregate_struct_ports(
+        actual: &DutMetadata,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let packet = find_port(actual, "packet")?;
         assert_eq!(packet.direction, PortDirection::Input);
         assert_eq!(packet.width, width(16));
         assert!(!packet.signed);
@@ -1554,12 +1572,18 @@ mod tests {
             })
         );
 
-        let packet_out = find_port(&actual, "packet_out")?;
+        let packet_out = find_port(actual, "packet_out")?;
         assert_eq!(packet_out.direction, PortDirection::Output);
         assert_eq!(packet_out.width, width(16));
         assert!(!packet_out.signed);
 
-        let state = find_port(&actual, "state")?;
+        Ok(())
+    }
+
+    fn assert_aggregate_enum_and_unpacked_ports(
+        actual: &DutMetadata,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let state = find_port(actual, "state")?;
         assert_eq!(state.direction, PortDirection::Input);
         assert_eq!(state.width, width(2));
         assert!(!state.signed);
@@ -1589,12 +1613,12 @@ mod tests {
             })
         );
 
-        let state_out = find_port(&actual, "state_out")?;
+        let state_out = find_port(actual, "state_out")?;
         assert_eq!(state_out.direction, PortDirection::Output);
         assert_eq!(state_out.width, width(2));
         assert!(!state_out.signed);
 
-        let unpacked_bytes = find_port(&actual, "unpacked_bytes")?;
+        let unpacked_bytes = find_port(actual, "unpacked_bytes")?;
         assert_eq!(unpacked_bytes.direction, PortDirection::Input);
         assert_eq!(unpacked_bytes.width, width(32));
         assert!(!unpacked_bytes.signed);
@@ -1609,7 +1633,7 @@ mod tests {
             })
         );
 
-        let unpacked_bytes_out = find_port(&actual, "unpacked_bytes_out")?;
+        let unpacked_bytes_out = find_port(actual, "unpacked_bytes_out")?;
         assert_eq!(unpacked_bytes_out.direction, PortDirection::Output);
         assert_eq!(unpacked_bytes_out.width, width(32));
         assert!(!unpacked_bytes_out.signed);
@@ -2046,18 +2070,6 @@ mod tests {
         };
 
         validate_supported(&metadata)
-    }
-
-    #[test]
-    fn rejects_aggregate_ports_after_normalization() -> Result<(), Box<dyn std::error::Error>> {
-        let metadata = aggregate_ports_metadata()?;
-
-        assert!(matches!(
-            validate_supported(&metadata),
-            Err(BuildError::UnsupportedUnpackedArrayPort { port }) if port == "unpacked_bytes"
-        ));
-
-        Ok(())
     }
 
     #[test]

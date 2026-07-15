@@ -231,14 +231,14 @@ impl<'a> PackedArrayType<'a> {
 impl<'a> UnpackedArrayType<'a> {
     /// Returns a descriptor for a supported unpacked-array port.
     pub fn from_port(port: &'a Port) -> Option<Self> {
-        let PortShape::UnpackedArray(shape) = &port.shape else {
+        let PortShape::UnpackedArray(ref shape) = port.shape else {
             return None;
         };
         if shape.dimensions.len() != 1 {
             return None;
         }
         let dimension = shape.dimensions.first()?;
-        let PortShape::PackedScalar(element) = shape.element.as_ref() else {
+        let PortShape::PackedScalar(ref element) = *shape.element.as_ref() else {
             return None;
         };
         Some(Self { element, dimension })
@@ -322,7 +322,7 @@ impl<'a> UnpackedArrayType<'a> {
 impl<'a> PackedStructType<'a> {
     /// Returns a supported packed-struct descriptor.
     pub fn from_port(port: &'a Port) -> Option<Self> {
-        let PortShape::PackedStruct(shape) = &port.shape else {
+        let PortShape::PackedStruct(ref shape) = port.shape else {
             return None;
         };
 
@@ -383,7 +383,7 @@ impl<'a> PackedStructType<'a> {
 impl<'a> PackedEnumType<'a> {
     /// Returns a supported packed-enum descriptor.
     pub const fn from_port(port: &'a Port) -> Option<Self> {
-        let PortShape::PackedEnum(shape) = &port.shape else {
+        let PortShape::PackedEnum(ref shape) = port.shape else {
             return None;
         };
 
@@ -434,7 +434,7 @@ impl<'a> PackedEnumType<'a> {
 impl<'a> PackedStructFieldType<'a> {
     /// Creates a descriptor for one scalar packed-struct field.
     pub const fn from_field(field: &'a PackedStructField) -> Option<Self> {
-        let PortShape::PackedScalar(scalar) = &field.shape else {
+        let PortShape::PackedScalar(ref scalar) = field.shape else {
             return None;
         };
 
@@ -745,10 +745,10 @@ mod tests {
     use std::num::NonZeroU32;
 
     use super::{
-        contains_packed_aggregate_ports, contains_packed_array_ports, contains_packed_enum_ports,
-        contains_packed_struct_ports, contains_unpacked_array_ports, contains_wide_ports,
         PackedArrayType, PackedEnumType, PackedStructFieldValueType, PackedStructType, PortType,
         SignalType, UnpackedArrayElementType, UnpackedArrayType, WideType,
+        contains_packed_aggregate_ports, contains_packed_array_ports, contains_packed_enum_ports,
+        contains_packed_struct_ports, contains_unpacked_array_ports, contains_wide_ports,
     };
     use crate::metadata::{
         ArrayDimension, BitWidth, DutMetadata, PackedArrayShape, PackedEnumShape,
@@ -1036,8 +1036,8 @@ mod tests {
     }
 
     #[test]
-    fn sixty_five_bit_wide_type_uses_three_words_and_single_bit_mask(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn sixty_five_bit_wide_type_uses_three_words_and_single_bit_mask()
+    -> Result<(), Box<dyn std::error::Error>> {
         let wide = wide_type(65, false)?;
 
         assert_eq!(wide.word_count(), 3);
@@ -1061,8 +1061,8 @@ mod tests {
     }
 
     #[test]
-    fn one_hundred_twenty_nine_bit_wide_type_uses_five_words(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn one_hundred_twenty_nine_bit_wide_type_uses_five_words()
+    -> Result<(), Box<dyn std::error::Error>> {
         let wide = wide_type(129, true)?;
 
         assert_eq!(wide.word_count(), 5);

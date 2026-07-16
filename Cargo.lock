@@ -521,6 +521,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "vvm-example-multi-clock"
+version = "0.1.0-alpha.1"
+dependencies = [
+ "thiserror",
+ "vvm-build",
+ "vvm-rs",
+]
+
+[[package]]
 name = "vvm-example-packed-array"
 version = "0.1.0-alpha.1"
 dependencies = [

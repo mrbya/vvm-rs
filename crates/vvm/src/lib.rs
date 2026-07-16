@@ -13,7 +13,8 @@
 //!
 //! - generated DUT integration;
 //! - typed stimulus driving and output sampling;
-//! - synchronous clock control;
+//! - typed single-clock and independently timed multi-clock control through
+//!   [`Clock`], [`ClockTiming`], [`ClockScheduler`], and [`Testbench::with_clocks`];
 //! - stateful reference models;
 //! - scoreboards and structured mismatches;
 //! - deterministic testbench execution.

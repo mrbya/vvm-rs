@@ -795,8 +795,8 @@ mod tests {
     }
 
     #[test]
-    fn drives_initial_inactive_levels_in_registration_order(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn drives_initial_inactive_levels_in_registration_order()
+    -> Result<(), Box<dyn std::error::Error>> {
         let log = Rc::new(RefCell::new(Vec::new()));
         let mut dut = RecordingDut::new(Rc::clone(&log));
         let mut scheduler = scheduler(ClockTiming::UNIT)?
@@ -889,8 +889,8 @@ mod tests {
     }
 
     #[test]
-    fn batches_simultaneous_transitions_in_registration_order(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn batches_simultaneous_transitions_in_registration_order()
+    -> Result<(), Box<dyn std::error::Error>> {
         let log = Rc::new(RefCell::new(Vec::new()));
         let mut dut = RecordingDut::new(Rc::clone(&log));
         let mut scheduler = scheduler(ClockTiming::UNIT)?
@@ -930,8 +930,8 @@ mod tests {
     }
 
     #[test]
-    fn preserves_state_and_stops_batch_after_secondary_failure(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn preserves_state_and_stops_batch_after_secondary_failure()
+    -> Result<(), Box<dyn std::error::Error>> {
         let log = Rc::new(RefCell::new(Vec::new()));
         let mut dut = RecordingDut::new(Rc::clone(&log));
         let mut scheduler = scheduler(ClockTiming::UNIT)?
@@ -1000,8 +1000,8 @@ mod tests {
     }
 
     #[test]
-    fn initialization_and_primary_failures_stop_later_drives(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn initialization_and_primary_failures_stop_later_drives()
+    -> Result<(), Box<dyn std::error::Error>> {
         let log = Rc::new(RefCell::new(Vec::new()));
         let mut dut = RecordingDut::new(Rc::clone(&log));
         let mut initialization = scheduler(ClockTiming::UNIT)?

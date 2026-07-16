@@ -41,8 +41,12 @@ impl<S, F, E> fmt::Display for TestSummary<'_, S, F, E> {
             formatter.write_str(", stopped by failure policy")?;
         }
 
-        if result.simulation_error().is_some() {
-            formatter.write_str(", simulation error")?;
+        if let Some(error) = result.simulation_error() {
+            if let Some(clock_name) = error.clock_name() {
+                write!(formatter, ", simulation error on clock `{clock_name}`")?;
+            } else {
+                formatter.write_str(", simulation error")?;
+            }
         }
 
         if result.finalization_error().is_some() {
@@ -92,7 +96,7 @@ where
             for (number, failure) in (1_u64..).zip(result.failures()) {
                 write!(
                     formatter,
-                    "\n\n  [{number}] cycle {} at {}",
+                    "\n\n  [{number}] primary cycle {} at {}",
                     failure.cycle(),
                     failure.time(),
                 )?;
@@ -106,12 +110,17 @@ where
         if let Some(error) = result.simulation_error() {
             write!(
                 formatter,
-                "\n\nSimulation error:\n\n  cycle: {}\n  time: {}\n  stage: {}\n  error: {}",
+                "\n\nSimulation error:\n\n  primary cycle: {}\n  time: {}\n  stage: {}",
                 error.cycle(),
                 error.time(),
                 error.stage(),
-                error.source_error(),
             )?;
+
+            if let Some(clock_name) = error.clock_name() {
+                write!(formatter, "\n  clock: {clock_name}")?;
+            }
+
+            write!(formatter, "\n  error: {}", error.source_error())?;
         }
 
         if let Some(error) = result.finalization_error() {

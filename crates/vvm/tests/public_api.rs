@@ -3,7 +3,38 @@
 use std::borrow::Borrow;
 
 use vvm::prelude::*;
-use vvm::{TimedDut, TraceableDut};
+use vvm::{
+    TimedDut, TimingEvent, TimingRun, TimingScheduler, TimingSchedulerError, TimingStage,
+    TraceableDut,
+};
+
+const fn uses_types(
+    _: Option<TimingEvent>,
+    _: Option<TimingRun>,
+    _: Option<TimingSchedulerError<MockError>>,
+    _: Option<TimingStage>,
+) {
+}
+
+#[test]
+fn facade_exports_timing_scheduler_types() {
+    let _scheduler = TimingScheduler::new();
+
+    uses_types(None, None, None, None);
+}
+
+#[test]
+fn prelude_exports_timed_dut_and_scheduler() {
+    fn use_scheduler<D: TimedDut>(dut: &D) {
+        let _scheduler = TimingScheduler::new();
+
+        let _time = dut.simulation_time();
+    }
+
+    let dut = MockDut::default();
+
+    use_scheduler(&dut);
+}
 
 #[derive(Debug, Default)]
 struct ClockState {

@@ -91,6 +91,8 @@ pub(crate) mod scoreboard;
 pub(crate) mod testbench;
 /// Explicit simulation time.
 pub(crate) mod time;
+/// Internally scheduled delayed-event execution.
+pub(crate) mod timing;
 /// Unpacked-array indexing helpers.
 pub(crate) mod unpacked;
 
@@ -120,6 +122,7 @@ pub use sample::Sample;
 pub use scoreboard::{ExactScoreboard, Mismatch, Scoreboard};
 pub use testbench::{Testbench, Unconfigured};
 pub use time::{CycleTiming, InvalidTimeStep, SimulationTime, TimeStep};
+pub use timing::{TimingEvent, TimingRun, TimingScheduler, TimingSchedulerError, TimingStage};
 pub use unpacked::{UnpackedArrayIndexError, unpacked_array_ordinal};
 
 // Unit tests.

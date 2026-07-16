@@ -88,6 +88,105 @@ As a review target, nontrivial functions should normally remain below 50 lines. 
 
 Do not create tiny helpers that merely rename a single expression. Extract helpers that establish meaningful abstraction boundaries.
 
+## Visual paragraphing
+
+Use blank lines to divide function bodies into logical paragraphs. This is mandatory formatting, not an optional stylistic preference.
+
+A nontrivial function must not be written as one uninterrupted sequence of statements.
+
+Insert exactly one blank line:
+
+* after an early-return guard clause;
+* between input acquisition and validation;
+* between validation and state mutation;
+* between separate lifecycle phases;
+* before committing calculated state after fallible operations succeed;
+* before the final result construction or return expression when it represents a distinct phase;
+* between independent checked calculations;
+* between initialization, execution, and finalization phases.
+
+Keep statements together only when they form one tightly coupled operation, such as:
+
+* constructing one value;
+* destructuring one value;
+* updating several fields as one state commit;
+* a method chain implementing one query;
+* calculating closely related arguments for the immediately following operation.
+
+### Required style
+
+```rust
+if !self.is_initialized() {
+    return Err(TimingSchedulerError::NotInitialized);
+}
+
+let current = dut.simulation_time();
+let pending = dut
+    .events_pending()
+    .map_err(|source| TimingSchedulerError::Dut {
+        stage: TimingStage::EventsPending,
+        time: current,
+        source,
+    })?;
+
+if !pending {
+    return Ok(None);
+}
+
+let next = dut
+    .next_time_slot()
+    .map_err(|source| TimingSchedulerError::Dut {
+        stage: TimingStage::NextTimeSlot,
+        time: current,
+        source,
+    })?
+    .ok_or(TimingSchedulerError::MissingTimeSlot { time: current })?;
+
+let elapsed = event_delta::<D::Error>(current, next)?;
+let next_statistics = self.next_statistics::<D::Error>(current)?;
+
+Dut::advance_time(dut, elapsed).map_err(|source| TimingSchedulerError::Dut {
+    stage: TimingStage::AdvanceTime,
+    time: current,
+    source,
+})?;
+
+Dut::evaluate(dut).map_err(|source| TimingSchedulerError::Dut {
+    stage: TimingStage::EvaluateTimeSlot,
+    time: next,
+    source,
+})?;
+
+let event = TimingEvent::new(self.time_slots, next, elapsed);
+
+self.time_slots = next_statistics.time_slots;
+self.evaluations = next_statistics.evaluations;
+
+Ok(Some(event))
+```
+
+### Forbidden style
+
+Do not collapse all phases into a continuous sequence merely because the code compiles and `rustfmt` accepts it:
+
+```rust
+if !self.is_initialized() {
+    return Err(TimingSchedulerError::NotInitialized);
+}
+let current = dut.simulation_time();
+let pending = dut.events_pending()?;
+if !pending {
+    return Ok(None);
+}
+let next = dut.next_time_slot()?;
+let elapsed = event_delta(current, next)?;
+Dut::advance_time(dut, elapsed)?;
+Dut::evaluate(dut)?;
+self.time_slots += 1;
+self.evaluations += 1;
+Ok(Some(event))
+```
+
 ## Required self-review
 
 Before completing a task:
@@ -97,4 +196,5 @@ Before completing a task:
 3. Refactor functions whose control flow requires tracking several unrelated responsibilities simultaneously.
 4. Run formatting, linting, tests, and the repository’s lint-suppression check.
 5. Report any remaining readability trade-offs explicitly.
+6. Perform a visual-paragraphing pass over every changed function.
 

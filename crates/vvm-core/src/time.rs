@@ -91,7 +91,7 @@ impl fmt::Display for InvalidTimeStep {
 impl std::error::Error for InvalidTimeStep {}
 
 /// Timing configuration for one complete synchronous clock cycle.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct CycleTiming {
     /// Duration of the inactive clock phase.
     inactive_phase: TimeStep,

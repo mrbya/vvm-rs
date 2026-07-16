@@ -34,6 +34,8 @@ pub struct ModelCommand<'a> {
     pub(crate) sources: &'a [PathBuf],
     /// Waveform trace config.
     pub(crate) trace: Option<TraceOptions>,
+    /// Whether Verilator timing constructs are enabled.
+    pub(crate) timing: bool,
 }
 
 /// Parsed Verilator version.
@@ -214,6 +216,7 @@ pub fn model_command(model: &ModelCommand<'_>) -> Command {
         .arg("--emit-accessors");
 
     append_trace_arguments(&mut command, model.trace);
+    append_timing_argument(&mut command, model.timing);
 
     append_hdl_arguments(
         &mut command,
@@ -302,6 +305,9 @@ pub struct MetadataCommand<'a> {
 
     /// HDL source files.
     pub sources: &'a [PathBuf],
+
+    /// Whether Verilator timing constructs are enabled.
+    pub timing: bool,
 }
 
 /// Files produced by Verilator metadata generation.
@@ -327,6 +333,8 @@ pub fn metadata_command(metadata: &MetadataCommand<'_>) -> Command {
         .arg("--no-json-edit-nums")
         .arg("--top-module")
         .arg(metadata.top_module);
+
+    append_timing_argument(&mut command, metadata.timing);
 
     append_hdl_arguments(
         &mut command,
@@ -459,4 +467,11 @@ fn append_trace_arguments(command: &mut Command, trace: Option<TraceOptions>) {
 
     command.arg("--trace-depth");
     command.arg(depth.to_string());
+}
+
+/// Appends the typed timing mode before user-supplied raw arguments.
+fn append_timing_argument(command: &mut Command, timing: bool) {
+    if timing {
+        command.arg("--timing");
+    }
 }

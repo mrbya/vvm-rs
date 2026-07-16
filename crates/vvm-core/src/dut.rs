@@ -43,6 +43,33 @@ pub trait Dut {
     fn finalize(&mut self) -> Result<(), Self::Error>;
 }
 
+/// A DUT exposing internally scheduled timing events.
+///
+/// Timing-enabled DUTs report absolute future simulation times. Querying the
+/// event queue does not advance simulation time or evaluate the model.
+/// Implementations must return `None` from [`Self::next_time_slot`] when no
+/// delayed event is pending.
+pub trait TimedDut: Dut {
+    /// Returns whether delayed events remain pending.
+    ///
+    /// # Errors
+    ///
+    /// Returns an implementation-defined DUT error when the delayed-event
+    /// queue cannot be queried.
+    fn events_pending(&self) -> Result<bool, Self::Error>;
+
+    /// Returns the absolute time of the next delayed event.
+    ///
+    /// Returns `None` when no delayed event is pending. This operation must
+    /// not advance simulation time or evaluate the DUT.
+    ///
+    /// # Errors
+    ///
+    /// Returns an implementation-defined DUT error when the event time cannot
+    /// be queried.
+    fn next_time_slot(&self) -> Result<Option<SimulationTime>, Self::Error>;
+}
+
 /// Optional waveform-tracing lifecycle for DUTs that support generated traces.
 pub trait TraceableDut: Dut {
     /// Opens a waveform trace for the DUT.

@@ -98,7 +98,7 @@ pub(crate) mod unpacked;
 pub use bits::{Bits, InvalidBitVectorWordCount, SignedBits};
 pub use clock::{Clock, ClockConfigurationError, ClockScheduler, ClockTiming};
 pub use drive::Drive;
-pub use dut::{Dut, TraceableDut};
+pub use dut::{Dut, TimedDut, TraceableDut};
 pub use failure_policy::{FailurePolicy, InvalidFailureLimit};
 pub use packed::{
     PackedEnumLayout, PackedEnumVariantLayout, PackedFieldLayout, PackedLayout, PackedLayoutError,

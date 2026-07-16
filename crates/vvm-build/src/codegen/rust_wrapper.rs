@@ -16,6 +16,7 @@ pub(super) fn render(
     metadata: &DutMetadata,
     names: &DutNames,
     trace: Option<TraceOptions>,
+    timing: bool,
 ) -> String {
     let mut output = String::new();
     let traced = trace.is_some_and(|options| options.format == TraceFormat::Vcd);
@@ -67,6 +68,9 @@ pub(super) fn render(
     render_constructor(&mut output, metadata, names, traced);
     render_lifecycle(&mut output, names, traced);
     render_timing(&mut output, names);
+    if timing {
+        render_timing_queries(&mut output);
+    }
 
     for (port, port_names) in metadata.ports.iter().zip(&names.ports) {
         match port.direction {
@@ -90,6 +94,11 @@ pub(super) fn render(
 
     render_dut_trait(&mut output, names);
     push_line(&mut output, "");
+
+    if timing {
+        render_timed_dut_trait(&mut output, names);
+        push_line(&mut output, "");
+    }
 
     if traced {
         render_traceable_trait(&mut output, names);
@@ -2265,6 +2274,77 @@ fn render_timing(output: &mut String, names: &DutNames) {
     let _ = names;
 }
 
+/// Renders delayed-event query methods for timing-enabled models.
+fn render_timing_queries(output: &mut String) {
+    push_line(output, "");
+    push_line(
+        output,
+        "    /// Returns whether delayed HDL events remain pending.",
+    );
+    push_line(output, "    ///");
+    push_line(
+        output,
+        "    /// This operation does not evaluate the DUT, advance simulation time, or consume an \
+         event.",
+    );
+    push_line(output, "    ///");
+    push_line(output, "    /// # Errors");
+    push_line(output, "    ///");
+    push_line(
+        output,
+        "    /// Returns an error when the DUT has already been finalised or its native adapter \
+         is unavailable.",
+    );
+    push_line(output, "    pub fn events_pending(&self) -> Result<bool> {");
+    push_line(output, "        self.ensure_running()?;");
+    push_line(output, "");
+    push_line(output, "        Ok(self.inner_ref()?.events_pending())");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(
+        output,
+        "    /// Returns the absolute time of the next delayed HDL event.",
+    );
+    push_line(output, "    ///");
+    push_line(
+        output,
+        "    /// Returns `None` when no delayed event is pending.",
+    );
+    push_line(
+        output,
+        "    /// This operation does not evaluate the DUT, advance simulation time, or consume an \
+         event.",
+    );
+    push_line(output, "    ///");
+    push_line(output, "    /// # Errors");
+    push_line(output, "    ///");
+    push_line(
+        output,
+        "    /// Returns an error when the DUT has already been finalised or its native adapter \
+         is unavailable.",
+    );
+    push_line(
+        output,
+        "    pub fn next_time_slot(&self) -> Result<Option<::vvm::SimulationTime>> {",
+    );
+    push_line(output, "        self.ensure_running()?;");
+    push_line(output, "");
+    push_line(output, "        let mut time = 0_u64;");
+    push_line(output, "");
+    push_line(
+        output,
+        "        if !self.inner_ref()?.next_time_slot(&mut time) {",
+    );
+    push_line(output, "            return Ok(None);");
+    push_line(output, "        }");
+    push_line(output, "");
+    push_line(
+        output,
+        "        Ok(Some(::vvm::SimulationTime::from_ticks(time)))",
+    );
+    push_line(output, "    }");
+}
+
 /// Renders one typed input setter.
 fn render_input(output: &mut String, port: &Port, port_names: &PortNames, names: &DutNames) {
     if let Some(array) = UnpackedArrayType::from_port(port) {
@@ -3407,6 +3487,25 @@ fn render_traceable_trait(output: &mut String, names: &DutNames) {
     push_line(output, "");
     push_line(output, "    fn trace_is_open(&self) -> bool {");
     push_line(output, "        Self::trace_is_open(self)");
+    push_line(output, "    }");
+    push_line(output, "}");
+}
+
+/// Renders the optional VVM timed DUT trait implementation.
+fn render_timed_dut_trait(output: &mut String, names: &DutNames) {
+    push_line(
+        output,
+        &format!("impl ::vvm::TimedDut for {} {{", names.cpp_type),
+    );
+    push_line(output, "    fn events_pending(&self) -> Result<bool> {");
+    push_line(output, "        Self::events_pending(self)");
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(
+        output,
+        "    fn next_time_slot(&self) -> Result<Option<::vvm::SimulationTime>> {",
+    );
+    push_line(output, "        Self::next_time_slot(self)");
     push_line(output, "    }");
     push_line(output, "}");
 }

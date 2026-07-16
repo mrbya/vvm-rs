@@ -41,6 +41,23 @@ pub enum BuildError {
         name: String,
     },
 
+    /// A raw Verilator argument is controlled by a typed VVM build option.
+    #[error("Verilator argument `{argument}` is managed by `{configuration}`")]
+    ReservedVerilatorArgument {
+        /// Reserved raw argument.
+        argument: String,
+
+        /// Typed builder method controlling the argument.
+        configuration: &'static str,
+    },
+
+    /// A raw Verilator argument enables unsupported timing semantics.
+    #[error("Verilator argument `{argument}` enables timing behavior unsupported by VVM")]
+    UnsupportedVerilatorArgument {
+        /// Unsupported raw argument.
+        argument: String,
+    },
+
     /// A configured path does not exist.
     #[error("configured {role} `{path}` does not exist")]
     MissingConfiguredPath {

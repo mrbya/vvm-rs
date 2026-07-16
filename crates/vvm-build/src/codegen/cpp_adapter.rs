@@ -23,14 +23,15 @@ pub(super) fn render(
     metadata: &DutMetadata,
     names: &DutNames,
     trace: Option<TraceOptions>,
+    timing: bool,
 ) -> CppAdapterText {
     let trace = trace.filter(|options| options.format == TraceFormat::Vcd);
     let requires_rust_cxx = trace.is_some() || contains_slice_ports(metadata);
     let traced = trace.is_some();
 
     CppAdapterText {
-        header: render_header(metadata, names, traced, requires_rust_cxx),
-        source: render_source(metadata, names, trace),
+        header: render_header(metadata, names, traced, requires_rust_cxx, timing),
+        source: render_source(metadata, names, trace, timing),
     }
 }
 
@@ -40,10 +41,11 @@ fn render_header(
     names: &DutNames,
     traced: bool,
     include_rust_cxx: bool,
+    timing: bool,
 ) -> String {
     let mut output = String::new();
 
-    render_header_prelude(&mut output, names, traced, include_rust_cxx);
+    render_header_prelude(&mut output, names, traced, include_rust_cxx, timing);
     render_header_port_methods(&mut output, metadata, names);
 
     push_line(&mut output, "");
@@ -74,6 +76,7 @@ fn render_header_prelude(
     names: &DutNames,
     traced: bool,
     include_rust_cxx: bool,
+    timing: bool,
 ) {
     push_line(output, GENERATED_NOTICE);
     push_line(output, "");
@@ -127,6 +130,16 @@ fn render_header_prelude(
         output,
         "    bool advance_time(std::uint64_t delta) noexcept;",
     );
+    if timing {
+        push_line(
+            output,
+            "    [[nodiscard]] bool events_pending() const noexcept;",
+        );
+        push_line(
+            output,
+            "    [[nodiscard]] bool next_time_slot(std::uint64_t& time) const noexcept;",
+        );
+    }
     if traced {
         push_line(output, "    [[nodiscard]]");
         push_line(output, "    bool open_trace(rust::Str path) noexcept;");
@@ -215,7 +228,12 @@ fn render_header_output_method(port_type: PortType, method: &str) -> String {
 }
 
 /// Renders the generated adapter implementation.
-fn render_source(metadata: &DutMetadata, names: &DutNames, trace: Option<TraceOptions>) -> String {
+fn render_source(
+    metadata: &DutMetadata,
+    names: &DutNames,
+    trace: Option<TraceOptions>,
+    timing: bool,
+) -> String {
     let mut output = String::new();
     let traced = trace.is_some();
     let trace_depth = trace.map(|options| options.depth);
@@ -225,7 +243,7 @@ fn render_source(metadata: &DutMetadata, names: &DutNames, trace: Option<TraceOp
     render_impl_class(&mut output, metadata, names, trace);
     render_lifecycle_methods(&mut output, names, trace_depth);
     render_port_methods(&mut output, metadata, names);
-    render_time_methods(&mut output, names);
+    render_time_methods(&mut output, names, timing);
     render_factory_function(&mut output, names);
     render_source_epilogue(&mut output, names);
 
@@ -610,7 +628,7 @@ fn render_port_methods(output: &mut String, metadata: &DutMetadata, names: &DutN
 }
 
 /// Renders the adapter timing methods.
-fn render_time_methods(output: &mut String, names: &DutNames) {
+fn render_time_methods(output: &mut String, names: &DutNames, timing: bool) {
     push_line(output, "");
     push_line(output, &format!("bool {}::advance_time(", names.cpp_type));
     push_line(output, "    const std::uint64_t delta");
@@ -628,6 +646,37 @@ fn render_time_methods(output: &mut String, names: &DutNames) {
     push_line(output, "");
     push_line(output, "    return true;");
     push_line(output, "}");
+    if timing {
+        push_line(output, "");
+        push_line(
+            output,
+            &format!(
+                "bool {}::events_pending() const noexcept {{",
+                names.cpp_type
+            ),
+        );
+        push_line(output, "    if (impl_->finished) {");
+        push_line(output, "        return false;");
+        push_line(output, "    }");
+        push_line(output, "");
+        push_line(output, "    return impl_->model->eventsPending();");
+        push_line(output, "}");
+        push_line(output, "");
+        push_line(output, &format!("bool {}::next_time_slot(", names.cpp_type));
+        push_line(output, "    std::uint64_t& time");
+        push_line(output, ") const noexcept {");
+        push_line(
+            output,
+            "    if (impl_->finished || !impl_->model->eventsPending()) {",
+        );
+        push_line(output, "        return false;");
+        push_line(output, "    }");
+        push_line(output, "");
+        push_line(output, "    time = impl_->model->nextTimeSlot();");
+        push_line(output, "");
+        push_line(output, "    return true;");
+        push_line(output, "}");
+    }
 }
 
 /// Renders the adapter factory function.

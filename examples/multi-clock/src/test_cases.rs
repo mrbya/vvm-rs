@@ -2,8 +2,8 @@ use vvm::{ExactScoreboard, TestRunConfig, Testbench};
 
 use crate::multi_clock_counter::MultiClockCounter;
 use crate::verification::{
-    clock_scheduler, multi_clock_sequence, MultiClockObservation, MultiClockReferenceModel,
-    MultiClockTestResult, Result,
+    MultiClockObservation, MultiClockReferenceModel, MultiClockTestResult, Result, clock_scheduler,
+    multi_clock_sequence,
 };
 
 #[vvm::test(trace)]

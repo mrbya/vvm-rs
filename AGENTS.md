@@ -26,5 +26,75 @@
 
 ## Rustdoc And Lints
 - The root workspace enables strict `missing_docs` and `clippy::missing_docs_in_private_items` plus other strict code readability and bug-proning lints.
-- Do not add new `#[allow(...)]` attributes just to silence clippy; fix the warning/error instead.
 - When adding or rewriting docs, match `docs/dev/rustdoc_style.md` rather than the stale README link to `dev/docs/rustdoc_style.md`.
+
+## Non-negotiable lint policy
+
+Lint compliance must be achieved by correcting the implementation, not by suppressing diagnostics.
+
+Never add, broaden, move, or modify any lint-suppression mechanism, including:
+
+* `#[allow(...)]`
+* `#![allow(...)]`
+* `#[expect(...)]`
+* `#![expect(...)]`
+* `cfg_attr(..., allow(...))`
+* `cfg_attr(..., expect(...))`
+* `-A` or `--allow` compiler and Clippy arguments
+* Cargo lint configuration that lowers an existing lint level
+
+Existing suppressions are not precedent for adding new suppressions.
+
+When a lint fires:
+
+1. Understand why the lint considers the code problematic.
+2. Refactor the implementation so that the diagnostic no longer applies.
+3. Preserve the intended semantics and architecture.
+4. Run the complete lint command again.
+
+When a lint cannot be resolved cleanly without changing semantics or violating the architecture, stop and report:
+
+* the complete diagnostic;
+* the affected location;
+* the refactorings attempted;
+* why those approaches were unsuitable;
+* the smallest design decision needed from the user.
+
+Do not suppress the lint and do not describe the task as complete.
+
+Only exception to this rule is condintional include of dead code reserved for future use/features. E.g.:
+```
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "Reserved for structured runtime diagnostics.")
+)]
+fn diagnose_timing(...
+
+```
+
+## Readability and abstraction
+
+Optimize for maintainability and clarity, not minimum line count.
+
+Prefer:
+
+* descriptive intermediate variables over dense expressions;
+* named lifecycle operations over inline implementation details;
+* explicit state types over using `Option` or boolean values as an implicit state machine;
+* one visually separated block per logical phase;
+* centralized cleanup over repeated cleanup calls in multiple branches.
+
+As a review target, nontrivial functions should normally remain below 50 lines. Exceeding that target requires checking whether lifecycle phases or domain operations should be extracted.
+
+Do not create tiny helpers that merely rename a single expression. Extract helpers that establish meaningful abstraction boundaries.
+
+## Required self-review
+
+Before completing a task:
+
+1. Inspect the entire diff for lint suppressions.
+2. Inspect changed functions for mixed abstraction levels.
+3. Refactor functions whose control flow requires tracking several unrelated responsibilities simultaneously.
+4. Run formatting, linting, tests, and the repository’s lint-suppression check.
+5. Report any remaining readability trade-offs explicitly.
+

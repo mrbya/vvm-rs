@@ -2,8 +2,8 @@
 
 use std::borrow::Borrow;
 
-use vvm::TraceableDut;
 use vvm::prelude::*;
+use vvm::{TimedDut, TraceableDut};
 
 #[derive(Debug, Default)]
 struct ClockState {
@@ -129,6 +129,16 @@ impl TraceableDut for MockDut {
     }
 }
 
+impl TimedDut for MockDut {
+    fn events_pending(&self) -> Result<bool, Self::Error> {
+        Ok(false)
+    }
+
+    fn next_time_slot(&self) -> Result<Option<SimulationTime>, Self::Error> {
+        Ok(None)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, Clock)]
 #[vvm(dut = MockDut, clock = "clk")]
 struct MockClock;
@@ -181,6 +191,9 @@ fn facade_exports_traits_derives_and_runner() {
     }
 
     fn assert_traceable<D: vvm::TraceableDut>(_dut: &D) {}
+    fn accepts_timed_dut<D: TimedDut>(dut: &D) {
+        let _ = dut.simulation_time();
+    }
 
     let mut dut = MockDut::default();
     let stimulus = Stimulus {
@@ -190,6 +203,7 @@ fn facade_exports_traits_derives_and_runner() {
 
     drive_once(&stimulus, &mut dut);
     assert_traceable(&dut);
+    accepts_timed_dut(&dut);
 
     assert_eq!(Dut::simulation_time(&dut), SimulationTime::ZERO);
 

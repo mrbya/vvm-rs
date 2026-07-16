@@ -20,6 +20,8 @@ pub struct CompileInputs<'a> {
     pub generated_sources: &'a [PathBuf],
     /// Optional waveform trace configuration.
     pub trace: Option<TraceOptions>,
+    /// Whether the Verilated model uses timing constructs.
+    pub timing: bool,
 }
 
 /// Compiles the generated CXX bridge, generated and configured adapter
@@ -34,16 +36,11 @@ pub fn compile(inputs: &CompileInputs<'_>) -> BuildResult<()> {
         verilator_root,
         generated_sources,
         trace,
+        timing,
     } = *inputs;
 
     let verilator_include = verilator_root.join("include");
-    let runtime_source = verilator_include.join("verilated.cpp");
-
-    if !runtime_source.exists() {
-        return Err(BuildError::MissingRuntimeSource {
-            path: runtime_source,
-        });
-    }
+    let runtime_sources = required_runtime_sources(&verilator_include, trace.is_some(), timing)?;
 
     let mut build = cxx_build::bridge(bridge);
 
@@ -53,7 +50,7 @@ pub fn compile(inputs: &CompileInputs<'_>) -> BuildResult<()> {
         .flag_if_supported("-Wno-sign-compare")
         .flag_if_supported("-Wno-unused-variable")
         .flag_if_supported("-Wno-unused-parameter")
-        .std("c++17");
+        .std(cpp_standard(timing));
 
     let compiler = build.get_compiler();
 
@@ -88,19 +85,9 @@ pub fn compile(inputs: &CompileInputs<'_>) -> BuildResult<()> {
         build.file(source);
     }
 
-    if trace.is_some() {
-        let trace_runtime = verilator_include.join("verilated_vcd_c.cpp");
-
-        if !trace_runtime.exists() {
-            return Err(BuildError::MissingRuntimeSource {
-                path: trace_runtime,
-            });
-        }
-
-        build.file(trace_runtime);
+    for source in runtime_sources {
+        build.file(source);
     }
-
-    build.file(runtime_source);
 
     let thread_runtime = verilator_include.join("verilated_threads.cpp");
 
@@ -117,4 +104,110 @@ pub fn compile(inputs: &CompileInputs<'_>) -> BuildResult<()> {
     build.compile(&format!("vvm_{name}"));
 
     Ok(())
+}
+
+/// Selects the C++ standard required by a model configuration.
+#[must_use]
+const fn cpp_standard(timing: bool) -> &'static str {
+    if timing { "c++20" } else { "c++17" }
+}
+
+/// Returns required Verilator runtime sources for the selected capabilities.
+fn required_runtime_sources(
+    verilator_include: &Path,
+    trace: bool,
+    timing: bool,
+) -> BuildResult<Vec<PathBuf>> {
+    let mut sources = vec![verilator_include.join("verilated.cpp")];
+
+    if trace {
+        sources.push(verilator_include.join("verilated_vcd_c.cpp"));
+    }
+
+    if timing {
+        sources.push(timing_runtime_source(verilator_include));
+    }
+
+    for source in &sources {
+        if !source.exists() {
+            return Err(BuildError::MissingRuntimeSource {
+                path: source.clone(),
+            });
+        }
+    }
+
+    Ok(sources)
+}
+
+/// Returns the Verilator timing runtime path.
+fn timing_runtime_source(verilator_include: &Path) -> PathBuf {
+    verilator_include.join("verilated_timing.cpp")
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use tempfile::tempdir;
+
+    use super::{cpp_standard, required_runtime_sources, timing_runtime_source};
+    use crate::BuildError;
+
+    #[test]
+    fn ordinary_build_uses_cpp17() {
+        assert_eq!(cpp_standard(false), "c++17");
+    }
+
+    #[test]
+    fn timing_build_uses_cpp20() {
+        assert_eq!(cpp_standard(true), "c++20");
+    }
+
+    #[test]
+    fn ordinary_runtime_does_not_require_timing_source() -> Result<(), Box<dyn std::error::Error>> {
+        let directory = tempdir()?;
+        fs::write(directory.path().join("verilated.cpp"), "")?;
+
+        assert_eq!(
+            required_runtime_sources(directory.path(), false, false)?.len(),
+            1
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn timing_runtime_is_required() -> Result<(), Box<dyn std::error::Error>> {
+        let directory = tempdir()?;
+        fs::write(directory.path().join("verilated.cpp"), "")?;
+
+        let expected = timing_runtime_source(directory.path());
+
+        assert!(matches!(
+            required_runtime_sources(directory.path(), false, true),
+            Err(BuildError::MissingRuntimeSource { path }) if path == expected
+        ));
+
+        Ok(())
+    }
+
+    #[test]
+    fn timing_and_trace_select_both_runtimes() -> Result<(), Box<dyn std::error::Error>> {
+        let directory = tempdir()?;
+
+        for name in [
+            "verilated.cpp",
+            "verilated_vcd_c.cpp",
+            "verilated_timing.cpp",
+        ] {
+            fs::write(directory.path().join(name), "")?;
+        }
+
+        assert_eq!(
+            required_runtime_sources(directory.path(), true, true)?.len(),
+            3
+        );
+
+        Ok(())
+    }
 }

@@ -10,12 +10,13 @@ pub(super) fn render(
     metadata: &DutMetadata,
     names: &DutNames,
     trace: Option<TraceOptions>,
+    timing: bool,
 ) -> String {
     let mut output = String::new();
     let traced = trace.is_some_and(|options| options.format == TraceFormat::Vcd);
 
     render_bridge_prelude(&mut output, names);
-    render_bridge_lifecycle(&mut output, names, traced);
+    render_bridge_lifecycle(&mut output, names, traced, timing);
 
     for (port, port_names) in metadata.ports.iter().zip(&names.ports) {
         if let Some(array_type) = UnpackedArrayType::from_port(port) {
@@ -148,7 +149,7 @@ fn render_bridge_prelude(output: &mut String, names: &DutNames) {
 }
 
 /// Renders bridge lifecycle and optional trace methods.
-fn render_bridge_lifecycle(output: &mut String, names: &DutNames, traced: bool) {
+fn render_bridge_lifecycle(output: &mut String, names: &DutNames, traced: bool, timing: bool) {
     push_line(output, "        /// Evaluates the current DUT state.");
     push_line(
         output,
@@ -172,6 +173,37 @@ fn render_bridge_lifecycle(output: &mut String, names: &DutNames, traced: bool) 
         output,
         &format!("        fn finish(self: Pin<&mut {}>);", names.cpp_type),
     );
+    if timing {
+        push_line(output, "");
+        push_line(
+            output,
+            "        /// Returns whether delayed HDL events remain pending.",
+        );
+        push_line(
+            output,
+            &format!(
+                "        fn events_pending(self: &{}) -> bool;",
+                names.cpp_type
+            ),
+        );
+        push_line(output, "");
+        push_line(
+            output,
+            "        /// Writes the absolute next delayed-event time.",
+        );
+        push_line(output, "        ///");
+        push_line(
+            output,
+            "        /// Returns false when no event is pending.",
+        );
+        push_line(
+            output,
+            &format!(
+                "        fn next_time_slot(self: &{}, time: &mut u64) -> bool;",
+                names.cpp_type
+            ),
+        );
+    }
     if traced {
         push_line(output, "");
         push_line(

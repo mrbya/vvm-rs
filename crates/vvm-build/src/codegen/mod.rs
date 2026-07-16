@@ -50,11 +50,12 @@ pub fn generate(
     model_prefix: &str,
     output_dir: &Path,
     trace: Option<TraceOptions>,
+    timing: bool,
 ) -> BuildResult<GeneratedArtifacts> {
     let names = names::resolve(metadata, model_prefix)?;
-    let adapter = cpp_adapter::render(metadata, &names, trace);
-    let bridge = cxx_bridge::render(metadata, &names, trace);
-    let wrapper = rust_wrapper::render(metadata, &names, trace);
+    let adapter = cpp_adapter::render(metadata, &names, trace, timing);
+    let bridge = cxx_bridge::render(metadata, &names, trace, timing);
+    let wrapper = rust_wrapper::render(metadata, &names, trace, timing);
 
     fs::create_dir_all(output_dir).map_err(|source| BuildError::Io {
         operation: "create generated source directory",
@@ -421,7 +422,7 @@ mod tests {
     fn generates_expected_counter_artifacts() -> Result<(), Box<dyn std::error::Error>> {
         let metadata = counter_metadata()?;
         let output = tempdir()?;
-        let generated = generate(&metadata, "Vcounter", output.path(), None)?;
+        let generated = generate(&metadata, "Vcounter", output.path(), None, false)?;
         let expected_directory = expected_codegen_directory("counter");
 
         assert_generated_artifacts_match(&generated, &expected_directory, "counter")?;
@@ -450,10 +451,41 @@ mod tests {
     }
 
     #[test]
+    fn timing_codegen_emits_queries_and_keeps_ordinary_output_unchanged()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let metadata = counter_metadata()?;
+        let ordinary_output = tempdir()?;
+        let timing_output = tempdir()?;
+        let ordinary = generate(&metadata, "Vcounter", ordinary_output.path(), None, false)?;
+        let timed = generate(&metadata, "Vcounter", timing_output.path(), None, true)?;
+        let ordinary_header = std::fs::read_to_string(ordinary.cpp_header)?;
+        let timed_header = std::fs::read_to_string(timed.cpp_header)?;
+        let timed_source = std::fs::read_to_string(timed.cpp_source)?;
+        let timed_bridge = std::fs::read_to_string(timed.cxx_bridge)?;
+        let timed_wrapper = std::fs::read_to_string(timed.rust_wrapper)?;
+
+        assert!(!ordinary_header.contains("events_pending"));
+        assert!(timed_header.contains("events_pending"));
+        assert!(timed_header.contains("std::uint64_t& time"));
+        let guard = timed_source
+            .find("eventsPending()")
+            .ok_or("missing pending guard")?;
+        let slot = timed_source
+            .find("nextTimeSlot()")
+            .ok_or("missing slot query")?;
+        assert!(guard < slot);
+        assert!(timed_bridge.contains("fn events_pending"));
+        assert!(timed_bridge.contains("time: &mut u64"));
+        assert!(timed_wrapper.contains("pub fn next_time_slot"));
+        assert!(timed_wrapper.contains("impl ::vvm::TimedDut"));
+        Ok(())
+    }
+
+    #[test]
     fn generates_signed_port_artifacts_from_fixture() -> Result<(), Box<dyn std::error::Error>> {
         let metadata = signed_ports_metadata()?;
         let output = tempdir()?;
-        let generated = generate(&metadata, "Vsigned_ports", output.path(), None)?;
+        let generated = generate(&metadata, "Vsigned_ports", output.path(), None, false)?;
 
         let header = std::fs::read_to_string(&generated.cpp_header)?;
         let source = std::fs::read_to_string(&generated.cpp_source)?;
@@ -509,6 +541,7 @@ mod tests {
             "Vcounter",
             output.path(),
             Some(TraceOptions::vcd()),
+            false,
         )?;
         let expected_directory = expected_codegen_directory("counter-vcd");
 
@@ -575,19 +608,21 @@ mod tests {
         let traced_first_output = tempdir()?;
         let traced_second_output = tempdir()?;
 
-        let first = generate(&metadata, "Vcounter", first_output.path(), None)?;
-        let second = generate(&metadata, "Vcounter", second_output.path(), None)?;
+        let first = generate(&metadata, "Vcounter", first_output.path(), None, false)?;
+        let second = generate(&metadata, "Vcounter", second_output.path(), None, false)?;
         let traced_first = generate(
             &metadata,
             "Vcounter",
             traced_first_output.path(),
             Some(TraceOptions::vcd()),
+            false,
         )?;
         let traced_second = generate(
             &metadata,
             "Vcounter",
             traced_second_output.path(),
             Some(TraceOptions::vcd()),
+            false,
         )?;
 
         assert_same_generated_contents(&first, &second)?;
@@ -606,6 +641,7 @@ mod tests {
             "Vcounter",
             output.path(),
             Some(TraceOptions::vcd()),
+            false,
         )?;
 
         let bridge = std::fs::read_to_string(&generated.cxx_bridge)?;
@@ -646,7 +682,7 @@ mod tests {
     fn wide_codegen_generates_slice_based_artifacts() -> Result<(), Box<dyn std::error::Error>> {
         let metadata = wide_ports_metadata()?;
         let output = tempdir()?;
-        let generated = generate(&metadata, "Vwide_ports", output.path(), None)?;
+        let generated = generate(&metadata, "Vwide_ports", output.path(), None, false)?;
 
         let header = std::fs::read_to_string(&generated.cpp_header)?;
         let source = std::fs::read_to_string(&generated.cpp_source)?;
@@ -669,7 +705,7 @@ mod tests {
     -> Result<(), Box<dyn std::error::Error>> {
         let metadata = packed_array_ports_metadata()?;
         let output = tempdir()?;
-        let generated = generate(&metadata, "Vpacked_array_ports", output.path(), None)?;
+        let generated = generate(&metadata, "Vpacked_array_ports", output.path(), None, false)?;
 
         let header = std::fs::read_to_string(&generated.cpp_header)?;
         let source = std::fs::read_to_string(&generated.cpp_source)?;
@@ -723,6 +759,7 @@ mod tests {
             "Vunpacked_array_ports",
             output.path(),
             None,
+            false,
         )?;
         let header = std::fs::read_to_string(&generated.cpp_header)?;
         let bridge = std::fs::read_to_string(&generated.cxx_bridge)?;
@@ -745,7 +782,13 @@ mod tests {
     -> Result<(), Box<dyn std::error::Error>> {
         let metadata = packed_struct_ports_metadata()?;
         let output = tempdir()?;
-        let generated = generate(&metadata, "Vpacked_struct_ports", output.path(), None)?;
+        let generated = generate(
+            &metadata,
+            "Vpacked_struct_ports",
+            output.path(),
+            None,
+            false,
+        )?;
 
         let header = std::fs::read_to_string(&generated.cpp_header)?;
         let bridge = std::fs::read_to_string(&generated.cxx_bridge)?;
@@ -835,7 +878,7 @@ mod tests {
     -> Result<(), Box<dyn std::error::Error>> {
         let metadata = packed_enum_ports_metadata()?;
         let output = tempdir()?;
-        let generated = generate(&metadata, "Vpacked_enum_ports", output.path(), None)?;
+        let generated = generate(&metadata, "Vpacked_enum_ports", output.path(), None, false)?;
         let expected_directory = expected_codegen_directory("packed-enum-ports");
 
         assert_generated_artifacts_match(&generated, &expected_directory, "packed_enum_ports")?;
@@ -913,7 +956,7 @@ mod tests {
         };
 
         let output = tempdir()?;
-        let generated = generate(&metadata, "Vordered", output.path(), None)?;
+        let generated = generate(&metadata, "Vordered", output.path(), None, false)?;
 
         let header = std::fs::read_to_string(generated.cpp_header)?;
 

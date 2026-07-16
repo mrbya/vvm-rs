@@ -1,4 +1,4 @@
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
@@ -48,6 +48,9 @@ pub struct DutBuilder {
 
     /// Waveform trace options.
     trace: Option<TraceOptions>,
+
+    /// Whether Verilator timing constructs are enabled.
+    timing: bool,
 }
 
 impl DutBuilder {
@@ -65,6 +68,7 @@ impl DutBuilder {
             verilator_arguments: Vec::new(),
             verilator_executable: None,
             trace: None,
+            timing: false,
         }
     }
 
@@ -202,6 +206,30 @@ impl DutBuilder {
         self
     }
 
+    /// Enables Verilator timing support.
+    ///
+    /// Timing-enabled models expose Verilator's internally scheduled delayed-event
+    /// queue through the generated [`vvm::TimedDut`] implementation. This passes
+    /// `--timing` to Verilator, uses coroutine-capable native compilation, and
+    /// links Verilator's timing runtime. Delayed events are queried explicitly;
+    /// ordinary [`vvm::Testbench`] execution does not drain them automatically.
+    /// Zero-delay scheduling is not supported.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// DutBuilder::new("delayed_sequence")
+    ///     .top_module("delayed_sequence")
+    ///     .source("rtl/delayed_sequence.sv")
+    ///     .timing()
+    ///     .build()?;
+    /// ```
+    #[must_use]
+    pub const fn timing(mut self) -> Self {
+        self.timing = true;
+        self
+    }
+
     /// Generates the Verilated model and compiles the native bridge.
     ///
     /// # Errors
@@ -209,22 +237,13 @@ impl DutBuilder {
     /// Returns [`BuildError`] if configuration, tool execution, or native compilation fails.
     pub fn build(self) -> BuildResult<()> {
         validate_identifier("DUT name", &self.name)?;
-
+        validate_configuration(&self)?;
         let top_module = self.top_module.ok_or(BuildError::MissingTopModule)?;
         validate_identifier("top module", &top_module)?;
 
         if self.sources.is_empty() {
             return Err(BuildError::MissingSources);
         }
-
-        if self
-            .trace
-            .is_some_and(|trace| trace.format != TraceFormat::Vcd)
-        {
-            return Err(BuildError::UnsupportedTraceFormat);
-        }
-
-        validate_defines(&self.defines)?;
 
         let manifest_dir = required_environment_path("CARGO_MANIFEST_DIR")?;
         let out_dir = required_environment_path("OUT_DIR")?;
@@ -267,7 +286,6 @@ impl DutBuilder {
         verilator::ensure_supported_version(version)?;
 
         let metadata_output = metadata_dir.join(format!("{}.tree.json", self.name));
-
         let metadata_meta_output = metadata_dir.join(format!("{}.tree.meta.json", self.name));
 
         let metadata_command = verilator::MetadataCommand {
@@ -279,10 +297,10 @@ impl DutBuilder {
             defines: &self.defines,
             extra_arguments: &self.verilator_arguments,
             sources: &sources,
+            timing: self.timing,
         };
 
         let metadata_files = verilator::generate_metadata(&metadata_command)?;
-
         let raw_metadata = crate::metadata::RawMetadata::from_paths(
             version,
             &metadata_files.tree,
@@ -292,8 +310,14 @@ impl DutBuilder {
         let dut_metadata = crate::metadata::normalize(&self.name, &top_module, &raw_metadata)?;
         crate::metadata::validate_supported(&dut_metadata)?;
 
-        let generated =
-            codegen::generate(&dut_metadata, &model_prefix, &generated_dir, self.trace)?;
+        let generated = codegen::generate(
+            &dut_metadata,
+            &model_prefix,
+            &generated_dir,
+            self.trace,
+            self.timing,
+        )?;
+
         cpp_sources.push(generated.cpp_source);
         cpp_include_dirs.push(generated.include_dir.clone());
 
@@ -309,6 +333,7 @@ impl DutBuilder {
             extra_arguments: &self.verilator_arguments,
             sources: &sources,
             trace: self.trace,
+            timing: self.timing,
         };
 
         verilator::generate(&model_command)?;
@@ -324,6 +349,7 @@ impl DutBuilder {
             verilator_root: &verilator_root,
             generated_sources: &generated_sources,
             trace: self.trace,
+            timing: self.timing,
         })
     }
 
@@ -351,6 +377,11 @@ impl DutBuilder {
     pub(crate) fn verilator_arguments_slice(&self) -> &[OsString] {
         &self.verilator_arguments
     }
+
+    #[cfg(test)]
+    pub(crate) const fn timing_enabled(&self) -> bool {
+        self.timing
+    }
 }
 
 /// Reads a required Cargo build-script environment path.
@@ -367,6 +398,19 @@ fn create_directory(path: &Path) -> BuildResult<()> {
         path: path.to_path_buf(),
         source,
     })
+}
+
+/// Validates typed and raw build options before resolving external state.
+fn validate_configuration(builder: &DutBuilder) -> BuildResult<()> {
+    if builder
+        .trace
+        .is_some_and(|trace| trace.format != TraceFormat::Vcd)
+    {
+        return Err(BuildError::UnsupportedTraceFormat);
+    }
+
+    validate_defines(&builder.defines)?;
+    validate_verilator_arguments(&builder.verilator_arguments)
 }
 
 /// Checks whether a name can be safely used as a C++ identifier.
@@ -407,6 +451,26 @@ pub fn validate_defines(defines: &[Define]) -> BuildResult<()> {
         if !seen_names.insert(define.name.clone()) {
             return Err(BuildError::DuplicateDefine {
                 name: define.name.clone(),
+            });
+        }
+    }
+
+    Ok(())
+}
+
+/// Rejects raw arguments owned by typed VVM build configuration.
+pub fn validate_verilator_arguments(arguments: &[OsString]) -> BuildResult<()> {
+    for argument in arguments {
+        if argument == OsStr::new("--timing") || argument == OsStr::new("--no-timing") {
+            return Err(BuildError::ReservedVerilatorArgument {
+                argument: argument.to_string_lossy().into_owned(),
+                configuration: "DutBuilder::timing()",
+            });
+        }
+
+        if argument == OsStr::new("--sched-zero-delay") {
+            return Err(BuildError::UnsupportedVerilatorArgument {
+                argument: argument.to_string_lossy().into_owned(),
             });
         }
     }

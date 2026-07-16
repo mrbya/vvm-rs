@@ -4,6 +4,7 @@ use std::rc::Rc;
 use crate::{
     CheckFailure, Clock, ClockScheduler, ClockTiming, CycleTiming, Drive, Dut, ExactScoreboard,
     InvalidTimeStep, ReferenceModel, Sample, Scoreboard, SimulationStage, SimulationTime, TimeStep,
+    TimedDut,
 };
 
 /// Error returned by the mock DUT.
@@ -80,6 +81,84 @@ impl Dut for MockDut {
 
         Ok(())
     }
+}
+
+/// Mock DUT with an explicitly queryable delayed-event queue.
+struct MockTimedDut {
+    /// Current time.
+    time: SimulationTime,
+    /// Whether an event is pending.
+    pending: bool,
+    /// Absolute next event time.
+    next: Option<SimulationTime>,
+}
+
+impl Dut for MockTimedDut {
+    type Error = MockError;
+
+    fn evaluate(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn simulation_time(&self) -> SimulationTime {
+        self.time
+    }
+
+    fn advance_time(&mut self, delta: TimeStep) -> Result<(), Self::Error> {
+        let Some(next) = self.time.checked_add(delta) else {
+            return Err(MockError::TimeOverflow);
+        };
+
+        self.time = next;
+
+        Ok(())
+    }
+
+    fn finalize(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
+impl TimedDut for MockTimedDut {
+    fn events_pending(&self) -> Result<bool, Self::Error> {
+        Ok(self.pending)
+    }
+
+    fn next_time_slot(&self) -> Result<Option<SimulationTime>, Self::Error> {
+        Ok(self.next)
+    }
+}
+
+fn assert_timed_dut<T: TimedDut>() {}
+
+#[test]
+fn timed_dut_queries_return_absolute_time() -> Result<(), MockError> {
+    assert_timed_dut::<MockTimedDut>();
+
+    let dut = MockTimedDut {
+        time: SimulationTime::ZERO,
+        pending: true,
+        next: Some(SimulationTime::from_ticks(2)),
+    };
+
+    assert!(dut.events_pending()?);
+    assert_eq!(dut.next_time_slot()?, Some(SimulationTime::from_ticks(2)));
+
+    Ok(())
+}
+
+#[test]
+fn timed_dut_can_report_no_event() -> Result<(), MockError> {
+    let dut = MockTimedDut {
+        time: SimulationTime::ZERO,
+        pending: false,
+        next: None,
+    };
+
+    assert!(!dut.events_pending()?);
+    assert_eq!(dut.next_time_slot()?, None);
+
+    Ok(())
 }
 
 /// Minimal overflow-test DUT that exposes finalization through a shared flag.

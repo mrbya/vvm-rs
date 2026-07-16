@@ -6,6 +6,7 @@ use tempfile::tempdir;
 
 use crate::builder::{
     Define, DutBuilder, minimum_supported_version, validate_defines, validate_identifier,
+    validate_verilator_arguments,
 };
 use crate::error::BuildError;
 use crate::paths::{ensure_unique_paths, resolve_directory, resolve_file};
@@ -424,6 +425,7 @@ fn constructs_verilator_model_command_in_expected_order() {
         extra_arguments: &raw_arguments,
         sources: &sources,
         trace: None,
+        timing: false,
     });
 
     assert_eq!(command.get_program(), executable);
@@ -513,6 +515,92 @@ fn singular_and_plural_verilator_arg_methods_append_in_order() {
     ];
 
     assert_eq!(actual, expected);
+}
+
+#[test]
+fn timing_is_disabled_by_default() {
+    assert!(!DutBuilder::new("counter").timing_enabled());
+}
+
+#[test]
+fn timing_method_enables_timing() {
+    let builder = DutBuilder::new("counter")
+        .source("counter.sv")
+        .timing()
+        .trace(crate::TraceOptions::vcd())
+        .verilator_arg("--Wall");
+
+    assert!(builder.timing_enabled());
+    assert_eq!(builder.sources_slice(), [PathBuf::from("counter.sv")]);
+    assert_eq!(
+        builder.verilator_arguments_slice(),
+        [OsString::from("--Wall")]
+    );
+}
+
+#[test]
+fn raw_timing_arguments_are_rejected() {
+    for argument in ["--timing", "--no-timing"] {
+        assert!(matches!(
+            validate_verilator_arguments(&[OsString::from(argument)]),
+            Err(BuildError::ReservedVerilatorArgument {
+                configuration: "DutBuilder::timing()",
+                ..
+            })
+        ));
+    }
+}
+
+#[test]
+fn raw_zero_delay_argument_is_rejected() {
+    assert!(matches!(
+        validate_verilator_arguments(&[OsString::from("--sched-zero-delay")]),
+        Err(BuildError::UnsupportedVerilatorArgument { .. })
+    ));
+}
+
+#[test]
+fn unrelated_raw_verilator_argument_is_accepted() -> Result<(), BuildError> {
+    validate_verilator_arguments(&[OsString::from("--Wall")])
+}
+
+#[test]
+fn timing_commands_add_timing_once_before_raw_arguments() {
+    let executable = OsStr::new("verilator");
+    let output_dir = Path::new("/tmp/out");
+    let sources = vec![PathBuf::from("rtl/counter.sv")];
+    let raw_arguments = vec![OsString::from("--Wall")];
+    let command = model_command(&ModelCommand {
+        executable,
+        top_module: "counter",
+        model_prefix: "Vcounter",
+        output_dir,
+        hdl_include_dirs: &[],
+        defines: &[],
+        extra_arguments: &raw_arguments,
+        sources: &sources,
+        trace: Some(crate::TraceOptions::vcd()),
+        timing: true,
+    });
+    let arguments: Vec<_> = command.get_args().collect();
+
+    assert_eq!(
+        arguments
+            .iter()
+            .filter(|argument| **argument == OsStr::new("--timing"))
+            .count(),
+        1
+    );
+
+    let timing = arguments
+        .iter()
+        .position(|argument| *argument == OsStr::new("--timing"));
+
+    let raw = arguments
+        .iter()
+        .position(|argument| *argument == OsStr::new("--Wall"));
+
+    assert!(timing < raw);
 }
 
 #[test]
@@ -611,6 +699,7 @@ fn constructs_metadata_command_in_expected_order() {
         defines: &defines,
         extra_arguments: &extra_arguments,
         sources: &sources,
+        timing: false,
     };
 
     let command = metadata_command(&metadata);

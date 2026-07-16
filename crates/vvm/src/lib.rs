@@ -101,7 +101,7 @@ pub use vvm_core::{
     ReplayToken, ReplayableSequence, Sample, Scoreboard, Seed, SignedBits, SimulationError,
     SimulationStage, SimulationTime, TestCapabilities, TestDescriptor, TestFunction, TestOutcome,
     TestRegistry, TestRegistryError, TestResult, TestRun, TestRunConfig, TestStatistics,
-    TestStatus, TestSummary, Testbench, TimeStep, TraceableDut, UnpackedArrayIndexError,
+    TestStatus, TestSummary, Testbench, TimeStep, TimedDut, TraceableDut, UnpackedArrayIndexError,
     extract_packed, extract_signed, extract_signed_packed, extract_unsigned, insert_packed,
     insert_signed, insert_signed_packed, insert_unsigned, unpacked_array_ordinal,
 };
@@ -121,7 +121,7 @@ pub mod prelude {
         Bits, Clock, ClockScheduler, ClockTiming, CycleTiming, Drive, Dut, ExactScoreboard,
         FailurePolicy, RandomContext, Randomize, ReferenceModel, ReplayableSequence, Sample,
         Scoreboard, Seed, SignedBits, SimulationTime, TestDescriptor, TestRegistryError,
-        TestRunConfig, Testbench, TimeStep,
+        TestRunConfig, Testbench, TimeStep, TimedDut,
     };
 }
 

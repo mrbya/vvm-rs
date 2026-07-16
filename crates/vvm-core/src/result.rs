@@ -7,25 +7,25 @@ use crate::{
 /// Simulation operation stages.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SimulationStage {
-    /// Driving the clock inactive.
+    /// Driving any named clock inactive.
     DriveClockInactive,
 
     /// Driving the current stimulus.
     DriveStimulus,
 
-    /// Evaluating the inactive clock phase.
+    /// Evaluating while the primary clock is inactive.
     EvaluateInactive,
 
-    /// Advancing through the inactive clock phase.
+    /// Advancing simulation time while the primary clock is inactive.
     AdvanceInactivePhase,
 
-    /// Driving the clock active.
+    /// Driving any named clock active.
     DriveClockActive,
 
-    /// Evaluating the active clock phase.
+    /// Evaluating while the primary clock is active.
     EvaluateActive,
 
-    /// Advancing through the active clock phase.
+    /// Advancing simulation time while the primary clock is active.
     AdvanceActivePhase,
 
     /// Sampling DUT outputs.
@@ -35,13 +35,13 @@ pub enum SimulationStage {
 impl fmt::Display for SimulationStage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let description = match *self {
-            Self::DriveClockInactive => "driving the clock inactive",
+            Self::DriveClockInactive => "driving a clock inactive",
             Self::DriveStimulus => "driving stimulus",
-            Self::EvaluateInactive => "evaluating the inactive clock phase",
-            Self::AdvanceInactivePhase => "advancing through the inactive clock phase",
-            Self::DriveClockActive => "driving the clock active",
-            Self::EvaluateActive => "evaluating the active clock phase",
-            Self::AdvanceActivePhase => "advancing through the active clock phase",
+            Self::EvaluateInactive => "evaluating while the primary clock is inactive",
+            Self::AdvanceInactivePhase => "advancing while the primary clock is inactive",
+            Self::DriveClockActive => "driving a clock active",
+            Self::EvaluateActive => "evaluating while the primary clock is active",
+            Self::AdvanceActivePhase => "advancing while the primary clock is active",
             Self::Sample => "sampling DUT outputs",
         };
 
@@ -133,6 +133,9 @@ pub struct SimulationError<E> {
     /// Operation that failed.
     stage: SimulationStage,
 
+    /// Named clock involved in the failure.
+    clock_name: Option<String>,
+
     /// DUT error.
     source: E,
 }
@@ -149,6 +152,24 @@ impl<E> SimulationError<E> {
             cycle,
             time,
             stage,
+            clock_name: None,
+            source,
+        }
+    }
+
+    /// Creates a clock-specific simulation failure.
+    pub(crate) const fn new_for_clock(
+        cycle: u64,
+        time: SimulationTime,
+        stage: SimulationStage,
+        clock_name: String,
+        source: E,
+    ) -> Self {
+        Self {
+            cycle,
+            time,
+            stage,
+            clock_name: Some(clock_name),
             source,
         }
     }
@@ -171,6 +192,12 @@ impl<E> SimulationError<E> {
         self.stage
     }
 
+    /// Returns the named clock involved in the failure.
+    #[must_use]
+    pub fn clock_name(&self) -> Option<&str> {
+        self.clock_name.as_deref()
+    }
+
     /// Returns the DUT error.
     #[must_use]
     pub const fn source_error(&self) -> &E {
@@ -182,6 +209,20 @@ impl<E> SimulationError<E> {
     pub fn into_parts(self) -> (u64, SimulationTime, SimulationStage, E) {
         (self.cycle, self.time, self.stage, self.source)
     }
+
+    /// Consumes the failure and retains optional clock context.
+    #[must_use]
+    pub fn into_parts_with_clock(
+        self,
+    ) -> (u64, SimulationTime, SimulationStage, Option<String>, E) {
+        (
+            self.cycle,
+            self.time,
+            self.stage,
+            self.clock_name,
+            self.source,
+        )
+    }
 }
 
 impl<E> fmt::Display for SimulationError<E>
@@ -189,11 +230,25 @@ where
     E: fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "simulation failed during cycle {} at {} while {}: {}",
-            self.cycle, self.time, self.stage, self.source
-        )
+        match (self.clock_name.as_deref(), self.stage) {
+            (Some(name), SimulationStage::DriveClockInactive) => write!(
+                f,
+                "simulation failed during primary cycle {} at {} while driving clock `{name}` \
+                 inactive: {}",
+                self.cycle, self.time, self.source
+            ),
+            (Some(name), SimulationStage::DriveClockActive) => write!(
+                f,
+                "simulation failed during primary cycle {} at {} while driving clock `{name}` \
+                 active: {}",
+                self.cycle, self.time, self.source
+            ),
+            _ => write!(
+                f,
+                "simulation failed during primary cycle {} at {} while {}: {}",
+                self.cycle, self.time, self.stage, self.source
+            ),
+        }
     }
 }
 
@@ -209,7 +264,7 @@ where
 /// Complete outcome of a synchronous testbench run.
 #[derive(Debug)]
 pub struct TestResult<S, F, E> {
-    /// Number of cycles completed through scoreboard invocation.
+    /// Number of primary transactions completed through scoreboard invocation.
     cycles: u64,
 
     /// Number of scoreboard checks performed.
@@ -253,7 +308,7 @@ impl<S, F, E> TestResult<S, F, E> {
         }
     }
 
-    /// Returns the number of completed cycles.
+    /// Returns the number of completed primary transactions.
     #[must_use]
     pub const fn cycles(&self) -> u64 {
         self.cycles

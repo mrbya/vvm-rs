@@ -1,24 +1,198 @@
+use crate::clock::scheduler::{ClockDriveFailure, ClockEventBatch, ClockPhase};
 use crate::{
-    CheckFailure, Clock, CycleTiming, Drive, Dut, FailurePolicy, ReferenceModel, ReplayToken,
-    ReplayableSequence, Sample, Scoreboard, SimulationError, SimulationStage, SimulationTime,
-    TestResult, TimeStep,
+    CheckFailure, Clock, ClockScheduler, ClockTiming, CycleTiming, Drive, Dut, FailurePolicy,
+    ReferenceModel, ReplayToken, ReplayableSequence, Sample, Scoreboard, SimulationError,
+    SimulationStage, SimulationTime, TestResult,
 };
 
 /// Result type produced by a synchronous testbench run.
 type RunResult<S, R, B, O, D> = TestResult<S, <B as Scoreboard<R, O>>::Error, <D as Dut>::Error>;
 
-/// Stage-tagged DUT error from one runner step.
-type StageError<E> = (SimulationStage, E);
+/// Stage-tagged DUT failure from one runner operation.
+struct StageError<E> {
+    /// Failed operation.
+    stage: SimulationStage,
+    /// Named clock involved in the operation.
+    clock_name: Option<String>,
+    /// Underlying DUT error.
+    source: E,
+}
+
+impl<E> StageError<E> {
+    /// Creates a non-clock stage failure.
+    const fn dut(stage: SimulationStage, source: E) -> Self {
+        Self {
+            stage,
+            clock_name: None,
+            source,
+        }
+    }
+
+    /// Converts a scheduler clock-drive failure.
+    fn clock(failure: ClockDriveFailure<E>) -> Self {
+        let (clock_name, phase, source) = failure.into_parts();
+        let stage = match phase {
+            ClockPhase::Inactive => SimulationStage::DriveClockInactive,
+            ClockPhase::Active => SimulationStage::DriveClockActive,
+        };
+        Self {
+            stage,
+            clock_name: Some(clock_name),
+            source,
+        }
+    }
+
+    /// Decomposes the failure.
+    fn into_parts(self) -> (SimulationStage, Option<String>, E) {
+        (self.stage, self.clock_name, self.source)
+    }
+}
+
+/// Returns the time-advance failure stage for the current primary phase.
+const fn advance_stage(phase: ClockPhase) -> SimulationStage {
+    match phase {
+        ClockPhase::Inactive => SimulationStage::AdvanceInactivePhase,
+        ClockPhase::Active => SimulationStage::AdvanceActivePhase,
+    }
+}
+
+/// Returns the evaluation failure stage for the current primary phase.
+const fn evaluation_stage(phase: ClockPhase) -> SimulationStage {
+    match phase {
+        ClockPhase::Inactive => SimulationStage::EvaluateInactive,
+        ClockPhase::Active => SimulationStage::EvaluateActive,
+    }
+}
 
 /// Records one fatal simulation error in the current run.
-fn record_simulation_failure<S, F, E>(
+fn record_stage_failure<S, F, E>(
     result: &mut TestResult<S, F, E>,
     cycle: u64,
     time: SimulationTime,
-    stage: SimulationStage,
-    source: E,
+    error: StageError<E>,
 ) {
-    result.record_simulation_error(SimulationError::new(cycle, time, stage, source));
+    let (stage, clock_name, source) = error.into_parts();
+    let simulation_error = match clock_name {
+        Some(clock_name) => SimulationError::new_for_clock(cycle, time, stage, clock_name, source),
+        None => SimulationError::new(cycle, time, stage, source),
+    };
+    result.record_simulation_error(simulation_error);
+}
+
+/// Finalizes the DUT and records its final time even if finalization fails.
+fn finalize_and_record<S, F, D>(dut: &mut D, result: &mut TestResult<S, F, D::Error>)
+where
+    D: Dut,
+{
+    if let Err(error) = Dut::finalize(dut) {
+        result.record_finalization_error(error);
+    }
+    result.record_final_time(dut.simulation_time());
+}
+
+/// Advances to and drives every clock transition at the next event time.
+fn advance_and_drive_next_batch<D>(
+    dut: &mut D,
+    clocks: &mut ClockScheduler<'_, D>,
+) -> Result<ClockEventBatch, StageError<D::Error>>
+where
+    D: Dut,
+{
+    let phase = clocks.primary_phase();
+    let elapsed = clocks.next_transition_after();
+    Dut::advance_time(dut, elapsed)
+        .map_err(|source| StageError::dut(advance_stage(phase), source))?;
+    clocks.drive_next_batch(dut).map_err(StageError::clock)
+}
+
+/// Evaluates the DUT using the current primary semantic phase for diagnostics.
+fn evaluate_current_phase<D>(
+    dut: &mut D,
+    clocks: &ClockScheduler<'_, D>,
+) -> Result<(), StageError<D::Error>>
+where
+    D: Dut,
+{
+    Dut::evaluate(dut)
+        .map_err(|source| StageError::dut(evaluation_stage(clocks.primary_phase()), source))
+}
+
+/// Initializes clocks and the first primary transaction at simulation time zero.
+fn initialize_first_transaction<D, T>(
+    dut: &mut D,
+    clocks: &mut ClockScheduler<'_, D>,
+    stimulus: &T,
+) -> Result<(), StageError<D::Error>>
+where
+    D: Dut,
+    T: Drive<D>,
+{
+    clocks
+        .drive_initial_inactive(dut)
+        .map_err(StageError::clock)?;
+    stimulus
+        .drive(dut)
+        .map_err(|source| StageError::dut(SimulationStage::DriveStimulus, source))?;
+    evaluate_current_phase(dut, clocks)
+}
+
+/// Processes events until the primary clock enters its active phase, then samples.
+fn run_until_primary_active<D, O>(
+    dut: &mut D,
+    clocks: &mut ClockScheduler<'_, D>,
+) -> Result<O, StageError<D::Error>>
+where
+    D: Dut,
+    O: Sample<D>,
+{
+    loop {
+        let batch = advance_and_drive_next_batch(dut, clocks)?;
+        evaluate_current_phase(dut, clocks)?;
+        if batch.primary_became_active() {
+            return O::sample(dut)
+                .map_err(|source| StageError::dut(SimulationStage::Sample, source));
+        }
+    }
+}
+
+/// Processes secondary events before advancing to the pending primary inactive boundary.
+fn advance_to_primary_inactive_boundary<D>(
+    dut: &mut D,
+    clocks: &mut ClockScheduler<'_, D>,
+) -> Result<(), StageError<D::Error>>
+where
+    D: Dut,
+{
+    loop {
+        let next_event = clocks.next_transition_after();
+        let primary_boundary = clocks.primary_transition_after();
+        if next_event == primary_boundary {
+            return Dut::advance_time(dut, primary_boundary)
+                .map_err(|source| StageError::dut(SimulationStage::AdvanceActivePhase, source));
+        }
+        advance_and_drive_next_batch(dut, clocks)?;
+        evaluate_current_phase(dut, clocks)?;
+    }
+}
+
+/// Drives the pending primary inactive boundary, then starts the next transaction.
+fn start_next_primary_cycle<D, T>(
+    dut: &mut D,
+    clocks: &mut ClockScheduler<'_, D>,
+    stimulus: &T,
+) -> Result<(), StageError<D::Error>>
+where
+    D: Dut,
+    T: Drive<D>,
+{
+    let batch = clocks.drive_next_batch(dut).map_err(StageError::clock)?;
+    if !batch.primary_became_inactive() {
+        return evaluate_current_phase(dut, clocks);
+    }
+    stimulus
+        .drive(dut)
+        .map_err(|source| StageError::dut(SimulationStage::DriveStimulus, source))?;
+    evaluate_current_phase(dut, clocks)
 }
 
 /// Marker for an unconfigured testbench component.
@@ -29,25 +203,18 @@ pub struct Unconfigured;
 pub struct Testbench<D, S = Unconfigured, R = Unconfigured, B = Unconfigured, C = Unconfigured> {
     /// Testbench DUT.
     dut: D,
-
     /// Stimulus sequence.
     sequence: S,
-
     /// Reference model.
     reference_model: R,
-
     /// Scoreboard.
     scoreboard: B,
-
-    /// Clock driver.
-    clock: C,
-
+    /// Configured clock scheduler.
+    clocks: C,
     /// Check-failure retention and stopping policy.
     failure_policy: FailurePolicy,
-
-    /// Testbench clock cycle timing.
-    cycle_timing: CycleTiming,
-
+    /// Optional compatibility override for primary timing.
+    primary_cycle_timing: Option<CycleTiming>,
     /// Replay metadata for the configured sequence.
     replay_token: Option<ReplayToken>,
 }
@@ -61,9 +228,9 @@ impl<D> Testbench<D> {
             sequence: Unconfigured,
             reference_model: Unconfigured,
             scoreboard: Unconfigured,
-            clock: Unconfigured,
+            clocks: Unconfigured,
             failure_policy: FailurePolicy::STOP_ON_FIRST,
-            cycle_timing: CycleTiming::default(),
+            primary_cycle_timing: None,
             replay_token: None,
         }
     }
@@ -78,9 +245,9 @@ impl<D, S, R, B, C> Testbench<D, S, R, B, C> {
             sequence,
             reference_model: self.reference_model,
             scoreboard: self.scoreboard,
-            clock: self.clock,
+            clocks: self.clocks,
             failure_policy: self.failure_policy,
-            cycle_timing: self.cycle_timing,
+            primary_cycle_timing: self.primary_cycle_timing,
             replay_token: None,
         }
     }
@@ -92,15 +259,14 @@ impl<D, S, R, B, C> Testbench<D, S, R, B, C> {
         NS: ReplayableSequence,
     {
         let replay_token = Some(sequence.replay_token());
-
         Testbench {
             dut: self.dut,
             sequence,
             reference_model: self.reference_model,
             scoreboard: self.scoreboard,
-            clock: self.clock,
+            clocks: self.clocks,
             failure_policy: self.failure_policy,
-            cycle_timing: self.cycle_timing,
+            primary_cycle_timing: self.primary_cycle_timing,
             replay_token,
         }
     }
@@ -113,9 +279,9 @@ impl<D, S, R, B, C> Testbench<D, S, R, B, C> {
             sequence: self.sequence,
             reference_model,
             scoreboard: self.scoreboard,
-            clock: self.clock,
+            clocks: self.clocks,
             failure_policy: self.failure_policy,
-            cycle_timing: self.cycle_timing,
+            primary_cycle_timing: self.primary_cycle_timing,
             replay_token: self.replay_token,
         }
     }
@@ -128,24 +294,52 @@ impl<D, S, R, B, C> Testbench<D, S, R, B, C> {
             sequence: self.sequence,
             reference_model: self.reference_model,
             scoreboard,
-            clock: self.clock,
+            clocks: self.clocks,
             failure_policy: self.failure_policy,
-            cycle_timing: self.cycle_timing,
+            primary_cycle_timing: self.primary_cycle_timing,
             replay_token: self.replay_token,
         }
     }
 
-    /// Configures the clock driver.
+    /// Configures one primary clock through the compatibility scheduler path.
     #[must_use]
-    pub fn with_clock<NC>(self, clock: NC) -> Testbench<D, S, R, B, NC> {
+    pub fn with_clock<'clock, NC>(
+        self,
+        clock: NC,
+    ) -> Testbench<D, S, R, B, ClockScheduler<'clock, D>>
+    where
+        D: Dut,
+        NC: Clock<D> + 'clock,
+    {
         Testbench {
             dut: self.dut,
             sequence: self.sequence,
             reference_model: self.reference_model,
             scoreboard: self.scoreboard,
-            clock,
+            clocks: ClockScheduler::single(clock, ClockTiming::UNIT),
             failure_policy: self.failure_policy,
-            cycle_timing: self.cycle_timing,
+            primary_cycle_timing: self.primary_cycle_timing,
+            replay_token: self.replay_token,
+        }
+    }
+
+    /// Configures independently timed primary and secondary clocks.
+    #[must_use]
+    pub fn with_clocks(
+        self,
+        clocks: ClockScheduler<'_, D>,
+    ) -> Testbench<D, S, R, B, ClockScheduler<'_, D>>
+    where
+        D: Dut,
+    {
+        Testbench {
+            dut: self.dut,
+            sequence: self.sequence,
+            reference_model: self.reference_model,
+            scoreboard: self.scoreboard,
+            clocks,
+            failure_policy: self.failure_policy,
+            primary_cycle_timing: self.primary_cycle_timing,
             replay_token: self.replay_token,
         }
     }
@@ -157,71 +351,28 @@ impl<D, S, R, B, C> Testbench<D, S, R, B, C> {
         self
     }
 
-    /// Configures inactive and active clock-phase durations.
+    /// Overrides recurring timing of the primary clock.
     #[must_use]
-    pub const fn with_cycle_timing(mut self, cycle_timing: CycleTiming) -> Self {
-        self.cycle_timing = cycle_timing;
+    pub const fn with_primary_cycle_timing(mut self, cycle_timing: CycleTiming) -> Self {
+        self.primary_cycle_timing = Some(cycle_timing);
         self
+    }
+
+    /// Overrides recurring timing of the primary clock.
+    #[must_use]
+    pub const fn with_cycle_timing(self, cycle_timing: CycleTiming) -> Self {
+        self.with_primary_cycle_timing(cycle_timing)
     }
 }
 
-impl<D, S, R, B, C> Testbench<D, S, R, B, C>
+impl<D, S, R, B> Testbench<D, S, R, B, ClockScheduler<'_, D>>
 where
     D: Dut,
     S: IntoIterator,
     S::Item: Drive<D>,
     R: ReferenceModel<S::Item>,
-    C: Clock<D>,
 {
-    /// Runs the configured synchronous testbench.
-    ///
-    /// The cycle order is:
-    ///
-    /// 1. drive the clock inactive;
-    /// 2. drive stimulus;
-    /// 3. evaluate the inactive phase;
-    /// 4. drive the clock active;
-    /// 5. evaluate the active phase;
-    /// 6. sample outputs;
-    /// 7. predict expected outputs;
-    /// 8. invoke the scoreboard.
-    ///
-    /// DUT access errors stop simulation immediately. Scoreboard failures obey
-    /// the configured [`FailurePolicy`]. The DUT is always offered one explicit
-    /// finalization call before this method returns.
-    fn run_inactive_phase(
-        dut: &mut D,
-        clock: &mut C,
-        stimulus: &S::Item,
-        inactive_phase: TimeStep,
-    ) -> Result<(), StageError<D::Error>> {
-        clock
-            .drive_inactive(dut)
-            .map_err(|source| (SimulationStage::DriveClockInactive, source))?;
-        stimulus
-            .drive(dut)
-            .map_err(|source| (SimulationStage::DriveStimulus, source))?;
-        Dut::evaluate(dut).map_err(|source| (SimulationStage::EvaluateInactive, source))?;
-        Dut::advance_time(dut, inactive_phase)
-            .map_err(|source| (SimulationStage::AdvanceInactivePhase, source))?;
-
-        Ok(())
-    }
-
-    /// Drives, evaluates, and samples the active edge of one cycle.
-    fn run_active_phase<O>(dut: &mut D, clock: &mut C) -> Result<O, StageError<D::Error>>
-    where
-        O: Sample<D>,
-    {
-        clock
-            .drive_active(dut)
-            .map_err(|source| (SimulationStage::DriveClockActive, source))?;
-        Dut::evaluate(dut).map_err(|source| (SimulationStage::EvaluateActive, source))?;
-
-        O::sample(dut).map_err(|source| (SimulationStage::Sample, source))
-    }
-
-    /// Runs the configured synchronous testbench.
+    /// Runs scheduler-driven primary-clock transactions.
     #[must_use]
     pub fn run<O>(self) -> RunResult<S::Item, R::Expected, B, O, D>
     where
@@ -233,78 +384,72 @@ where
             sequence,
             mut reference_model,
             mut scoreboard,
-            mut clock,
+            mut clocks,
             failure_policy,
-            cycle_timing,
+            primary_cycle_timing,
             replay_token,
         } = self;
-
+        if let Some(cycle_timing) = primary_cycle_timing {
+            clocks.replace_primary_timing(ClockTiming::from_cycle(cycle_timing));
+        }
         let mut result = TestResult::new(dut.simulation_time(), replay_token);
+        let mut sequence = sequence.into_iter();
+        let Some(first_stimulus) = sequence.next() else {
+            finalize_and_record(&mut dut, &mut result);
+            return result;
+        };
+        let mut stimulus = Some(first_stimulus);
+        let Some(current_stimulus) = stimulus.as_ref() else {
+            finalize_and_record(&mut dut, &mut result);
+            return result;
+        };
+        if let Err(error) = initialize_first_transaction(&mut dut, &mut clocks, current_stimulus) {
+            record_stage_failure(&mut result, 0, dut.simulation_time(), error);
+            finalize_and_record(&mut dut, &mut result);
+            return result;
+        }
 
-        for stimulus in sequence {
+        loop {
             let cycle = result.cycles();
-
-            if let Err((stage, source)) = Self::run_inactive_phase(
-                &mut dut,
-                &mut clock,
-                &stimulus,
-                cycle_timing.inactive_phase(),
-            ) {
-                record_simulation_failure(&mut result, cycle, dut.simulation_time(), stage, source);
-                break;
-            }
-
-            let observed = match Self::run_active_phase::<O>(&mut dut, &mut clock) {
+            let observed = match run_until_primary_active::<D, O>(&mut dut, &mut clocks) {
                 Ok(observed) => observed,
-                Err((stage, source)) => {
-                    record_simulation_failure(
-                        &mut result,
-                        cycle,
-                        dut.simulation_time(),
-                        stage,
-                        source,
-                    );
+                Err(error) => {
+                    record_stage_failure(&mut result, cycle, dut.simulation_time(), error);
                     break;
                 }
             };
-
-            // 8. Predict and check at the same time.
-            let expected = reference_model.predict(&stimulus);
-
+            let Some(active_stimulus) = stimulus.as_ref() else {
+                break;
+            };
+            let expected = reference_model.predict(active_stimulus);
             let check_time = dut.simulation_time();
-
             let check_result = scoreboard.check(expected, observed);
-
             result.record_check();
-
             if let Err(error) = check_result {
-                result.record_failure(CheckFailure::new(cycle, check_time, stimulus, error));
-
+                let Some(failed_stimulus) = stimulus.take() else {
+                    break;
+                };
+                result.record_failure(CheckFailure::new(cycle, check_time, failed_stimulus, error));
                 if failure_policy.should_stop(result.failure_count()) {
                     result.mark_stopped_by_failure_policy();
                     break;
                 }
             }
-
-            // 9. Complete the active phase before the next cycle.
-            if let Err(source) = Dut::advance_time(&mut dut, cycle_timing.active_phase()) {
-                record_simulation_failure(
-                    &mut result,
-                    cycle,
-                    dut.simulation_time(),
-                    SimulationStage::AdvanceActivePhase,
-                    source,
-                );
+            if let Err(error) = advance_to_primary_inactive_boundary(&mut dut, &mut clocks) {
+                record_stage_failure(&mut result, cycle, dut.simulation_time(), error);
                 break;
             }
+            let Some(next_stimulus) = sequence.next() else {
+                break;
+            };
+            let next_cycle = result.cycles();
+            if let Err(error) = start_next_primary_cycle(&mut dut, &mut clocks, &next_stimulus) {
+                record_stage_failure(&mut result, next_cycle, dut.simulation_time(), error);
+                break;
+            }
+            stimulus = Some(next_stimulus);
         }
-
-        if let Err(error) = Dut::finalize(&mut dut) {
-            result.record_finalization_error(error);
-        }
-
-        result.record_final_time(dut.simulation_time());
-
+        finalize_and_record(&mut dut, &mut result);
         result
     }
 }

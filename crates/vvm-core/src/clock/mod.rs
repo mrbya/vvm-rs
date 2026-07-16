@@ -1,14 +1,6 @@
 use crate::{CycleTiming, Dut, TimeStep};
 
 /// Independently timed clock scheduling primitives.
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "The crate-private driving API is integrated by the following scheduler \
-                  milestone."
-    )
-)]
 pub(crate) mod scheduler;
 
 pub use scheduler::{ClockConfigurationError, ClockScheduler};

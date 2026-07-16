@@ -2,8 +2,8 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use crate::{
-    CheckFailure, Clock, CycleTiming, Drive, Dut, ExactScoreboard, InvalidTimeStep, ReferenceModel,
-    Sample, Scoreboard, SimulationStage, SimulationTime, TimeStep,
+    CheckFailure, Clock, ClockScheduler, ClockTiming, CycleTiming, Drive, Dut, ExactScoreboard,
+    InvalidTimeStep, ReferenceModel, Sample, Scoreboard, SimulationStage, SimulationTime, TimeStep,
 };
 
 /// Error returned by the mock DUT.
@@ -163,6 +163,19 @@ impl Clock<OverflowMockDut> for MockClock {
     }
 
     fn drive_active(&mut self, _dut: &mut OverflowMockDut) -> Result<(), MockError> {
+        Ok(())
+    }
+}
+
+/// Secondary clock driver for scheduler integration tests.
+struct SecondaryClock;
+
+impl Clock<MockDut> for SecondaryClock {
+    fn drive_inactive(&mut self, _dut: &mut MockDut) -> Result<(), MockError> {
+        Ok(())
+    }
+
+    fn drive_active(&mut self, _dut: &mut MockDut) -> Result<(), MockError> {
         Ok(())
     }
 }
@@ -411,6 +424,33 @@ fn runner_uses_configured_cycle_timing() -> Result<(), InvalidTimeStep> {
 
     assert!(result.passed());
     assert_eq!(result.final_time(), SimulationTime::from_ticks(10));
+
+    Ok(())
+}
+
+#[test]
+fn multi_clock_runner_counts_primary_transactions_only() -> Result<(), Box<dyn std::error::Error>> {
+    let primary = ClockTiming::new(
+        CycleTiming::new(TimeStep::new(3)?, TimeStep::new(1)?),
+        TimeStep::new(4)?,
+    );
+    let secondary = ClockTiming::from_cycle(CycleTiming::UNIT);
+    let clocks = ClockScheduler::new("core", MockClock, primary)?.with_clock(
+        "peripheral",
+        SecondaryClock,
+        secondary,
+    )?;
+    let result = crate::Testbench::new(MockDut::default())
+        .with_sequence([MockStimulus { value: 1 }])
+        .with_reference_model(MockReferenceModel)
+        .with_scoreboard(ExactScoreboard)
+        .with_clocks(clocks)
+        .run::<MockObservation>();
+
+    assert!(result.passed());
+    assert_eq!(result.cycles(), 1);
+    assert_eq!(result.checks(), 1);
+    assert_eq!(result.final_time(), SimulationTime::from_ticks(5));
 
     Ok(())
 }

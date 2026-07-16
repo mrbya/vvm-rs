@@ -139,6 +139,17 @@ impl<'clock, D> ClockScheduler<'clock, D>
 where
     D: Dut,
 {
+    /// Creates the compatibility scheduler for one unnamed primary clock.
+    pub(crate) fn single<C>(clock: C, timing: ClockTiming) -> Self
+    where
+        C: Clock<D> + 'clock,
+    {
+        Self {
+            primary: ClockDomain::new("clock".to_owned(), clock, timing),
+            secondary: Vec::new(),
+        }
+    }
+
     /// Creates a scheduler with one required primary clock.
     ///
     /// # Errors
@@ -251,6 +262,11 @@ where
         next.as_time_step()
     }
 
+    /// Returns the delay until the next primary-clock transition.
+    pub(crate) const fn primary_transition_after(&self) -> TimeStep {
+        self.primary.remaining.as_time_step()
+    }
+
     /// Drives every transition due at the next event time.
     pub(crate) fn drive_next_batch(
         &mut self,
@@ -324,18 +340,34 @@ impl<E> ClockDriveFailure<E> {
     }
 
     /// Returns the failed clock name.
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "Reserved for structured runtime diagnostics.")
+    )]
     pub(crate) fn name(&self) -> &str {
         &self.name
     }
     /// Returns the attempted phase.
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "Reserved for structured runtime diagnostics.")
+    )]
     pub(crate) const fn phase(&self) -> ClockPhase {
         self.phase
     }
     /// Returns the underlying error.
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "Reserved for structured runtime diagnostics.")
+    )]
     pub(crate) const fn source(&self) -> &E {
         &self.source
     }
     /// Returns the underlying error.
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "Reserved for structured runtime diagnostics.")
+    )]
     pub(crate) fn into_source(self) -> E {
         self.source
     }
@@ -371,14 +403,26 @@ pub struct ClockEventBatch {
 
 impl ClockEventBatch {
     /// Returns time elapsed since the previous batch.
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "Reserved for event-loop integration.")
+    )]
     pub(crate) const fn elapsed(self) -> TimeStep {
         self.elapsed
     }
     /// Returns the primary transition, if one occurred.
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "Reserved for event-loop integration.")
+    )]
     pub(crate) const fn primary_transition(self) -> Option<ClockPhase> {
         self.primary_transition
     }
     /// Returns the number of transitions in this batch.
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "Reserved for event-loop integration.")
+    )]
     pub(crate) const fn transition_count(self) -> usize {
         self.transition_count
     }

@@ -262,9 +262,15 @@ enum TimingSchedulerState {
 /// Processes delayed-event slots reported by a [`TimedDut`].
 ///
 /// Initialization evaluates once at the current DUT time, but that evaluation
-/// is not a delayed slot. Delayed event times are absolute; each is converted
-/// to a positive relative [`TimeStep`] for [`Dut::advance_time`]. Equal-time
-/// events are unsupported and rejected.
+/// is not a delayed slot. For a finite delayed process, the execution timeline
+/// can be an initial evaluation at t0 followed by delayed slots at t2, t5, and
+/// t10. That execution reports three `time_slots` and four `evaluations`.
+///
+/// Delayed event times are absolute; each is converted to a positive relative
+/// [`TimeStep`] for [`Dut::advance_time`]. Equal-time and past event slots are
+/// unsupported and rejected. Open waveform tracing before initialization when
+/// time-zero dumping is required. This scheduler does not own tracing or
+/// finalize the DUT, so callers must finalize it explicitly after execution.
 ///
 /// For manual stepping:
 /// ```ignore

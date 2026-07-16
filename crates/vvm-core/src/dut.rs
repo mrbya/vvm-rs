@@ -46,9 +46,12 @@ pub trait Dut {
 /// A DUT exposing internally scheduled timing events.
 ///
 /// Timing-enabled DUTs report absolute future simulation times. Querying the
-/// event queue does not advance simulation time or evaluate the model.
-/// Implementations must return `None` from [`Self::next_time_slot`] when no
-/// delayed event is pending.
+/// event queue does not advance simulation time, evaluate the model, or
+/// consume the reported event. Evaluation at the reported time consumes or
+/// resumes the scheduled work. Implementations must return `None` from
+/// [`Self::next_time_slot`] when no delayed event is pending. Use
+/// [`TimingScheduler`](crate::TimingScheduler) as the standard VVM execution
+/// loop for this trait.
 pub trait TimedDut: Dut {
     /// Returns whether delayed events remain pending.
     ///
@@ -58,10 +61,10 @@ pub trait TimedDut: Dut {
     /// queue cannot be queried.
     fn events_pending(&self) -> Result<bool, Self::Error>;
 
-    /// Returns the absolute time of the next delayed event.
+    /// Returns the absolute simulation time of the next delayed event.
     ///
     /// Returns `None` when no delayed event is pending. This operation must
-    /// not advance simulation time or evaluate the DUT.
+    /// not advance simulation time, evaluate the DUT, or consume the event.
     ///
     /// # Errors
     ///

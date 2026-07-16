@@ -176,7 +176,7 @@ Removed. Shared ABI support should only return once concrete cross-DUT native fu
 | 8 | Derive macros | Complete |
 | 9 | Public facade | Complete |
 | 10 | Tracing, reporting, and standard test harness | Complete |
-| 11 | Wider HDL feature support | Backlog |
+| 11 | Wider HDL feature support | In progress |
 
 ---
 
@@ -1339,11 +1339,11 @@ Implement only after the MVP is stable.
 
 ## Multiple clocks
 
-- [ ] Represent named clocks.
-- [ ] Define independent periods.
-- [ ] Define same-time ordering.
-- [ ] Add scheduler support.
-- [ ] Add a multi-clock example.
+- [x] Represent named clocks.
+- [x] Define independent periods.
+- [x] Define same-time ordering.
+- [x] Add scheduler support.
+- [x] Add a multi-clock example.
 
 ## Inout ports
 
@@ -1364,13 +1364,24 @@ Implement only after the MVP is stable.
 
 ## Timing-enabled models
 
-- [ ] Add a distinct timing scheduler.
-- [ ] Support `eventsPending()`.
-- [ ] Support `nextTimeSlot()`.
-- [ ] Define time advancement.
-- [ ] Integrate waveform dumping.
-- [ ] Add a delay-based example.
-- [ ] Preserve cycle-based mode.
+- [x] Add a distinct timing scheduler.
+- [x] Support `eventsPending()`.
+- [x] Support `nextTimeSlot()`.
+- [x] Define time advancement.
+- [x] Integrate waveform dumping.
+- [x] Add a delay-based example.
+- [x] Preserve cycle-based mode.
+
+### Timing-enabled model semantics
+
+- `TimedDut` exposes simulator-owned delayed-event times.
+- `TimingScheduler` performs one initialization evaluation.
+- Each future absolute event time is converted to one positive relative advance.
+- The DUT is evaluated exactly once at each processed slot.
+- Waveform dumping remains part of normal DUT evaluation.
+- `TimingScheduler` does not finalize the DUT.
+- Cycle-driven `Testbench` and internal timing scheduling remain separate.
+- Same-time and `#0` scheduling remain unsupported.
 
 ## DPI and coverage
 

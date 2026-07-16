@@ -1,6 +1,7 @@
 # VVM
 
-Rust verification framework for Verilator-generated RTL models.
+Rust verification framework for Verilator-generated RTL models, including
+internally scheduled HDL delays.
 
 VVM provides strongly typed Rust testbenches, generated DUT bridges, and normal Cargo-based test execution for Verilated designs.
 
@@ -14,6 +15,7 @@ VVM provides strongly typed Rust testbenches, generated DUT bridges, and normal 
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Timing-enabled Models](#timing-enabled-models)
 - [Running VVM Tests](#running-vvm-tests)
 - [Test Configuration](#test-configuration)
 - [Workspace Crates](#workspace-crates)
@@ -44,6 +46,9 @@ The working reference for public usage in this repository is `examples/counter`.
 - Stateful reference models and exact-equality scoreboards.
 - Configurable failure policies with retained mismatch diagnostics.
 - Explicit simulation time and cycle timing.
+- Timing-enabled Verilator models through a typed build option.
+- Explicit delayed-event processing through `TimedDut` and `TimingScheduler`.
+- Manual delayed-slot stepping and bounded run-until-idle execution.
 - Deterministic randomization with replay tokens.
 - Structured pass/fail outcomes and detailed reports.
 - VCD waveform tracing for trace-capable tests.
@@ -59,6 +64,9 @@ To build and run VVM-based tests for Verilated DUTs, the currently verified requ
 - Rust `1.87.0` or newer.
 - A working C++ toolchain.
 - Verilator.
+
+Timing-enabled models require a C++ compiler with coroutine support. Ordinary
+non-timing models retain the existing C++17 compilation path.
 
 Additional contributor tooling used by this repository is installed by `just init`. That includes nightly Rust for formatting and dependency linting, `cargo-nextest`, `cargo-llvm-cov`, `cargo-udeps`, `cargo-audit`, `markdown-toc`, and `pre-commit`.
 
@@ -177,6 +185,34 @@ cargo test counter_smoke
 
 For unit-style VVM tests, keep them inside an explicit `#[cfg(test)]` module as shown above. Integration tests under `tests/` are already test-only and do not need an additional `#[cfg(test)]`.
 
+## Timing-enabled Models
+
+Timing mode builds a model that exposes internally scheduled HDL delays:
+
+```rust
+DutBuilder::new("delayed_sequence")
+    .top_module("delayed_sequence")
+    .source("rtl/delayed_sequence.sv")
+    .timing()
+    .build()
+```
+
+Run its finite delayed-event queue explicitly:
+
+```rust
+let mut scheduler = TimingScheduler::new();
+let run = scheduler.run_until_idle(&mut dut, max_slots)?;
+```
+
+Cycle mode: Rust schedules external input-clock transitions and transaction
+boundaries.
+
+Timing mode: Verilator schedules internal delayed HDL processes.
+
+The two schedulers are intentionally separate. See
+[`examples/timing-delay`](examples/timing-delay) for the complete build,
+stepping, tracing, and finalization example.
+
 ## Running VVM Tests
 
 VVM tests are ordinary Rust tests.
@@ -247,7 +283,9 @@ If `VVM_TRACE_DIR` is not set, trace-capable tests write VCDs under a generated 
 - `vvm-core`: runtime verification primitives, outcomes, timing, replay, and testbench execution.
 - `vvm-build`: Verilator invocation, metadata handling, code generation, and native bridge compilation.
 - `vvm-macros`: derives for drive/sample/clock plus `#[vvm::test]`.
-- `vvm-example-counter`: working counter example and repository smoke target.
+- `vvm-example-counter`: minimal cycle-driven verification.
+- `vvm-example-multi-clock`: independently timed externally driven clocks.
+- `vvm-example-timing-delay`: internally scheduled HDL delays.
 
 ## Development
 

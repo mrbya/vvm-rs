@@ -562,6 +562,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "vvm-example-timing-delay"
+version = "0.1.0-alpha.1"
+dependencies = [
+ "tempfile",
+ "thiserror",
+ "vvm-build",
+ "vvm-rs",
+]
+
+[[package]]
 name = "vvm-example-unpacked-array"
 version = "0.1.0-alpha.1"
 dependencies = [

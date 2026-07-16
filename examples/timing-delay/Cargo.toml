@@ -1,0 +1,25 @@
+[package]
+name = "vvm-example-timing-delay"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+publish = false
+build = "build.rs"
+description = "VVM timing-enabled delayed-event verification example"
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+thiserror.workspace = true
+vvm.workspace = true
+
+[build-dependencies]
+vvm-build.workspace = true

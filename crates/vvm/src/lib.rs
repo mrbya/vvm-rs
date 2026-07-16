@@ -1,7 +1,7 @@
 //! Verilator Verification Methodology for Rust.
 //!
 //! VVM provides strongly typed Rust testbenches for Verilator-generated HDL
-//! models.
+//! models, including explicit execution of internally delayed HDL processes.
 //!
 //! Tests marked with `#[vvm::test]` become ordinary Rust `#[test]` functions.
 //! Place unit-style VVM tests inside an explicit `#[cfg(test)]` module. Cargo
@@ -15,6 +15,8 @@
 //! - typed stimulus driving and output sampling;
 //! - typed single-clock and independently timed multi-clock control through
 //!   [`Clock`], [`ClockTiming`], [`ClockScheduler`], and [`Testbench::with_clocks`];
+//! - explicit execution of internally delayed HDL processes through [`TimedDut`]
+//!   and [`TimingScheduler`];
 //! - stateful reference models;
 //! - scoreboards and structured mismatches;
 //! - deterministic testbench execution.
@@ -35,6 +37,14 @@
 //!         .source("rtl/counter.sv")
 //!         .build()
 //! }
+//! ```
+//!
+//! Timing-enabled models use a separate scheduler rather than the cycle-driven
+//! testbench loop:
+//!
+//! ```ignore
+//! let mut scheduler = TimingScheduler::new();
+//! let run = scheduler.run_until_idle(&mut dut, max_slots)?;
 //! ```
 //!
 //! The generated DUT can then be included and verified:

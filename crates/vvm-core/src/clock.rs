@@ -1,10 +1,5 @@
 use crate::Dut;
 
-/// Scheduler and timing primitives.
-mod scheduler;
-
-pub use scheduler::ClockTiming;
-
 /// Drive the inactive and active phases of a synchronous DUT clock.
 ///
 /// Clock driving changes only the clock input. Evaluation remains the

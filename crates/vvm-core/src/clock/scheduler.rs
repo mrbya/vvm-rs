@@ -347,6 +347,7 @@ impl<E> ClockDriveFailure<E> {
     pub(crate) fn name(&self) -> &str {
         &self.name
     }
+
     /// Returns the attempted phase.
     #[cfg_attr(
         not(test),
@@ -355,6 +356,7 @@ impl<E> ClockDriveFailure<E> {
     pub(crate) const fn phase(&self) -> ClockPhase {
         self.phase
     }
+
     /// Returns the underlying error.
     #[cfg_attr(
         not(test),
@@ -363,6 +365,7 @@ impl<E> ClockDriveFailure<E> {
     pub(crate) const fn source(&self) -> &E {
         &self.source
     }
+
     /// Returns the underlying error.
     #[cfg_attr(
         not(test),
@@ -371,6 +374,7 @@ impl<E> ClockDriveFailure<E> {
     pub(crate) fn into_source(self) -> E {
         self.source
     }
+
     /// Decomposes this failure.
     pub(crate) fn into_parts(self) -> (String, ClockPhase, E) {
         (self.name, self.phase, self.source)
@@ -410,6 +414,7 @@ impl ClockEventBatch {
     pub(crate) const fn elapsed(self) -> TimeStep {
         self.elapsed
     }
+
     /// Returns the primary transition, if one occurred.
     #[cfg_attr(
         not(test),
@@ -418,6 +423,7 @@ impl ClockEventBatch {
     pub(crate) const fn primary_transition(self) -> Option<ClockPhase> {
         self.primary_transition
     }
+
     /// Returns the number of transitions in this batch.
     #[cfg_attr(
         not(test),
@@ -426,10 +432,12 @@ impl ClockEventBatch {
     pub(crate) const fn transition_count(self) -> usize {
         self.transition_count
     }
+
     /// Returns whether the primary entered its active phase.
     pub(crate) const fn primary_became_active(self) -> bool {
         matches!(self.primary_transition, Some(ClockPhase::Active))
     }
+
     /// Returns whether the primary entered its inactive phase.
     pub(crate) const fn primary_became_inactive(self) -> bool {
         matches!(self.primary_transition, Some(ClockPhase::Inactive))
@@ -787,8 +795,8 @@ mod tests {
     }
 
     #[test]
-    fn drives_initial_inactive_levels_in_registration_order()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn drives_initial_inactive_levels_in_registration_order(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let log = Rc::new(RefCell::new(Vec::new()));
         let mut dut = RecordingDut::new(Rc::clone(&log));
         let mut scheduler = scheduler(ClockTiming::UNIT)?
@@ -881,8 +889,8 @@ mod tests {
     }
 
     #[test]
-    fn batches_simultaneous_transitions_in_registration_order()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn batches_simultaneous_transitions_in_registration_order(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let log = Rc::new(RefCell::new(Vec::new()));
         let mut dut = RecordingDut::new(Rc::clone(&log));
         let mut scheduler = scheduler(ClockTiming::UNIT)?
@@ -922,8 +930,8 @@ mod tests {
     }
 
     #[test]
-    fn preserves_state_and_stops_batch_after_secondary_failure()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn preserves_state_and_stops_batch_after_secondary_failure(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let log = Rc::new(RefCell::new(Vec::new()));
         let mut dut = RecordingDut::new(Rc::clone(&log));
         let mut scheduler = scheduler(ClockTiming::UNIT)?
@@ -992,8 +1000,8 @@ mod tests {
     }
 
     #[test]
-    fn initialization_and_primary_failures_stop_later_drives()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn initialization_and_primary_failures_stop_later_drives(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let log = Rc::new(RefCell::new(Vec::new()));
         let mut dut = RecordingDut::new(Rc::clone(&log));
         let mut initialization = scheduler(ClockTiming::UNIT)?

@@ -389,20 +389,26 @@ where
             primary_cycle_timing,
             replay_token,
         } = self;
+
         if let Some(cycle_timing) = primary_cycle_timing {
             clocks.replace_primary_timing(ClockTiming::from_cycle(cycle_timing));
         }
+
         let mut result = TestResult::new(dut.simulation_time(), replay_token);
         let mut sequence = sequence.into_iter();
+
         let Some(first_stimulus) = sequence.next() else {
             finalize_and_record(&mut dut, &mut result);
             return result;
         };
+
         let mut stimulus = Some(first_stimulus);
+
         let Some(current_stimulus) = stimulus.as_ref() else {
             finalize_and_record(&mut dut, &mut result);
             return result;
         };
+
         if let Err(error) = initialize_first_transaction(&mut dut, &mut clocks, current_stimulus) {
             record_stage_failure(&mut result, 0, dut.simulation_time(), error);
             finalize_and_record(&mut dut, &mut result);
@@ -411,6 +417,7 @@ where
 
         loop {
             let cycle = result.cycles();
+
             let observed = match run_until_primary_active::<D, O>(&mut dut, &mut clocks) {
                 Ok(observed) => observed,
                 Err(error) => {
@@ -418,37 +425,49 @@ where
                     break;
                 }
             };
+
             let Some(active_stimulus) = stimulus.as_ref() else {
                 break;
             };
+
             let expected = reference_model.predict(active_stimulus);
             let check_time = dut.simulation_time();
             let check_result = scoreboard.check(expected, observed);
+
             result.record_check();
+
             if let Err(error) = check_result {
                 let Some(failed_stimulus) = stimulus.take() else {
                     break;
                 };
+
                 result.record_failure(CheckFailure::new(cycle, check_time, failed_stimulus, error));
+
                 if failure_policy.should_stop(result.failure_count()) {
                     result.mark_stopped_by_failure_policy();
                     break;
                 }
             }
+
             if let Err(error) = advance_to_primary_inactive_boundary(&mut dut, &mut clocks) {
                 record_stage_failure(&mut result, cycle, dut.simulation_time(), error);
                 break;
             }
+
             let Some(next_stimulus) = sequence.next() else {
                 break;
             };
+
             let next_cycle = result.cycles();
+
             if let Err(error) = start_next_primary_cycle(&mut dut, &mut clocks, &next_stimulus) {
                 record_stage_failure(&mut result, next_cycle, dut.simulation_time(), error);
                 break;
             }
+
             stimulus = Some(next_stimulus);
         }
+
         finalize_and_record(&mut dut, &mut result);
         result
     }

@@ -68,6 +68,11 @@ impl TimeStep {
         self.0.get()
     }
 
+    /// Constructs a step from a value that is already known to be nonzero.
+    pub(crate) const fn from_nonzero(ticks: NonZeroU64) -> Self {
+        Self(ticks)
+    }
+
     /// Adds a non-zero time step without wrapping.
     #[must_use]
     pub const fn checked_add(self, delta: Self) -> Option<Self> {

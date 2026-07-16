@@ -63,8 +63,8 @@
 
 /// Arbitrary-width packed bit values.
 pub(crate) mod bits;
-/// Synchronous clock-driving abstraction.
-pub(crate) mod clock;
+/// Synchronous clock-driving abstraction and configuration.
+pub mod clock;
 /// Stimulus driving abstraction.
 pub(crate) mod drive;
 /// DUT lifecycle abstraction.
@@ -96,7 +96,7 @@ pub(crate) mod unpacked;
 
 // Re-exports
 pub use bits::{Bits, InvalidBitVectorWordCount, SignedBits};
-pub use clock::Clock;
+pub use clock::{Clock, ClockConfigurationError, ClockScheduler, ClockTiming};
 pub use drive::Drive;
 pub use dut::{Dut, TraceableDut};
 pub use failure_policy::{FailurePolicy, InvalidFailureLimit};

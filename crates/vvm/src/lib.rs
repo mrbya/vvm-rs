@@ -92,17 +92,17 @@ pub(crate) mod test;
 
 #[doc(inline)]
 pub use vvm_core::{
-    Bits, CheckFailure, Clock, CycleTiming, DetailedTestReport, Drive, Dut, ExactScoreboard,
-    FailurePolicy, IntoTestOutcome, InvalidBitVectorWordCount, InvalidFailureLimit,
-    InvalidTimeStep, Mismatch, PackedEnumLayout, PackedEnumVariantLayout, PackedFieldLayout,
-    PackedLayout, PackedLayoutError, PackedRange, PackedValue, ParseReplayTokenError,
-    RandomAlgorithm, RandomContext, Randomize, ReferenceModel, ReplayToken, ReplayableSequence,
-    Sample, Scoreboard, Seed, SignedBits, SimulationError, SimulationStage, SimulationTime,
-    TestCapabilities, TestDescriptor, TestFunction, TestOutcome, TestRegistry, TestRegistryError,
-    TestResult, TestRun, TestRunConfig, TestStatistics, TestStatus, TestSummary, Testbench,
-    TimeStep, TraceableDut, UnpackedArrayIndexError, extract_packed, extract_signed,
-    extract_signed_packed, extract_unsigned, insert_packed, insert_signed, insert_signed_packed,
-    insert_unsigned, unpacked_array_ordinal,
+    Bits, CheckFailure, Clock, ClockConfigurationError, ClockScheduler, ClockTiming, CycleTiming,
+    DetailedTestReport, Drive, Dut, ExactScoreboard, FailurePolicy, IntoTestOutcome,
+    InvalidBitVectorWordCount, InvalidFailureLimit, InvalidTimeStep, Mismatch, PackedEnumLayout,
+    PackedEnumVariantLayout, PackedFieldLayout, PackedLayout, PackedLayoutError, PackedRange,
+    PackedValue, ParseReplayTokenError, RandomAlgorithm, RandomContext, Randomize, ReferenceModel,
+    ReplayToken, ReplayableSequence, Sample, Scoreboard, Seed, SignedBits, SimulationError,
+    SimulationStage, SimulationTime, TestCapabilities, TestDescriptor, TestFunction, TestOutcome,
+    TestRegistry, TestRegistryError, TestResult, TestRun, TestRunConfig, TestStatistics,
+    TestStatus, TestSummary, Testbench, TimeStep, TraceableDut, UnpackedArrayIndexError,
+    extract_packed, extract_signed, extract_signed_packed, extract_unsigned, insert_packed,
+    insert_signed, insert_signed_packed, insert_unsigned, unpacked_array_ordinal,
 };
 #[doc(inline)]
 pub use vvm_macros::{Clock, Drive, Sample, test};
@@ -117,9 +117,10 @@ pub use vvm_macros::{Clock, Drive, Sample, test};
 /// ```
 pub mod prelude {
     pub use crate::{
-        Bits, Clock, CycleTiming, Drive, Dut, ExactScoreboard, FailurePolicy, RandomContext,
-        Randomize, ReferenceModel, ReplayableSequence, Sample, Scoreboard, Seed, SignedBits,
-        SimulationTime, TestDescriptor, TestRegistryError, TestRunConfig, Testbench, TimeStep,
+        Bits, Clock, ClockScheduler, ClockTiming, CycleTiming, Drive, Dut, ExactScoreboard,
+        FailurePolicy, RandomContext, Randomize, ReferenceModel, ReplayableSequence, Sample,
+        Scoreboard, Seed, SignedBits, SimulationTime, TestDescriptor, TestRegistryError,
+        TestRunConfig, Testbench, TimeStep,
     };
 }
 

@@ -1423,43 +1423,30 @@ mod tests {
     }
 
     #[test]
-    fn verilator_wide_accessors_use_vlwide_storage() -> Result<(), Box<dyn std::error::Error>> {
+    fn verilator_wide_model_members_use_vlwide_storage() -> Result<(), Box<dyn std::error::Error>> {
         let fixture = wide_ports_fixture();
         let header = std::fs::read_to_string(fixture.join("Vwide_ports.h"))?;
 
-        assert!(header.contains("VL_INW(&__Vm_sig_input_u65,64,0,3);"));
-        assert!(header.contains("VL_INW(&__Vm_sig_input_u96,95,0,3);"));
-        assert!(header.contains("VL_INW(&__Vm_sig_input_u129,128,0,5);"));
-        assert!(header.contains("VL_INW(&__Vm_sig_input_u256,255,0,8);"));
-        assert!(header.contains("VL_INW(&__Vm_sig_input_i65,64,0,3);"));
-        assert!(header.contains("VL_INW(&__Vm_sig_input_i129,128,0,5);"));
-        assert!(header.contains("VL_OUTW(&__Vm_sig_output_u65,64,0,3);"));
-        assert!(header.contains("VL_OUTW(&__Vm_sig_output_u96,95,0,3);"));
-        assert!(header.contains("VL_OUTW(&__Vm_sig_output_u129,128,0,5);"));
-        assert!(header.contains("VL_OUTW(&__Vm_sig_output_u256,255,0,8);"));
-        assert!(header.contains("VL_OUTW(&__Vm_sig_output_i65,64,0,3);"));
-        assert!(header.contains("VL_OUTW(&__Vm_sig_output_i129,128,0,5);"));
-
-        assert!(
-            header
-                .contains("decltype(__Vm_sig_input_u65) input_u65() {return __Vm_sig_input_u65;}")
-        );
-        assert!(
-            header
-                .contains("void input_u65(decltype(__Vm_sig_input_u65) v) {__Vm_sig_input_u65=v;}")
-        );
-        assert!(header.contains(
-            "decltype(__Vm_sig_output_u256) output_u256() {return __Vm_sig_output_u256;}"
-        ));
-        assert!(header.contains(
-            "void output_u256(decltype(__Vm_sig_output_u256) v) {__Vm_sig_output_u256=v;}"
-        ));
-        assert!(header.contains(
-            "decltype(__Vm_sig_output_i129) output_i129() {return __Vm_sig_output_i129;}"
-        ));
-        assert!(header.contains(
-            "void output_i129(decltype(__Vm_sig_output_i129) v) {__Vm_sig_output_i129=v;}"
-        ));
+        assert!(header.contains("VL_INW(&input_u65,64,0,3);"));
+        assert!(header.contains("VL_INW(&input_u96,95,0,3);"));
+        assert!(header.contains("VL_INW(&input_u129,128,0,5);"));
+        assert!(header.contains("VL_INW(&input_u256,255,0,8);"));
+        assert!(header.contains("VL_INW(&input_i65,64,0,3);"));
+        assert!(header.contains("VL_INW(&input_i129,128,0,5);"));
+        assert!(header.contains("VL_OUTW(&output_u65,64,0,3);"));
+        assert!(header.contains("VL_OUTW(&output_u96,95,0,3);"));
+        assert!(header.contains("VL_OUTW(&output_u129,128,0,5);"));
+        assert!(header.contains("VL_OUTW(&output_u256,255,0,8);"));
+        assert!(header.contains("VL_OUTW(&output_i65,64,0,3);"));
+        assert!(header.contains("VL_OUTW(&output_i129,128,0,5);"));
+        assert!(!header.contains("__Vm_sig_"));
+        assert!(!header.contains("// ACCESSORS"));
+        assert!(!header.contains("input_u65()"));
+        assert!(header.contains("void eval()"));
+        assert!(header.contains("void final();"));
+        assert!(header.contains("void trace("));
+        assert!(header.contains("bool eventsPending();"));
+        assert!(header.contains("uint64_t nextTimeSlot();"));
 
         Ok(())
     }

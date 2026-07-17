@@ -28,26 +28,11 @@ class alignas(VL_CACHE_LINE_BYTES) Vpacked_array_ports VL_NOT_FINAL : public Ver
     // PORTS
     // The application code writes and reads these signals to
     // propagate new values into/out from the Verilated model.
-    VL_IN8(&__Vm_sig_clk,0,0);
-    VL_IN(&__Vm_sig_packed_bytes,31,0);
-    VL_OUT(&__Vm_sig_packed_bytes_out,31,0);
-    VL_OUT8(&__Vm_sig_first_byte,7,0);
-    VL_OUT8(&__Vm_sig_last_byte,7,0);
-
-    // ACCESSORS
-    // The application code should use these methods to
-    // propagate new values into/out from the Verilated model
-    // instead of using signal variables directly.
-    decltype(__Vm_sig_clk) clk() {return __Vm_sig_clk;}
-    void clk(decltype(__Vm_sig_clk) v) {__Vm_sig_clk=v;}
-    decltype(__Vm_sig_packed_bytes) packed_bytes() {return __Vm_sig_packed_bytes;}
-    void packed_bytes(decltype(__Vm_sig_packed_bytes) v) {__Vm_sig_packed_bytes=v;}
-    decltype(__Vm_sig_packed_bytes_out) packed_bytes_out() {return __Vm_sig_packed_bytes_out;}
-    void packed_bytes_out(decltype(__Vm_sig_packed_bytes_out) v) {__Vm_sig_packed_bytes_out=v;}
-    decltype(__Vm_sig_first_byte) first_byte() {return __Vm_sig_first_byte;}
-    void first_byte(decltype(__Vm_sig_first_byte) v) {__Vm_sig_first_byte=v;}
-    decltype(__Vm_sig_last_byte) last_byte() {return __Vm_sig_last_byte;}
-    void last_byte(decltype(__Vm_sig_last_byte) v) {__Vm_sig_last_byte=v;}
+    VL_IN8(&clk,0,0);
+    VL_IN(&packed_bytes,31,0);
+    VL_OUT(&packed_bytes_out,31,0);
+    VL_OUT8(&first_byte,7,0);
+    VL_OUT8(&last_byte,7,0);
 
     // CELLS
     // Public to allow access to /* verilator public */ items.

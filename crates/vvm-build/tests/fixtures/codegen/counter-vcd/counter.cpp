@@ -22,19 +22,19 @@ public:
 
         model = std::make_unique<Vcounter>(context.get());
         {
-            using RawType = std::decay_t<decltype(model->clk())>;
+            using RawType = std::decay_t<decltype(model->clk)>;
             RawType raw_value{};
-            model->clk(raw_value);
+            model->clk = raw_value;
         }
         {
-            using RawType = std::decay_t<decltype(model->reset_n())>;
+            using RawType = std::decay_t<decltype(model->reset_n)>;
             RawType raw_value{};
-            model->reset_n(raw_value);
+            model->reset_n = raw_value;
         }
         {
-            using RawType = std::decay_t<decltype(model->enable())>;
+            using RawType = std::decay_t<decltype(model->enable)>;
             RawType raw_value{};
-            model->enable(raw_value);
+            model->enable = raw_value;
         }
     }
 
@@ -131,28 +131,28 @@ bool Counter::trace_is_open() const noexcept {
 }
 
 void Counter::set_clk(const bool value) noexcept {
-    using RawType = std::decay_t<decltype(impl_->model->clk())>;
+    using RawType = std::decay_t<decltype(impl_->model->clk)>;
 
     RawType raw_value{static_cast<RawType>(value)};
-    impl_->model->clk(raw_value);
+    impl_->model->clk = raw_value;
 }
 
 void Counter::set_reset_n(const bool value) noexcept {
-    using RawType = std::decay_t<decltype(impl_->model->reset_n())>;
+    using RawType = std::decay_t<decltype(impl_->model->reset_n)>;
 
     RawType raw_value{static_cast<RawType>(value)};
-    impl_->model->reset_n(raw_value);
+    impl_->model->reset_n = raw_value;
 }
 
 void Counter::set_enable(const bool value) noexcept {
-    using RawType = std::decay_t<decltype(impl_->model->enable())>;
+    using RawType = std::decay_t<decltype(impl_->model->enable)>;
 
     RawType raw_value{static_cast<RawType>(value)};
-    impl_->model->enable(raw_value);
+    impl_->model->enable = raw_value;
 }
 
 std::uint8_t Counter::count() const noexcept {
-    return static_cast<std::uint8_t>(impl_->model->count());
+    return static_cast<std::uint8_t>(impl_->model->count);
 }
 
 bool Counter::advance_time(

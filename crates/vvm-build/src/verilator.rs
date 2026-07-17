@@ -212,8 +212,7 @@ pub fn model_command(model: &ModelCommand<'_>) -> Command {
         .arg("--prefix")
         .arg(model.model_prefix)
         .arg("--Mdir")
-        .arg(model.output_dir)
-        .arg("--emit-accessors");
+        .arg(model.output_dir);
 
     append_trace_arguments(&mut command, model.trace);
     append_timing_argument(&mut command, model.timing);

@@ -35,8 +35,8 @@ pub struct DutNames {
 /// Resolved names for one generated port.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PortNames {
-    /// Verilator top-model accessor.
-    pub accessor: String,
+    /// Verilator top-model signal member.
+    pub model_member: String,
 
     /// Generated adapter member function.
     pub method: String,
@@ -107,7 +107,7 @@ pub fn resolve(metadata: &DutMetadata, model_prefix: &str) -> BuildResult<DutNam
     let mut ports = Vec::with_capacity(metadata.ports.len());
 
     for port in &metadata.ports {
-        validate_cpp_identifier("HDL port accessor", &port.name)?;
+        validate_cpp_identifier("HDL port model member", &port.name)?;
 
         let method = match port.direction {
             PortDirection::Input => {
@@ -150,7 +150,7 @@ pub fn resolve(metadata: &DutMetadata, model_prefix: &str) -> BuildResult<DutNam
         let struct_fields = packed_struct_field_names(port)?;
 
         ports.push(PortNames {
-            accessor: port.name.clone(),
+            model_member: port.name.clone(),
             method,
             rust_type,
             struct_fields,
@@ -677,6 +677,10 @@ mod tests {
         assert_eq!(names.cpp_type, "Counter");
         assert_eq!(names.factory, "create_counter");
         assert_eq!(names.model_type, "Vcounter");
+        assert_eq!(
+            names.ports.first().map(|port| port.model_member.as_str()),
+            Some("clk")
+        );
 
         assert_eq!(
             names.ports.first().map(|port| port.method.as_str()),
@@ -692,6 +696,10 @@ mod tests {
 
         assert_eq!(
             names.ports.get(1).map(|port| port.method.as_str()),
+            Some("count")
+        );
+        assert_eq!(
+            names.ports.get(1).map(|port| port.model_member.as_str()),
             Some("count")
         );
         assert_eq!(
@@ -746,13 +754,13 @@ mod tests {
     }
 
     #[test]
-    fn rejects_cpp_keyword_accessor() {
+    fn rejects_cpp_keyword_model_member() {
         let metadata = metadata("dut", vec![port("class", PortDirection::Input)]);
 
         assert!(matches!(
             resolve(&metadata, "Vdut"),
             Err(BuildError::UnsupportedCodegenName {
-                role: "HDL port accessor",
+                role: "HDL port model member",
                 name,
                 ..
             }) if name == "class"

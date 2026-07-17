@@ -389,14 +389,17 @@ fn render_input_initializers(output: &mut String, metadata: &DutMetadata, names:
         push_line(
             output,
             &format!(
-                "            using RawType = std::decay_t<decltype(model->{}())>;",
-                port_names.accessor
+                "            using RawType = std::decay_t<decltype(model->{})>;",
+                port_names.model_member
             ),
         );
         push_line(output, "            RawType raw_value{};");
         push_line(
             output,
-            &format!("            model->{}(raw_value);", port_names.accessor),
+            &format!(
+                "            model->{} = raw_value;",
+                port_names.model_member
+            ),
         );
         push_line(output, "        }");
     }
@@ -609,7 +612,7 @@ fn render_port_methods(output: &mut String, metadata: &DutMetadata, names: &DutN
                     output,
                     port,
                     &port_names.method,
-                    &port_names.accessor,
+                    &port_names.model_member,
                     &names.cpp_type,
                 );
             }
@@ -618,7 +621,7 @@ fn render_port_methods(output: &mut String, metadata: &DutMetadata, names: &DutN
                     output,
                     port,
                     &port_names.method,
-                    &port_names.accessor,
+                    &port_names.model_member,
                     &names.cpp_type,
                 );
             }
@@ -707,17 +710,23 @@ fn render_source_epilogue(output: &mut String, names: &DutNames) {
 }
 
 /// Renders one generated input setter.
-fn render_setter(output: &mut String, port: &Port, method: &str, accessor: &str, cpp_type: &str) {
+fn render_setter(
+    output: &mut String,
+    port: &Port,
+    method: &str,
+    model_member: &str,
+    cpp_type: &str,
+) {
     if let Some(array_type) = UnpackedArrayType::from_port(port) {
-        render_unpacked_array_setter(output, method, accessor, cpp_type, array_type);
+        render_unpacked_array_setter(output, method, model_member, cpp_type, array_type);
         return;
     }
     match PortType::from_port(port) {
         PortType::Scalar(signal_type) => {
-            render_scalar_setter(output, port, method, accessor, cpp_type, signal_type);
+            render_scalar_setter(output, port, method, model_member, cpp_type, signal_type);
         }
         PortType::Wide(wide_type) => {
-            render_wide_setter(output, method, accessor, cpp_type, wide_type);
+            render_wide_setter(output, method, model_member, cpp_type, wide_type);
         }
     }
 }
@@ -727,7 +736,7 @@ fn render_scalar_setter(
     output: &mut String,
     port: &Port,
     method: &str,
-    accessor: &str,
+    model_member: &str,
     cpp_type: &str,
     signal_type: SignalType,
 ) {
@@ -741,7 +750,7 @@ fn render_scalar_setter(
     );
     push_line(
         output,
-        &format!("    using RawType = std::decay_t<decltype(impl_->model->{accessor}())>;"),
+        &format!("    using RawType = std::decay_t<decltype(impl_->model->{model_member})>;"),
     );
 
     if port.signed {
@@ -778,7 +787,10 @@ fn render_scalar_setter(
         );
     }
 
-    push_line(output, &format!("    impl_->model->{accessor}(raw_value);"));
+    push_line(
+        output,
+        &format!("    impl_->model->{model_member} = raw_value;"),
+    );
     push_line(output, "}");
 }
 
@@ -786,7 +798,7 @@ fn render_scalar_setter(
 fn render_wide_setter(
     output: &mut String,
     method: &str,
-    accessor: &str,
+    model_member: &str,
     cpp_type: &str,
     wide_type: WideType,
 ) {
@@ -809,7 +821,7 @@ fn render_wide_setter(
     push_line(output, "");
     push_line(output, "    using RawType =");
     push_line(output, "        std::decay_t<decltype(");
-    push_line(output, &format!("            impl_->model->{accessor}()"));
+    push_line(output, &format!("            impl_->model->{model_member}"));
     push_line(output, "        )>;");
     push_line(output, "");
     push_line(
@@ -839,24 +851,33 @@ fn render_wide_setter(
     }
 
     push_line(output, "");
-    push_line(output, &format!("    impl_->model->{accessor}(raw_value);"));
+    push_line(
+        output,
+        &format!("    impl_->model->{model_member} = raw_value;"),
+    );
     push_line(output, "");
     push_line(output, "    return true;");
     push_line(output, "}");
 }
 
 /// Renders one generated output getter.
-fn render_getter(output: &mut String, port: &Port, method: &str, accessor: &str, cpp_type: &str) {
+fn render_getter(
+    output: &mut String,
+    port: &Port,
+    method: &str,
+    model_member: &str,
+    cpp_type: &str,
+) {
     if let Some(array_type) = UnpackedArrayType::from_port(port) {
-        render_unpacked_array_getter(output, method, accessor, cpp_type, array_type);
+        render_unpacked_array_getter(output, method, model_member, cpp_type, array_type);
         return;
     }
     match PortType::from_port(port) {
         PortType::Scalar(signal_type) => {
-            render_scalar_getter(output, port, method, accessor, cpp_type, signal_type);
+            render_scalar_getter(output, port, method, model_member, cpp_type, signal_type);
         }
         PortType::Wide(wide_type) => {
-            render_wide_getter(output, method, accessor, cpp_type, wide_type);
+            render_wide_getter(output, method, model_member, cpp_type, wide_type);
         }
     }
 }
@@ -866,7 +887,7 @@ fn render_scalar_getter(
     output: &mut String,
     port: &Port,
     method: &str,
-    accessor: &str,
+    model_member: &str,
     cpp_type: &str,
     signal_type: SignalType,
 ) {
@@ -882,7 +903,7 @@ fn render_scalar_getter(
     if signal_type == SignalType::Bool {
         push_line(
             output,
-            &format!("    return impl_->model->{accessor}() != 0;"),
+            &format!("    return impl_->model->{model_member} != 0;"),
         );
     } else if port.signed {
         push_line(
@@ -893,13 +914,13 @@ fn render_scalar_getter(
                 port.width.get(),
             ),
         );
-        push_line(output, &format!("        impl_->model->{accessor}()"));
+        push_line(output, &format!("        impl_->model->{model_member}"));
         push_line(output, "    );");
     } else if let Some(mask) = signal_type.mask_literal(port.width) {
         push_line(
             output,
             &format!(
-                "    return static_cast<{}>(impl_->model->{accessor}() & {mask});",
+                "    return static_cast<{}>(impl_->model->{model_member} & {mask});",
                 signal_type.cpp_type()
             ),
         );
@@ -907,7 +928,7 @@ fn render_scalar_getter(
         push_line(
             output,
             &format!(
-                "    return static_cast<{}>(impl_->model->{accessor}());",
+                "    return static_cast<{}>(impl_->model->{model_member});",
                 signal_type.cpp_type()
             ),
         );
@@ -920,7 +941,7 @@ fn render_scalar_getter(
 fn render_wide_getter(
     output: &mut String,
     method: &str,
-    accessor: &str,
+    model_member: &str,
     cpp_type: &str,
     wide_type: WideType,
 ) {
@@ -943,7 +964,7 @@ fn render_wide_getter(
     push_line(output, "");
     push_line(output, "    using RawType =");
     push_line(output, "        std::decay_t<decltype(");
-    push_line(output, &format!("            impl_->model->{accessor}()"));
+    push_line(output, &format!("            impl_->model->{model_member}"));
     push_line(output, "        )>;");
     push_line(output, "");
     push_line(
@@ -952,7 +973,7 @@ fn render_wide_getter(
     );
     push_line(output, "");
     push_line(output, "    const auto& raw_value =");
-    push_line(output, &format!("        impl_->model->{accessor}();"));
+    push_line(output, &format!("        impl_->model->{model_member};"));
     push_line(output, "");
     push_line(output, "    for (");
     push_line(output, "        std::size_t index = 0;");
@@ -982,7 +1003,7 @@ fn render_wide_getter(
 fn render_unpacked_array_setter(
     output: &mut String,
     method: &str,
-    accessor: &str,
+    model_member: &str,
     cpp_type: &str,
     array: UnpackedArrayType<'_>,
 ) {
@@ -992,7 +1013,7 @@ fn render_unpacked_array_setter(
     let value_name = unpacked_array_value_name(array);
     render_unpacked_array_setter_prelude(
         output,
-        accessor,
+        model_member,
         cpp_type,
         method,
         array,
@@ -1005,7 +1026,10 @@ fn render_unpacked_array_setter(
         }
         UnpackedArrayElementType::Wide(wide) => render_unpacked_wide_setter(output, array, wide),
     }
-    push_line(output, &format!("    impl_->model->{accessor}(raw_value);"));
+    push_line(
+        output,
+        &format!("    impl_->model->{model_member} = raw_value;"),
+    );
     push_line(output, "    return true;");
     push_line(output, "}");
 }
@@ -1022,7 +1046,7 @@ const fn unpacked_array_value_name(array: UnpackedArrayType<'_>) -> &'static str
 /// Renders common unpacked-array input validation and storage setup.
 fn render_unpacked_array_setter_prelude(
     output: &mut String,
-    accessor: &str,
+    model_member: &str,
     cpp_type: &str,
     method: &str,
     array: UnpackedArrayType<'_>,
@@ -1056,7 +1080,7 @@ fn render_unpacked_array_setter_prelude(
     push_line(output, "    }");
     push_line(
         output,
-        &format!("    using RawType = std::decay_t<decltype(impl_->model->{accessor}())>;"),
+        &format!("    using RawType = std::decay_t<decltype(impl_->model->{model_member})>;"),
     );
     push_line(output, "    RawType raw_value{};");
     push_line(output, "    if (raw_value.size() != expected_elements) {");
@@ -1178,7 +1202,7 @@ fn render_unpacked_native_ordinal(
 fn render_unpacked_array_getter(
     output: &mut String,
     method: &str,
-    accessor: &str,
+    model_member: &str,
     cpp_type: &str,
     array: UnpackedArrayType<'_>,
 ) {
@@ -1188,7 +1212,7 @@ fn render_unpacked_array_getter(
     let value_name = unpacked_array_value_name(array);
     render_unpacked_array_getter_prelude(
         output,
-        accessor,
+        model_member,
         cpp_type,
         method,
         array,
@@ -1208,7 +1232,7 @@ fn render_unpacked_array_getter(
 /// Renders common unpacked-array output validation and storage access.
 fn render_unpacked_array_getter_prelude(
     output: &mut String,
-    accessor: &str,
+    model_member: &str,
     cpp_type: &str,
     method: &str,
     array: UnpackedArrayType<'_>,
@@ -1242,7 +1266,7 @@ fn render_unpacked_array_getter_prelude(
     push_line(output, "    }");
     push_line(
         output,
-        &format!("    const auto& raw_value = impl_->model->{accessor}();"),
+        &format!("    const auto& raw_value = impl_->model->{model_member};"),
     );
     push_line(output, "    if (raw_value.size() != expected_elements) {");
     push_line(output, "        return false;");
@@ -1364,6 +1388,11 @@ mod tests {
 
         render_setter(&mut output, &port, "set_value", "value", "Dut");
 
+        assert!(output.contains("decltype(impl_->model->value)>"));
+        assert!(output.contains("impl_->model->value = raw_value;"));
+        assert!(!output.contains("impl_->model->value()"));
+        assert!(!output.contains("impl_->model->value(raw_value);"));
+
         assert!(output.contains("using UnsignedType = std::uint8_t;"));
 
         assert!(output.contains("const auto bits = static_cast<UnsignedType>(value);"));
@@ -1397,6 +1426,8 @@ mod tests {
         render_getter(&mut output, &port, "value", "value", "Dut");
 
         assert!(output.contains("Impl::sign_extend<std::int8_t, 5>"));
+        assert!(output.contains("impl_->model->value\n"));
+        assert!(!output.contains("impl_->model->value()"));
 
         Ok(())
     }
@@ -1458,6 +1489,9 @@ mod tests {
         assert!(output.contains("if (words.size() != expected_words) {"));
         assert!(output.contains("raw_value[index] = words[index];"));
         assert!(output.contains("raw_value[2] &= 0x1U;"));
+        assert!(output.contains("decltype(\n            impl_->model->value\n"));
+        assert!(output.contains("impl_->model->value = raw_value;"));
+        assert!(!output.contains("impl_->model->value(raw_value);"));
         assert!(output.contains("return false;"));
         assert!(output.contains("return true;"));
 
@@ -1475,6 +1509,8 @@ mod tests {
         assert!(output.contains("constexpr std::size_t expected_words{3};"));
         assert!(output.contains("words[index] = raw_value[index];"));
         assert!(!output.contains("words[2] &= 0xFFFFFFFFU;"));
+        assert!(output.contains("const auto& raw_value =\n        impl_->model->value;"));
+        assert!(!output.contains("impl_->model->value()"));
 
         Ok(())
     }

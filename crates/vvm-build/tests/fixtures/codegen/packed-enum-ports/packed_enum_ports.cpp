@@ -18,19 +18,19 @@ public:
         : context{std::make_unique<VerilatedContext>()},
           model{std::make_unique<Vpacked_enum_ports>(context.get())} {
         {
-            using RawType = std::decay_t<decltype(model->clk())>;
+            using RawType = std::decay_t<decltype(model->clk)>;
             RawType raw_value{};
-            model->clk(raw_value);
+            model->clk = raw_value;
         }
         {
-            using RawType = std::decay_t<decltype(model->state())>;
+            using RawType = std::decay_t<decltype(model->state)>;
             RawType raw_value{};
-            model->state(raw_value);
+            model->state = raw_value;
         }
         {
-            using RawType = std::decay_t<decltype(model->signed_state())>;
+            using RawType = std::decay_t<decltype(model->signed_state)>;
             RawType raw_value{};
-            model->signed_state(raw_value);
+            model->signed_state = raw_value;
         }
     }
 
@@ -130,45 +130,45 @@ void PackedEnumPorts::finish() noexcept {
 }
 
 void PackedEnumPorts::set_clk(const bool value) noexcept {
-    using RawType = std::decay_t<decltype(impl_->model->clk())>;
+    using RawType = std::decay_t<decltype(impl_->model->clk)>;
 
     RawType raw_value{static_cast<RawType>(value)};
-    impl_->model->clk(raw_value);
+    impl_->model->clk = raw_value;
 }
 
 void PackedEnumPorts::set_state(const std::uint8_t value) noexcept {
-    using RawType = std::decay_t<decltype(impl_->model->state())>;
+    using RawType = std::decay_t<decltype(impl_->model->state)>;
 
     RawType raw_value{static_cast<RawType>(value & static_cast<std::uint8_t>(0x7ULL))};
-    impl_->model->state(raw_value);
+    impl_->model->state = raw_value;
 }
 
 std::uint8_t PackedEnumPorts::state_out() const noexcept {
-    return static_cast<std::uint8_t>(impl_->model->state_out() & static_cast<std::uint8_t>(0x7ULL));
+    return static_cast<std::uint8_t>(impl_->model->state_out & static_cast<std::uint8_t>(0x7ULL));
 }
 
 std::uint8_t PackedEnumPorts::state_raw_out() const noexcept {
-    return static_cast<std::uint8_t>(impl_->model->state_raw_out() & static_cast<std::uint8_t>(0x7ULL));
+    return static_cast<std::uint8_t>(impl_->model->state_raw_out & static_cast<std::uint8_t>(0x7ULL));
 }
 
 void PackedEnumPorts::set_signed_state(const std::int8_t value) noexcept {
-    using RawType = std::decay_t<decltype(impl_->model->signed_state())>;
+    using RawType = std::decay_t<decltype(impl_->model->signed_state)>;
     using UnsignedType = std::uint8_t;
 
     const auto bits = static_cast<UnsignedType>(value);
     RawType raw_value{static_cast<RawType>(bits & static_cast<std::uint8_t>(0xFULL))};
-    impl_->model->signed_state(raw_value);
+    impl_->model->signed_state = raw_value;
 }
 
 std::int8_t PackedEnumPorts::signed_state_out() const noexcept {
     return Impl::sign_extend<std::int8_t, 4>(
-        impl_->model->signed_state_out()
+        impl_->model->signed_state_out
     );
 }
 
 std::int8_t PackedEnumPorts::signed_state_raw_out() const noexcept {
     return Impl::sign_extend<std::int8_t, 4>(
-        impl_->model->signed_state_raw_out()
+        impl_->model->signed_state_raw_out
     );
 }
 

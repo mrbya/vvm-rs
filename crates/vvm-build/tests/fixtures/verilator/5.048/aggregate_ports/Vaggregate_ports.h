@@ -28,38 +28,15 @@ class alignas(VL_CACHE_LINE_BYTES) Vaggregate_ports VL_NOT_FINAL : public Verila
     // PORTS
     // The application code writes and reads these signals to
     // propagate new values into/out from the Verilated model.
-    VL_IN8(&__Vm_sig_clk,0,0);
-    VL_IN(&__Vm_sig_packed_bytes,31,0);
-    VL_OUT(&__Vm_sig_packed_bytes_out,31,0);
-    VL_IN8(&__Vm_sig_state,1,0);
-    VL_OUT8(&__Vm_sig_state_out,1,0);
-    VL_IN16(&__Vm_sig_packet,15,0);
-    VL_OUT16(&__Vm_sig_packet_out,15,0);
-    VlUnpacked<CData/*7:0*/, 4> &__Vm_sig_unpacked_bytes;
-    VlUnpacked<CData/*7:0*/, 4> &__Vm_sig_unpacked_bytes_out;
-
-    // ACCESSORS
-    // The application code should use these methods to
-    // propagate new values into/out from the Verilated model
-    // instead of using signal variables directly.
-    decltype(__Vm_sig_clk) clk() {return __Vm_sig_clk;}
-    void clk(decltype(__Vm_sig_clk) v) {__Vm_sig_clk=v;}
-    decltype(__Vm_sig_packed_bytes) packed_bytes() {return __Vm_sig_packed_bytes;}
-    void packed_bytes(decltype(__Vm_sig_packed_bytes) v) {__Vm_sig_packed_bytes=v;}
-    decltype(__Vm_sig_packed_bytes_out) packed_bytes_out() {return __Vm_sig_packed_bytes_out;}
-    void packed_bytes_out(decltype(__Vm_sig_packed_bytes_out) v) {__Vm_sig_packed_bytes_out=v;}
-    decltype(__Vm_sig_state) state() {return __Vm_sig_state;}
-    void state(decltype(__Vm_sig_state) v) {__Vm_sig_state=v;}
-    decltype(__Vm_sig_state_out) state_out() {return __Vm_sig_state_out;}
-    void state_out(decltype(__Vm_sig_state_out) v) {__Vm_sig_state_out=v;}
-    decltype(__Vm_sig_packet) packet() {return __Vm_sig_packet;}
-    void packet(decltype(__Vm_sig_packet) v) {__Vm_sig_packet=v;}
-    decltype(__Vm_sig_packet_out) packet_out() {return __Vm_sig_packet_out;}
-    void packet_out(decltype(__Vm_sig_packet_out) v) {__Vm_sig_packet_out=v;}
-    decltype(__Vm_sig_unpacked_bytes) unpacked_bytes() {return __Vm_sig_unpacked_bytes;}
-    void unpacked_bytes(decltype(__Vm_sig_unpacked_bytes) v) {__Vm_sig_unpacked_bytes=v;}
-    decltype(__Vm_sig_unpacked_bytes_out) unpacked_bytes_out() {return __Vm_sig_unpacked_bytes_out;}
-    void unpacked_bytes_out(decltype(__Vm_sig_unpacked_bytes_out) v) {__Vm_sig_unpacked_bytes_out=v;}
+    VL_IN8(&clk,0,0);
+    VL_IN(&packed_bytes,31,0);
+    VL_OUT(&packed_bytes_out,31,0);
+    VL_IN8(&state,1,0);
+    VL_OUT8(&state_out,1,0);
+    VL_IN16(&packet,15,0);
+    VL_OUT16(&packet_out,15,0);
+    VlUnpacked<CData/*7:0*/, 4> &unpacked_bytes;
+    VlUnpacked<CData/*7:0*/, 4> &unpacked_bytes_out;
 
     // CELLS
     // Public to allow access to /* verilator public */ items.

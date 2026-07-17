@@ -1347,9 +1347,41 @@ Implement only after the MVP is stable.
 
 ## Inout ports
 
+### 11.6.0 — Direct Verilator model-member ABI
+
+#### 11.6.0A — Remove accessor-based model generation
+
+- [x] Stop requesting `--emit-accessors` for final model generation.
+- [x] Reserve both accessor-control raw arguments.
+
+#### 11.6.0B — Rename the internal model-member contract
+
+- [x] Resolve each ordinary HDL port to its public Verilator model member.
+
+#### 11.6.0C — Migrate generated C++ port transfers
+
+- [x] Read and write public top-level model members in the private adapter implementation.
+
+### Direct Verilator model-member ABI
+
+- VVM does not request `--emit-accessors`.
+- Generated C++ adapters read and write Verilator public top-level model members.
+- Verilator-specific signal access remains confined to the private generated adapter implementation.
+- Rust APIs, CXX bindings, and runtime traits remain independent of the native signal-access strategy.
+- VVM supports exactly one model-port ABI.
+- The migration enables later use of `--pins-inout-enables`.
+
+### 11.6.1 — Inout metadata and model-generation contract
+
 - [ ] Determine Verilator representation.
+
+### 11.6.2 — Inout generated API
+
 - [ ] Separate value, output enable, and sampled input.
 - [ ] Design a safe Rust API.
+
+### 11.6.3 — Tri-state example and documentation
+
 - [ ] Add a tri-state example.
 - [ ] Document two-state limitations.
 

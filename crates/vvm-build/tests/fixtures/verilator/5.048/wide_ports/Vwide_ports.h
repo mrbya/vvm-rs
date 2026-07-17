@@ -28,47 +28,18 @@ class alignas(VL_CACHE_LINE_BYTES) Vwide_ports VL_NOT_FINAL : public VerilatedMo
     // PORTS
     // The application code writes and reads these signals to
     // propagate new values into/out from the Verilated model.
-    VL_INW(&__Vm_sig_input_u65,64,0,3);
-    VL_INW(&__Vm_sig_input_u96,95,0,3);
-    VL_INW(&__Vm_sig_input_u129,128,0,5);
-    VL_INW(&__Vm_sig_input_u256,255,0,8);
-    VL_INW(&__Vm_sig_input_i65,64,0,3);
-    VL_INW(&__Vm_sig_input_i129,128,0,5);
-    VL_OUTW(&__Vm_sig_output_u65,64,0,3);
-    VL_OUTW(&__Vm_sig_output_u96,95,0,3);
-    VL_OUTW(&__Vm_sig_output_u129,128,0,5);
-    VL_OUTW(&__Vm_sig_output_u256,255,0,8);
-    VL_OUTW(&__Vm_sig_output_i65,64,0,3);
-    VL_OUTW(&__Vm_sig_output_i129,128,0,5);
-
-    // ACCESSORS
-    // The application code should use these methods to
-    // propagate new values into/out from the Verilated model
-    // instead of using signal variables directly.
-    decltype(__Vm_sig_input_u65) input_u65() {return __Vm_sig_input_u65;}
-    void input_u65(decltype(__Vm_sig_input_u65) v) {__Vm_sig_input_u65=v;}
-    decltype(__Vm_sig_input_u96) input_u96() {return __Vm_sig_input_u96;}
-    void input_u96(decltype(__Vm_sig_input_u96) v) {__Vm_sig_input_u96=v;}
-    decltype(__Vm_sig_input_u129) input_u129() {return __Vm_sig_input_u129;}
-    void input_u129(decltype(__Vm_sig_input_u129) v) {__Vm_sig_input_u129=v;}
-    decltype(__Vm_sig_input_u256) input_u256() {return __Vm_sig_input_u256;}
-    void input_u256(decltype(__Vm_sig_input_u256) v) {__Vm_sig_input_u256=v;}
-    decltype(__Vm_sig_input_i65) input_i65() {return __Vm_sig_input_i65;}
-    void input_i65(decltype(__Vm_sig_input_i65) v) {__Vm_sig_input_i65=v;}
-    decltype(__Vm_sig_input_i129) input_i129() {return __Vm_sig_input_i129;}
-    void input_i129(decltype(__Vm_sig_input_i129) v) {__Vm_sig_input_i129=v;}
-    decltype(__Vm_sig_output_u65) output_u65() {return __Vm_sig_output_u65;}
-    void output_u65(decltype(__Vm_sig_output_u65) v) {__Vm_sig_output_u65=v;}
-    decltype(__Vm_sig_output_u96) output_u96() {return __Vm_sig_output_u96;}
-    void output_u96(decltype(__Vm_sig_output_u96) v) {__Vm_sig_output_u96=v;}
-    decltype(__Vm_sig_output_u129) output_u129() {return __Vm_sig_output_u129;}
-    void output_u129(decltype(__Vm_sig_output_u129) v) {__Vm_sig_output_u129=v;}
-    decltype(__Vm_sig_output_u256) output_u256() {return __Vm_sig_output_u256;}
-    void output_u256(decltype(__Vm_sig_output_u256) v) {__Vm_sig_output_u256=v;}
-    decltype(__Vm_sig_output_i65) output_i65() {return __Vm_sig_output_i65;}
-    void output_i65(decltype(__Vm_sig_output_i65) v) {__Vm_sig_output_i65=v;}
-    decltype(__Vm_sig_output_i129) output_i129() {return __Vm_sig_output_i129;}
-    void output_i129(decltype(__Vm_sig_output_i129) v) {__Vm_sig_output_i129=v;}
+    VL_INW(&input_u65,64,0,3);
+    VL_INW(&input_u96,95,0,3);
+    VL_INW(&input_u129,128,0,5);
+    VL_INW(&input_u256,255,0,8);
+    VL_INW(&input_i65,64,0,3);
+    VL_INW(&input_i129,128,0,5);
+    VL_OUTW(&output_u65,64,0,3);
+    VL_OUTW(&output_u96,95,0,3);
+    VL_OUTW(&output_u129,128,0,5);
+    VL_OUTW(&output_u256,255,0,8);
+    VL_OUTW(&output_i65,64,0,3);
+    VL_OUTW(&output_i129,128,0,5);
 
     // CELLS
     // Public to allow access to /* verilator public */ items.

@@ -404,7 +404,7 @@ fn accepts_minimum_supported_version() -> Result<(), BuildError> {
 }
 
 #[test]
-fn constructs_verilator_model_command_in_expected_order() {
+fn model_command_preserves_core_argument_order() {
     let executable = OsStr::new("verilator");
     let output_dir = Path::new("/tmp/out");
     let hdl_includes = vec![
@@ -439,7 +439,6 @@ fn constructs_verilator_model_command_in_expected_order() {
         OsString::from("Vcounter"),
         OsString::from("--Mdir"),
         output_dir.as_os_str().to_os_string(),
-        OsString::from("--emit-accessors"),
         include_argument(Path::new("rtl/include a")),
         include_argument(Path::new("rtl/include-b")),
         define_argument(&Define::new("ENABLE", None)),
@@ -451,6 +450,8 @@ fn constructs_verilator_model_command_in_expected_order() {
     ];
 
     assert_eq!(actual_arguments, expected_arguments);
+    assert!(!actual_arguments.contains(&OsString::from("--emit-accessors")));
+    assert!(!actual_arguments.contains(&OsString::from("--no-emit-accessors")));
 }
 
 #[test]
@@ -549,6 +550,31 @@ fn raw_timing_arguments_are_rejected() {
             })
         ));
     }
+}
+
+#[test]
+fn raw_verilator_accessor_arguments_are_rejected() {
+    for argument in ["--emit-accessors", "--no-emit-accessors"] {
+        assert!(matches!(
+            validate_verilator_arguments(&[OsString::from(argument)]),
+            Err(BuildError::ReservedVerilatorArgument {
+                configuration: "VVM model-member ABI",
+                ..
+            })
+        ));
+    }
+}
+
+#[test]
+fn verilator_accessor_argument_error_names_model_member_abi() {
+    let error = validate_verilator_arguments(&[OsString::from("--emit-accessors")]);
+
+    assert_eq!(
+        error.err().map(|error| error.to_string()),
+        Some(String::from(
+            "Verilator argument `--emit-accessors` is managed by `VVM model-member ABI`"
+        ))
+    );
 }
 
 #[test]

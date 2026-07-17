@@ -470,6 +470,15 @@ pub fn validate_verilator_arguments(arguments: &[OsString]) -> BuildResult<()> {
             });
         }
 
+        if argument == OsStr::new("--emit-accessors")
+            || argument == OsStr::new("--no-emit-accessors")
+        {
+            return Err(BuildError::ReservedVerilatorArgument {
+                argument: argument.to_string_lossy().into_owned(),
+                configuration: "VVM model-member ABI",
+            });
+        }
+
         if argument == OsStr::new("--sched-zero-delay") {
             return Err(BuildError::UnsupportedVerilatorArgument {
                 argument: argument.to_string_lossy().into_owned(),

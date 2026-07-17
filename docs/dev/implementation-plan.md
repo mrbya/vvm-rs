@@ -1394,8 +1394,26 @@ Implement only after the MVP is stable.
 
 ### 11.6.2 — Inout generated API
 
-- [ ] Separate value, output enable, and sampled input.
-- [ ] Design a safe Rust API.
+- [x] Separate externally resolved input, output enable, and output value.
+- [x] Add `InoutState<Value, Enable>`.
+- [x] Generate component-level C++ adapter methods.
+- [x] Generate component-level CXX bindings.
+- [x] Generate safe Rust component methods.
+- [x] Generate `set_<port>` compatibility aliases.
+- [x] Generate `<port>()` composite snapshots.
+- [x] Integrate inouts naturally with `Drive` and `Sample`.
+- [ ] Add external resolution and contention handling.
+- [ ] Add the full vertical tri-state example.
+
+### Generated inout API
+
+- `set_<port>_input(value)` presents an externally resolved value to the DUT.
+- `set_<port>(value)` is a Drive-compatible alias.
+- `<port>_input()` returns the currently presented input.
+- `<port>_output_enable()` returns the per-bit DUT drive mask.
+- `<port>_output_value()` returns the DUT-proposed value.
+- `<port>()` returns `InoutState<Value, Enable>`.
+- None of these methods evaluates the DUT, advances time, or resolves drivers automatically.
 
 ### 11.6.3 — Tri-state example and documentation
 

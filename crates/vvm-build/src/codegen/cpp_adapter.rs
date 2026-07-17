@@ -192,7 +192,30 @@ fn render_header_port_methods(output: &mut String, metadata: &DutMetadata, names
                     &render_header_output_method(port_type, &port_names.method),
                 );
             }
-            PortDirection::Inout => {}
+            PortDirection::Inout => {
+                let Some(inout) = port_names.inout.as_ref() else {
+                    continue;
+                };
+                push_line(
+                    output,
+                    &render_header_input_method(port_type, &inout.set_input),
+                );
+                push_line(
+                    output,
+                    &render_header_output_method(port_type, &inout.input),
+                );
+                push_line(
+                    output,
+                    &render_header_output_method(
+                        PortType::from_port(&enable_port(port)),
+                        &inout.output_enable,
+                    ),
+                );
+                push_line(
+                    output,
+                    &render_header_output_method(port_type, &inout.output_value),
+                );
+            }
         }
     }
 }
@@ -625,8 +648,53 @@ fn render_port_methods(output: &mut String, metadata: &DutMetadata, names: &DutN
                     &names.cpp_type,
                 );
             }
-            PortDirection::Inout => {}
+            PortDirection::Inout => {
+                let Some(inout) = port_names.inout.as_ref() else {
+                    continue;
+                };
+                let enable_port = enable_port(port);
+
+                render_setter(
+                    output,
+                    port,
+                    &inout.set_input,
+                    &port_names.model_member,
+                    &names.cpp_type,
+                );
+                render_getter(
+                    output,
+                    port,
+                    &inout.input,
+                    &port_names.model_member,
+                    &names.cpp_type,
+                );
+                render_getter(
+                    output,
+                    &enable_port,
+                    &inout.output_enable,
+                    &format!("{}__en", port_names.model_member),
+                    &names.cpp_type,
+                );
+                render_getter(
+                    output,
+                    port,
+                    &inout.output_value,
+                    &format!("{}__out", port_names.model_member),
+                    &names.cpp_type,
+                );
+            }
         }
+    }
+}
+
+/// Returns the unsigned port shape used by Verilator's inout output-enable member.
+fn enable_port(port: &Port) -> Port {
+    Port {
+        name: port.name.clone(),
+        direction: port.direction,
+        width: port.width,
+        signed: false,
+        shape: port.shape.clone(),
     }
 }
 

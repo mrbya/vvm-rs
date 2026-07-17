@@ -19,97 +19,170 @@ pub(super) fn render(
     render_bridge_lifecycle(&mut output, names, traced, timing);
 
     for (port, port_names) in metadata.ports.iter().zip(&names.ports) {
-        if let Some(array_type) = UnpackedArrayType::from_port(port) {
-            let value_name = if matches!(
-                array_type.element_type(),
-                super::types::UnpackedArrayElementType::Wide(_)
-            ) {
-                "words"
-            } else {
-                "values"
-            };
-            let element_type = array_type.ffi_rust_element_type();
-            push_line(&mut output, "");
-            match port.direction {
-                PortDirection::Input => push_line(
-                    &mut output,
-                    &format!("        /// Drives the `{}` DUT input.", port.name),
-                ),
-                PortDirection::Output => push_line(
-                    &mut output,
-                    &format!("        /// Samples the `{}` DUT output.", port.name),
-                ),
-                PortDirection::Inout => continue,
-            }
-            let signature = match port.direction {
-                PortDirection::Input => format!(
-                    "        fn {}(self: Pin<&mut {}>, {value_name}: &[{element_type}]) -> bool;",
-                    port_names.method, names.cpp_type
-                ),
-                PortDirection::Output => format!(
-                    "        fn {}(self: &{}, {value_name}: &mut [{element_type}]) -> bool;",
-                    port_names.method, names.cpp_type
-                ),
-                PortDirection::Inout => continue,
-            };
-            push_line(&mut output, &signature);
-            continue;
-        }
-        let port_type = PortType::from_port(port);
-
-        match port.direction {
-            PortDirection::Input => {
-                push_line(&mut output, "");
-                push_line(
-                    &mut output,
-                    &format!("        /// Drives the `{}` DUT input.", port.name),
-                );
-                push_line(
-                    &mut output,
-                    &match port_type {
-                        PortType::Scalar(signal_type) => format!(
-                            "        fn {}(self: Pin<&mut {}>, value: {});",
-                            port_names.method,
-                            names.cpp_type,
-                            signal_type.rust_type()
-                        ),
-                        PortType::Wide(_) => format!(
-                            "        fn {}(self: Pin<&mut {}>, words: &[u32]) -> bool;",
-                            port_names.method, names.cpp_type
-                        ),
-                    },
-                );
-            }
-            PortDirection::Output => {
-                push_line(&mut output, "");
-                push_line(
-                    &mut output,
-                    &format!("        /// Samples the `{}` DUT output.", port.name),
-                );
-                push_line(
-                    &mut output,
-                    &match port_type {
-                        PortType::Scalar(signal_type) => format!(
-                            "        fn {}(self: &{}) -> {};",
-                            port_names.method,
-                            names.cpp_type,
-                            signal_type.rust_type()
-                        ),
-                        PortType::Wide(_) => format!(
-                            "        fn {}(self: &{}, words: &mut [u32]) -> bool;",
-                            port_names.method, names.cpp_type
-                        ),
-                    },
-                );
-            }
-            PortDirection::Inout => {}
-        }
+        render_port_operations(&mut output, port, port_names, names);
     }
 
     push_line(&mut output, "    }");
     push_line(&mut output, "}");
 
     output
+}
+
+/// Renders bridge operations for one normalized DUT port.
+fn render_port_operations(
+    output: &mut String,
+    port: &crate::metadata::Port,
+    port_names: &super::names::PortNames,
+    names: &DutNames,
+) {
+    if let Some(array_type) = UnpackedArrayType::from_port(port) {
+        let value_name = if matches!(
+            array_type.element_type(),
+            super::types::UnpackedArrayElementType::Wide(_)
+        ) {
+            "words"
+        } else {
+            "values"
+        };
+        let element_type = array_type.ffi_rust_element_type();
+        push_line(output, "");
+        match port.direction {
+            PortDirection::Input => push_line(
+                output,
+                &format!("        /// Drives the `{}` DUT input.", port.name),
+            ),
+            PortDirection::Output => push_line(
+                output,
+                &format!("        /// Samples the `{}` DUT output.", port.name),
+            ),
+            PortDirection::Inout => return,
+        }
+        let signature = match port.direction {
+            PortDirection::Input => format!(
+                "        fn {}(self: Pin<&mut {}>, {value_name}: &[{element_type}]) -> bool;",
+                port_names.method, names.cpp_type
+            ),
+            PortDirection::Output => format!(
+                "        fn {}(self: &{}, {value_name}: &mut [{element_type}]) -> bool;",
+                port_names.method, names.cpp_type
+            ),
+            PortDirection::Inout => return,
+        };
+        push_line(output, &signature);
+        return;
+    }
+    let port_type = PortType::from_port(port);
+
+    match port.direction {
+        PortDirection::Input => {
+            push_line(output, "");
+            push_line(
+                output,
+                &format!("        /// Drives the `{}` DUT input.", port.name),
+            );
+            push_line(
+                output,
+                &match port_type {
+                    PortType::Scalar(signal_type) => format!(
+                        "        fn {}(self: Pin<&mut {}>, value: {});",
+                        port_names.method,
+                        names.cpp_type,
+                        signal_type.rust_type()
+                    ),
+                    PortType::Wide(_) => format!(
+                        "        fn {}(self: Pin<&mut {}>, words: &[u32]) -> bool;",
+                        port_names.method, names.cpp_type
+                    ),
+                },
+            );
+        }
+        PortDirection::Output => {
+            push_line(output, "");
+            push_line(
+                output,
+                &format!("        /// Samples the `{}` DUT output.", port.name),
+            );
+            push_line(
+                output,
+                &match port_type {
+                    PortType::Scalar(signal_type) => format!(
+                        "        fn {}(self: &{}) -> {};",
+                        port_names.method,
+                        names.cpp_type,
+                        signal_type.rust_type()
+                    ),
+                    PortType::Wide(_) => format!(
+                        "        fn {}(self: &{}, words: &mut [u32]) -> bool;",
+                        port_names.method, names.cpp_type
+                    ),
+                },
+            );
+        }
+        PortDirection::Inout => render_inout_operations(output, port, port_names, names, port_type),
+    }
+}
+
+/// Renders the low-level input, output-enable, and output-value bridge operations for one inout.
+fn render_inout_operations(
+    output: &mut String,
+    port: &crate::metadata::Port,
+    port_names: &super::names::PortNames,
+    names: &DutNames,
+    port_type: PortType,
+) {
+    let Some(inout) = port_names.inout.as_ref() else {
+        return;
+    };
+    let enable_type = PortType::from_port(&crate::metadata::Port {
+        name: port.name.clone(),
+        direction: port.direction,
+        width: port.width,
+        signed: false,
+        shape: port.shape.clone(),
+    });
+    let signature = match port_type {
+        PortType::Scalar(signal_type) => {
+            format!(
+                "        fn {}(self: Pin<&mut {}>, value: {});\n        fn {}(self: &{}) -> \
+                     {};\n        fn {}(self: &{}) -> {};\n        fn {}(self: &{}) -> {};",
+                inout.set_input,
+                names.cpp_type,
+                signal_type.rust_type(),
+                inout.input,
+                names.cpp_type,
+                signal_type.rust_type(),
+                inout.output_enable,
+                names.cpp_type,
+                enable_type.rust_value_type(),
+                inout.output_value,
+                names.cpp_type,
+                signal_type.rust_type(),
+            )
+        }
+        PortType::Wide(_) => format!(
+            "        fn {}(self: Pin<&mut {}>, words: &[u32]) -> bool;\n        fn {}(self: \
+                 &{}, words: &mut [u32]) -> bool;\n        fn {}(self: &{}, words: &mut [u32]) -> \
+                 bool;\n        fn {}(self: &{}, words: &mut [u32]) -> bool;",
+            inout.set_input,
+            names.cpp_type,
+            inout.input,
+            names.cpp_type,
+            inout.output_enable,
+            names.cpp_type,
+            inout.output_value,
+            names.cpp_type,
+        ),
+    };
+
+    push_line(output, "");
+    push_line(
+        output,
+        &format!(
+            "        /// Drives the externally supplied `{}` DUT input.",
+            port.name
+        ),
+    );
+    push_line(output, &signature);
 }
 
 /// Renders the bridge prelude and type declarations.

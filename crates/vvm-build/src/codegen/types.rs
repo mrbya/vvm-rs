@@ -101,6 +101,23 @@ impl PortType {
     pub const fn is_wide(self) -> bool {
         matches!(self, Self::Wide(_))
     }
+
+    /// Returns the safe composite inout state type for this port.
+    pub fn inout_state_type(self, enable: Self) -> String {
+        format!(
+            "::vvm::InoutState<{}, {}>",
+            self.rust_value_type(),
+            enable.rust_value_type()
+        )
+    }
+
+    /// Returns the Rust value type for this port representation.
+    pub fn rust_value_type(self) -> String {
+        match self {
+            Self::Scalar(signal_type) => signal_type.rust_type().to_owned(),
+            Self::Wide(wide_type) => wide_type.rust_value_type(),
+        }
+    }
 }
 
 impl<'a> PackedArrayType<'a> {

@@ -80,7 +80,7 @@ pub(super) fn render(
             PortDirection::Output => {
                 render_output(&mut output, port, port_names, names);
             }
-            PortDirection::Inout => {}
+            PortDirection::Inout => render_inout(&mut output, port, port_names, names),
         }
     }
 
@@ -2463,6 +2463,103 @@ fn render_output(output: &mut String, port: &Port, port_names: &PortNames, names
             render_wide_output(output, port, &port_names.method, wide_type, names);
         }
     }
+}
+
+/// Renders the raw component operations and composite state accessor for one inout port.
+fn render_inout(output: &mut String, port: &Port, port_names: &PortNames, names: &DutNames) {
+    let Some(inout) = port_names.inout.as_ref() else {
+        return;
+    };
+    let input_names = PortNames {
+        model_member: port_names.model_member.clone(),
+        method: inout.set_input.clone(),
+        inout: None,
+        rust_type: None,
+        struct_fields: Vec::new(),
+        enum_variant_type: None,
+        enum_variants: Vec::new(),
+    };
+    let input_value_names = PortNames {
+        model_member: port_names.model_member.clone(),
+        method: inout.input.clone(),
+        inout: None,
+        rust_type: None,
+        struct_fields: Vec::new(),
+        enum_variant_type: None,
+        enum_variants: Vec::new(),
+    };
+    let output_enable_names = PortNames {
+        model_member: port_names.model_member.clone(),
+        method: inout.output_enable.clone(),
+        inout: None,
+        rust_type: None,
+        struct_fields: Vec::new(),
+        enum_variant_type: None,
+        enum_variants: Vec::new(),
+    };
+    let output_value_names = PortNames {
+        model_member: port_names.model_member.clone(),
+        method: inout.output_value.clone(),
+        inout: None,
+        rust_type: None,
+        struct_fields: Vec::new(),
+        enum_variant_type: None,
+        enum_variants: Vec::new(),
+    };
+    let mut enable_port = port.clone();
+    enable_port.signed = false;
+
+    render_input(output, port, &input_names, names);
+    render_output(output, port, &input_value_names, names);
+    render_output(output, &enable_port, &output_enable_names, names);
+    render_output(output, port, &output_value_names, names);
+
+    let port_type = PortType::from_port(port);
+    let enable_type = PortType::from_port(&enable_port);
+    let value_type = port_type.rust_value_type();
+    let state_type = port_type.inout_state_type(enable_type);
+
+    push_line(output, "");
+    push_line(
+        output,
+        &format!("    /// Alias for [`Self::{}`].", inout.set_input),
+    );
+    push_line(
+        output,
+        &format!(
+            "    pub fn set_{}(&mut self, value: impl ::core::borrow::Borrow<{value_type}>) -> \
+             Result<()> {{",
+            port.name
+        ),
+    );
+    push_line(output, &format!("        self.{}(value)", inout.set_input));
+    push_line(output, "    }");
+    push_line(output, "");
+    push_line(
+        output,
+        &format!(
+            "    /// Samples the complete `{}` DUT inout state.",
+            port.name
+        ),
+    );
+    push_line(
+        output,
+        &format!("    pub fn {}(&self) -> Result<{state_type}> {{", port.name),
+    );
+    push_line(output, "        self.ensure_running()?;");
+    push_line(output, "");
+    push_line(output, "        Ok(::vvm::InoutState::new(");
+    push_line(output, &format!("            self.{}()?,", inout.input));
+    push_line(
+        output,
+        &format!("            self.{}()?,", inout.output_enable),
+    );
+    push_line(
+        output,
+        &format!("            self.{}()?,", inout.output_value),
+    );
+    push_line(output, "        ))");
+    push_line(output, "    }");
 }
 
 /// Renders an unpacked-array input transfer wrapper.

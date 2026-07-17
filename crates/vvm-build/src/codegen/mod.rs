@@ -330,7 +330,7 @@ mod tests {
     }
 
     #[test]
-    fn generated_artifacts_omit_inout_access() -> Result<(), Box<dyn std::error::Error>> {
+    fn generated_artifacts_include_inout_access() -> Result<(), Box<dyn std::error::Error>> {
         let width = BitWidth::new(NonZeroU32::MIN);
         let metadata = DutMetadata {
             name: String::from("inout_ports"),
@@ -345,10 +345,22 @@ mod tests {
         let bridge = std::fs::read_to_string(&generated.cxx_bridge)?;
         let wrapper = std::fs::read_to_string(&generated.rust_wrapper)?;
 
-        assert!(!header.contains("bus("));
-        assert!(!source.contains("model->bus"));
-        assert!(!bridge.contains("fn bus("));
-        assert!(!wrapper.contains("pub fn bus("));
+        assert!(header.contains("set_bus_input"));
+        assert!(header.contains("bus_input"));
+        assert!(header.contains("bus_output_enable"));
+        assert!(header.contains("bus_output_value"));
+        assert!(source.contains("model->bus = raw_value"));
+        assert!(source.contains("model->bus__en"));
+        assert!(source.contains("model->bus__out"));
+        assert!(bridge.contains("fn set_bus_input"));
+        assert!(bridge.contains("fn bus_input"));
+        assert!(bridge.contains("fn bus_output_enable"));
+        assert!(bridge.contains("fn bus_output_value"));
+        assert!(wrapper.contains("pub fn set_bus_input"));
+        assert!(wrapper.contains("pub fn set_bus(&mut self"));
+        assert!(wrapper.contains("pub fn bus(&self) -> Result<::vvm::InoutState<bool, bool>>"));
+        assert!(!wrapper.contains("pub fn drive_bus"));
+        assert!(!wrapper.contains("pub fn release_bus"));
 
         Ok(())
     }

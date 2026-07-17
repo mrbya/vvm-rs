@@ -71,6 +71,8 @@ pub(crate) mod drive;
 pub(crate) mod dut;
 /// Bounded check-failure policy.
 pub(crate) mod failure_policy;
+/// Raw bidirectional-port state snapshots.
+pub(crate) mod inout;
 /// Packed aggregate layout helpers.
 pub(crate) mod packed;
 /// Randomization support.
@@ -102,6 +104,7 @@ pub use clock::{Clock, ClockConfigurationError, ClockScheduler, ClockTiming};
 pub use drive::Drive;
 pub use dut::{Dut, TimedDut, TraceableDut};
 pub use failure_policy::{FailurePolicy, InvalidFailureLimit};
+pub use inout::InoutState;
 pub use packed::{
     PackedEnumLayout, PackedEnumVariantLayout, PackedFieldLayout, PackedLayout, PackedLayoutError,
     PackedRange, PackedValue, extract_packed, extract_signed, extract_signed_packed,

@@ -41,6 +41,9 @@ pub struct PortNames {
     /// Generated adapter member function.
     pub method: String,
 
+    /// Direction-specific operations for a bidirectional port.
+    pub inout: Option<InoutPortNames>,
+
     /// Generated safe Rust aggregate or unpacked-array value type.
     pub rust_type: Option<String>,
 
@@ -52,6 +55,22 @@ pub struct PortNames {
 
     /// Validated Rust identifiers for declared variants.
     pub enum_variants: Vec<String>,
+}
+
+/// Resolved component operations for one generated bidirectional port.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InoutPortNames {
+    /// Generated adapter operation that writes the externally supplied input value.
+    pub set_input: String,
+
+    /// Generated adapter operation that reads the externally supplied input value.
+    pub input: String,
+
+    /// Generated adapter operation that reads the DUT output-enable mask.
+    pub output_enable: String,
+
+    /// Generated adapter operation that reads the DUT output value.
+    pub output_value: String,
 }
 
 /// Generated methods for one packed-struct field.
@@ -103,25 +122,13 @@ pub fn resolve(metadata: &DutMetadata, model_prefix: &str) -> BuildResult<DutNam
         "impl_".to_owned(),
         cpp_type.clone(),
     ]);
+    let mut used_rust_members = used_members.clone();
 
     let mut ports = Vec::with_capacity(metadata.ports.len());
 
     for port in &metadata.ports {
-        validate_cpp_identifier("HDL port model member", &port.name)?;
-
-        let method = match port.direction {
-            PortDirection::Input => {
-                format!("set_{}", port.name)
-            }
-            PortDirection::Output | PortDirection::Inout => port.name.clone(),
-        };
-
-        validate_cpp_identifier("C++ adapter method", &method)?;
-        validate_rust_identifier("Rust DUT method", &method)?;
-
-        if !used_members.insert(method.clone()) {
-            return Err(BuildError::GeneratedNameCollision { name: method });
-        }
+        let (method, inout) =
+            resolve_port_operations(port, &mut used_members, &mut used_rust_members)?;
 
         let rust_type = aggregate_rust_type(port)?;
         let enum_variant_type = packed_enum_variant_type(rust_type.as_ref(), port);
@@ -152,6 +159,7 @@ pub fn resolve(metadata: &DutMetadata, model_prefix: &str) -> BuildResult<DutNam
         ports.push(PortNames {
             model_member: port.name.clone(),
             method,
+            inout,
             rust_type,
             struct_fields,
             enum_variant_type,
@@ -168,6 +176,61 @@ pub fn resolve(metadata: &DutMetadata, model_prefix: &str) -> BuildResult<DutNam
         model_type: model_prefix.to_owned(),
         ports,
     })
+}
+
+/// Resolves names for the generated operations of one port.
+fn resolve_port_operations(
+    port: &crate::metadata::Port,
+    used_members: &mut HashSet<String>,
+    used_rust_members: &mut HashSet<String>,
+) -> BuildResult<(String, Option<InoutPortNames>)> {
+    validate_cpp_identifier("HDL port model member", &port.name)?;
+
+    let method = match port.direction {
+        PortDirection::Input => format!("set_{}", port.name),
+        PortDirection::Output | PortDirection::Inout => port.name.clone(),
+    };
+
+    if port.direction != PortDirection::Inout {
+        validate_cpp_identifier("C++ adapter method", &method)?;
+        validate_rust_identifier("Rust DUT method", &method)?;
+
+        if !used_members.insert(method.clone()) || !used_rust_members.insert(method.clone()) {
+            return Err(BuildError::GeneratedNameCollision { name: method });
+        }
+
+        return Ok((method, None));
+    }
+
+    let inout = InoutPortNames {
+        set_input: format!("set_{}_input", port.name),
+        input: format!("{}_input", port.name),
+        output_enable: format!("{}_output_enable", port.name),
+        output_value: format!("{}_output_value", port.name),
+    };
+
+    for name in [
+        &inout.set_input,
+        &inout.input,
+        &inout.output_enable,
+        &inout.output_value,
+    ] {
+        validate_cpp_identifier("C++ adapter method", name)?;
+        validate_rust_identifier("Rust DUT method", name)?;
+
+        if !used_members.insert(name.clone()) || !used_rust_members.insert(name.clone()) {
+            return Err(BuildError::GeneratedNameCollision { name: name.clone() });
+        }
+    }
+
+    let alias = format!("set_{}", port.name);
+    validate_rust_identifier("Rust DUT inout alias", &alias)?;
+
+    if !used_rust_members.insert(alias.clone()) {
+        return Err(BuildError::GeneratedNameCollision { name: alias });
+    }
+
+    Ok((method, Some(inout)))
 }
 
 /// Returns the generated Rust wrapper type for one supported aggregate port.
@@ -781,6 +844,22 @@ mod tests {
             resolve(&metadata, "Vdut"),
             Err(BuildError::GeneratedNameCollision { name })
                 if name == "set_value"
+        ));
+    }
+
+    #[test]
+    fn rejects_inout_composite_alias_collision() {
+        let metadata = metadata(
+            "dut",
+            vec![
+                port("bus", PortDirection::Inout),
+                port("bus", PortDirection::Input),
+            ],
+        );
+
+        assert!(matches!(
+            resolve(&metadata, "Vdut"),
+            Err(BuildError::GeneratedNameCollision { name }) if name == "set_bus"
         ));
     }
 

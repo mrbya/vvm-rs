@@ -104,7 +104,7 @@ pub(crate) mod test;
 #[doc(inline)]
 pub use vvm_core::{
     Bits, CheckFailure, Clock, ClockConfigurationError, ClockScheduler, ClockTiming, CycleTiming,
-    DetailedTestReport, Drive, Dut, ExactScoreboard, FailurePolicy, IntoTestOutcome,
+    DetailedTestReport, Drive, Dut, ExactScoreboard, FailurePolicy, InoutState, IntoTestOutcome,
     InvalidBitVectorWordCount, InvalidFailureLimit, InvalidTimeStep, Mismatch, PackedEnumLayout,
     PackedEnumVariantLayout, PackedFieldLayout, PackedLayout, PackedLayoutError, PackedRange,
     PackedValue, ParseReplayTokenError, RandomAlgorithm, RandomContext, Randomize, ReferenceModel,
@@ -130,8 +130,8 @@ pub use vvm_macros::{Clock, Drive, Sample, test};
 pub mod prelude {
     pub use crate::{
         Bits, Clock, ClockScheduler, ClockTiming, CycleTiming, Drive, Dut, ExactScoreboard,
-        FailurePolicy, RandomContext, Randomize, ReferenceModel, ReplayableSequence, Sample,
-        Scoreboard, Seed, SignedBits, SimulationTime, TestDescriptor, TestRegistryError,
+        FailurePolicy, InoutState, RandomContext, Randomize, ReferenceModel, ReplayableSequence,
+        Sample, Scoreboard, Seed, SignedBits, SimulationTime, TestDescriptor, TestRegistryError,
         TestRunConfig, Testbench, TimeStep, TimedDut, TimingScheduler,
     };
 }

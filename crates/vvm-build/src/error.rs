@@ -41,13 +41,13 @@ pub enum BuildError {
         name: String,
     },
 
-    /// A raw Verilator argument is controlled by a typed VVM build option.
+    /// A raw Verilator argument is controlled by VVM-owned build configuration.
     #[error("Verilator argument `{argument}` is managed by `{configuration}`")]
     ReservedVerilatorArgument {
         /// Reserved raw argument.
         argument: String,
 
-        /// Typed builder method controlling the argument.
+        /// VVM configuration owning the argument.
         configuration: &'static str,
     },
 
@@ -370,11 +370,24 @@ pub enum BuildError {
         kind: String,
     },
 
-    /// Bidirectional ports are not currently supported.
+    /// Former blanket diagnostic for unsupported bidirectional ports.
     #[error("port `{port}` is bidirectional; inout ports are not supported")]
     UnsupportedInoutPort {
         /// HDL port name.
         port: String,
+    },
+
+    /// An inout port uses a shape unsupported by generated inout access.
+    #[error(
+        "inout port `{port}` uses unsupported shape `{shape}`; only plain packed scalar inouts \
+         are currently supported"
+    )]
+    UnsupportedInoutPortShape {
+        /// HDL port name.
+        port: String,
+
+        /// Stable normalized shape description.
+        shape: &'static str,
     },
 
     /// Packed array ports are recognized but not yet supported by generated code.

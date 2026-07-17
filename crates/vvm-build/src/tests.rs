@@ -426,6 +426,7 @@ fn model_command_preserves_core_argument_order() {
         sources: &sources,
         trace: None,
         timing: false,
+        inout_enables: false,
     });
 
     assert_eq!(command.get_program(), executable);
@@ -452,6 +453,49 @@ fn model_command_preserves_core_argument_order() {
     assert_eq!(actual_arguments, expected_arguments);
     assert!(!actual_arguments.contains(&OsString::from("--emit-accessors")));
     assert!(!actual_arguments.contains(&OsString::from("--no-emit-accessors")));
+}
+
+#[test]
+fn inout_model_command_adds_pins_inout_enables_before_raw_arguments() {
+    let output_dir = Path::new("/tmp/out");
+    let raw_arguments = vec![OsString::from("--Wall")];
+    let sources = vec![PathBuf::from("rtl/a.sv"), PathBuf::from("rtl/b.sv")];
+    let command = model_command(&ModelCommand {
+        executable: OsStr::new("verilator"),
+        top_module: "inout_ports",
+        model_prefix: "Vinout_ports",
+        output_dir,
+        hdl_include_dirs: &[],
+        defines: &[],
+        extra_arguments: &raw_arguments,
+        sources: &sources,
+        trace: Some(crate::TraceOptions::vcd()),
+        timing: true,
+        inout_enables: true,
+    });
+    let arguments: Vec<_> = command.get_args().collect();
+
+    let inout = arguments
+        .iter()
+        .position(|argument| *argument == OsStr::new("--pins-inout-enables"));
+    let raw = arguments
+        .iter()
+        .position(|argument| *argument == OsStr::new("--Wall"));
+    let first_source = arguments
+        .iter()
+        .position(|argument| *argument == OsStr::new("rtl/a.sv"));
+
+    assert_eq!(
+        arguments
+            .iter()
+            .filter(|argument| **argument == OsStr::new("--pins-inout-enables"))
+            .count(),
+        1
+    );
+    assert!(inout < raw);
+    assert!(raw < first_source);
+    assert!(!arguments.contains(&OsStr::new("--emit-accessors")));
+    assert!(!arguments.contains(&OsStr::new("--no-emit-accessors")));
 }
 
 #[test]
@@ -566,6 +610,32 @@ fn raw_verilator_accessor_arguments_are_rejected() {
 }
 
 #[test]
+fn raw_verilator_inout_arguments_are_rejected() {
+    for argument in ["--pins-inout-enables", "--no-pins-inout-enables"] {
+        assert!(matches!(
+            validate_verilator_arguments(&[OsString::from(argument)]),
+            Err(BuildError::ReservedVerilatorArgument {
+                configuration: "VVM inout support",
+                ..
+            })
+        ));
+    }
+}
+
+#[test]
+fn verilator_inout_argument_error_names_vvm_inout_support() {
+    let error = validate_verilator_arguments(&[OsString::from("--pins-inout-enables")]);
+
+    assert!(matches!(
+        error,
+        Err(BuildError::ReservedVerilatorArgument {
+            argument,
+            configuration: "VVM inout support",
+        }) if argument == "--pins-inout-enables"
+    ));
+}
+
+#[test]
 fn verilator_accessor_argument_error_names_model_member_abi() {
     let error = validate_verilator_arguments(&[OsString::from("--emit-accessors")]);
 
@@ -607,6 +677,7 @@ fn timing_commands_add_timing_once_before_raw_arguments() {
         sources: &sources,
         trace: Some(crate::TraceOptions::vcd()),
         timing: true,
+        inout_enables: false,
     });
     let arguments: Vec<_> = command.get_args().collect();
 
@@ -731,6 +802,12 @@ fn constructs_metadata_command_in_expected_order() {
     let command = metadata_command(&metadata);
 
     assert_eq!(command.get_program(), OsStr::new("verilator"));
+
+    assert!(
+        !command
+            .get_args()
+            .any(|argument| argument == OsStr::new("--pins-inout-enables"))
+    );
 
     let actual = command.get_args().map(OsStr::to_owned).collect::<Vec<_>>();
 

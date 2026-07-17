@@ -69,7 +69,12 @@ pub fn normalize(dut_name: &str, top_module: &str, raw: &RawMetadata) -> BuildRe
             continue;
         }
 
-        if optional_string(statement, "varType", path)? != Some("PORT") {
+        let var_type = optional_string(statement, "varType", path)?;
+        let is_primary_inout_wire = var_type == Some("WIRE")
+            && optional_string(statement, "direction", path)? == Some("INOUT")
+            && optional_bool(statement, "isPrimaryIO", path)? == Some(true);
+
+        if var_type != Some("PORT") && !is_primary_inout_wire {
             continue;
         }
 
@@ -95,17 +100,21 @@ pub fn normalize(dut_name: &str, top_module: &str, raw: &RawMetadata) -> BuildRe
 /// Verifies that normalized metadata is supported by the current bridge.
 ///
 /// Normalization itself is descriptive: it can represent inout, signed, and
-/// wide ports. This function applies the current implementation limits.
+/// wide ports. Plain packed-scalar inouts are accepted for model generation,
+/// but generated VVM inout access is implemented in a later milestone.
+/// Aggregate inouts remain unsupported. This function applies the current
+/// implementation limits.
 ///
 /// # Errors
 ///
-/// Returns an error for inout ports and unsupported aggregate port shapes.
+/// Returns an error for unsupported aggregate port shapes, including aggregate
+/// inouts.
 pub fn validate_supported(metadata: &DutMetadata) -> BuildResult<()> {
     for port in &metadata.ports {
         if port.direction == PortDirection::Inout {
-            return Err(BuildError::UnsupportedInoutPort {
-                port: port.name.clone(),
-            });
+            validate_supported_inout_port(port)?;
+
+            continue;
         }
 
         match port.shape {
@@ -120,6 +129,18 @@ pub fn validate_supported(metadata: &DutMetadata) -> BuildResult<()> {
     }
 
     Ok(())
+}
+
+/// Verifies that an inout port uses the subset supported by model generation.
+fn validate_supported_inout_port(port: &Port) -> BuildResult<()> {
+    if port.shape.is_plain_packed_scalar() {
+        return Ok(());
+    }
+
+    Err(BuildError::UnsupportedInoutPortShape {
+        port: port.name.clone(),
+        shape: port.shape.diagnostic_name(),
+    })
 }
 
 /// Verifies that an unpacked-array shape is within the currently supported subset.
@@ -1006,6 +1027,27 @@ fn optional_string<'a>(
         })
 }
 
+/// Returns an optional JSON boolean field.
+fn optional_bool(
+    object: &Map<String, Value>,
+    field: &'static str,
+    path: &Path,
+) -> BuildResult<Option<bool>> {
+    let Some(value) = object.get(field) else {
+        return Ok(None);
+    };
+
+    value
+        .as_bool()
+        .map(Some)
+        .ok_or_else(|| BuildError::InvalidMetadataFieldType {
+            role: TREE_ROLE,
+            path: path.to_path_buf(),
+            field,
+            expected: "a boolean",
+        })
+}
+
 /// Visit AST value by recursively traversing the AST tree.
 fn visit_value<'a>(
     value: &'a Value,
@@ -1212,6 +1254,15 @@ mod tests {
             .join("packed_enum_ports")
     }
 
+    fn inout_ports_fixture() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("verilator")
+            .join("5.048")
+            .join("inout_ports")
+    }
+
     fn aggregate_ports_metadata() -> Result<DutMetadata, Box<dyn std::error::Error>> {
         let fixture = aggregate_ports_fixture();
 
@@ -1262,6 +1313,17 @@ mod tests {
         )?;
 
         Ok(normalize("packed_enum_ports", "packed_enum_ports", &raw)?)
+    }
+
+    fn inout_ports_metadata() -> Result<DutMetadata, Box<dyn std::error::Error>> {
+        let fixture = inout_ports_fixture();
+        let raw = RawMetadata::from_paths(
+            VerilatorVersion::new(5, 48),
+            &fixture.join("inout_ports.tree.json"),
+            &fixture.join("inout_ports.tree.meta.json"),
+        )?;
+
+        Ok(normalize("inout_ports", "inout_ports", &raw)?)
     }
 
     fn find_port<'a>(
@@ -1882,18 +1944,131 @@ mod tests {
     }
 
     #[test]
-    fn rejects_currently_unsupported_inout_port() {
+    fn accepts_supported_scalar_inouts() -> Result<(), BuildError> {
         let metadata = DutMetadata {
             name: "dut".to_owned(),
             top_module: "dut".to_owned(),
-            ports: vec![scalar_port("bus", PortDirection::Inout, 1, false)],
+            ports: vec![
+                scalar_port("pin", PortDirection::Inout, 1, false),
+                scalar_port("bus", PortDirection::Inout, 8, false),
+                scalar_port("signed_bus", PortDirection::Inout, 16, true),
+                scalar_port("wide_bus", PortDirection::Inout, 65, false),
+                scalar_port("wide_signed_bus", PortDirection::Inout, 129, true),
+            ],
         };
 
-        assert!(matches!(
-            validate_supported(&metadata),
-            Err(BuildError::UnsupportedInoutPort { port })
-                if port == "bus"
-        ));
+        validate_supported(&metadata)
+    }
+
+    #[test]
+    fn normalizes_and_validates_inout_ports_fixture() -> Result<(), Box<dyn std::error::Error>> {
+        let metadata = inout_ports_metadata()?;
+
+        for (name, bit_width, signed) in [
+            ("pin", 1, false),
+            ("bus", 8, false),
+            ("signed_bus", 16, true),
+            ("wide_bus", 128, false),
+        ] {
+            let port = find_port(&metadata, name)?;
+
+            assert_eq!(port.direction, PortDirection::Inout);
+            assert_eq!(port.width, width(bit_width));
+            assert_eq!(port.signed, signed);
+            assert!(port.shape.is_plain_packed_scalar());
+        }
+
+        assert!(metadata.has_inout_ports());
+        assert!(metadata.ports.iter().all(|port| !port.name.contains("__")));
+        validate_supported(&metadata)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn inout_fixture_header_contains_direct_split_members() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let header = std::fs::read_to_string(inout_ports_fixture().join("Vinout_ports.h"))?;
+
+        for declaration in [
+            "VL_IN8(&pin,0,0);",
+            "VL_OUT8(&pin__en,0,0);",
+            "VL_OUT8(&pin__out,0,0);",
+            "VL_IN8(&bus,7,0);",
+            "VL_OUT8(&bus__en,7,0);",
+            "VL_OUT8(&bus__out,7,0);",
+            "VL_IN16(&signed_bus,15,0);",
+            "VL_OUT16(&signed_bus__en,15,0);",
+            "VL_OUT16(&signed_bus__out,15,0);",
+            "VL_INW(&wide_bus,127,0,4);",
+            "VL_OUTW(&wide_bus__en,127,0,4);",
+            "VL_OUTW(&wide_bus__out,127,0,4);",
+        ] {
+            assert!(header.contains(declaration));
+        }
+
+        assert!(!header.contains("__Vm_sig_"));
+        assert!(!header.contains("// ACCESSORS"));
+        assert!(!header.contains("bus()"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_aggregate_inouts_with_shape_specific_diagnostics() {
+        let scalar = PortShape::PackedScalar(PackedScalarShape {
+            width: width(8),
+            signed: false,
+        });
+        let cases = [
+            (
+                packed_array_port(
+                    "bytes",
+                    PortDirection::Inout,
+                    32,
+                    false,
+                    8,
+                    false,
+                    vec![dimension(3, 0, 4)],
+                ),
+                "packed array",
+            ),
+            (
+                packed_struct_port("packet", PortDirection::Inout, 8, false, Vec::new()),
+                "packed struct",
+            ),
+            (
+                packed_enum_port("state", PortDirection::Inout, 8, false, Vec::new()),
+                "packed enum",
+            ),
+            (
+                aggregate_port(
+                    "samples",
+                    PortDirection::Inout,
+                    width(32),
+                    false,
+                    PortShape::UnpackedArray(UnpackedArrayShape {
+                        element: Box::new(scalar),
+                        dimensions: vec![dimension(3, 0, 4)],
+                    }),
+                ),
+                "unpacked array",
+            ),
+        ];
+
+        for (port, shape) in cases {
+            let metadata = DutMetadata {
+                name: String::from("dut"),
+                top_module: String::from("dut"),
+                ports: vec![port.clone()],
+            };
+
+            assert!(matches!(
+                validate_supported(&metadata),
+                Err(BuildError::UnsupportedInoutPortShape { port: name, shape: actual })
+                    if name == port.name && actual == shape
+            ));
+        }
     }
 
     #[test]

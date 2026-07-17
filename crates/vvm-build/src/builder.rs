@@ -312,6 +312,8 @@ impl DutBuilder {
         let dut_metadata = crate::metadata::normalize(&self.name, &top_module, &raw_metadata)?;
         crate::metadata::validate_supported(&dut_metadata)?;
 
+        let inout_enables = dut_metadata.has_inout_ports();
+
         let generated = codegen::generate(
             &dut_metadata,
             &model_prefix,
@@ -336,6 +338,7 @@ impl DutBuilder {
             sources: &sources,
             trace: self.trace,
             timing: self.timing,
+            inout_enables,
         };
 
         verilator::generate(&model_command)?;
@@ -476,6 +479,15 @@ pub fn validate_verilator_arguments(arguments: &[OsString]) -> BuildResult<()> {
             return Err(BuildError::ReservedVerilatorArgument {
                 argument: argument.to_string_lossy().into_owned(),
                 configuration: "VVM model-member ABI",
+            });
+        }
+
+        if argument == OsStr::new("--pins-inout-enables")
+            || argument == OsStr::new("--no-pins-inout-enables")
+        {
+            return Err(BuildError::ReservedVerilatorArgument {
+                argument: argument.to_string_lossy().into_owned(),
+                configuration: "VVM inout support",
             });
         }
 

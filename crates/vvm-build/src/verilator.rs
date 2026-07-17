@@ -36,6 +36,9 @@ pub struct ModelCommand<'a> {
     pub(crate) trace: Option<TraceOptions>,
     /// Whether Verilator timing constructs are enabled.
     pub(crate) timing: bool,
+    /// Whether Verilator must split top-level inouts into input, output-enable,
+    /// and output-value members.
+    pub(crate) inout_enables: bool,
 }
 
 /// Parsed Verilator version.
@@ -216,6 +219,7 @@ pub fn model_command(model: &ModelCommand<'_>) -> Command {
 
     append_trace_arguments(&mut command, model.trace);
     append_timing_argument(&mut command, model.timing);
+    append_inout_arguments(&mut command, model.inout_enables);
 
     append_hdl_arguments(
         &mut command,
@@ -226,6 +230,13 @@ pub fn model_command(model: &ModelCommand<'_>) -> Command {
     );
 
     command
+}
+
+/// Appends top-level split-inout model-generation arguments.
+fn append_inout_arguments(command: &mut Command, inout_enables: bool) {
+    if inout_enables {
+        command.arg("--pins-inout-enables");
+    }
 }
 
 /// Invokes Verilator to generate a C++ model.

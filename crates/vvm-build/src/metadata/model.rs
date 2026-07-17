@@ -29,6 +29,16 @@ pub struct DutMetadata {
     pub ports: Vec<Port>,
 }
 
+impl DutMetadata {
+    /// Returns whether the top-level DUT interface contains an inout port.
+    #[must_use]
+    pub(crate) fn has_inout_ports(&self) -> bool {
+        self.ports
+            .iter()
+            .any(|port| port.direction == PortDirection::Inout)
+    }
+}
+
 /// Normalized HDL shape of one top-level port.
 ///
 /// `Port::width` and `Port::signed` remain flattened compatibility fields used
@@ -66,6 +76,17 @@ impl PortShape {
     #[must_use]
     pub const fn is_aggregate(&self) -> bool {
         !self.is_plain_packed_scalar()
+    }
+
+    /// Returns a stable description suitable for build diagnostics.
+    pub(crate) const fn diagnostic_name(&self) -> &'static str {
+        match *self {
+            Self::PackedScalar(_) => "plain packed scalar",
+            Self::PackedArray(_) => "packed array",
+            Self::PackedStruct(_) => "packed struct",
+            Self::PackedEnum(_) => "packed enum",
+            Self::UnpackedArray(_) => "unpacked array",
+        }
     }
 
     /// Returns the flattened packed width when the shape has one.
@@ -230,4 +251,62 @@ pub enum PortDirection {
 
     /// Bidirectional port.
     Inout,
+}
+
+#[cfg(test)]
+mod tests {
+    use std::num::NonZeroU32;
+
+    use super::{BitWidth, DutMetadata, PackedScalarShape, Port, PortDirection, PortShape};
+
+    fn port(direction: PortDirection) -> Port {
+        let width = BitWidth::new(NonZeroU32::MIN);
+
+        Port {
+            name: String::from("port"),
+            direction,
+            width,
+            signed: false,
+            shape: PortShape::PackedScalar(PackedScalarShape {
+                width,
+                signed: false,
+            }),
+        }
+    }
+
+    fn metadata(ports: Vec<Port>) -> DutMetadata {
+        DutMetadata {
+            name: String::from("dut"),
+            top_module: String::from("dut"),
+            ports,
+        }
+    }
+
+    #[test]
+    fn empty_metadata_has_no_inout_ports() {
+        assert!(!metadata(Vec::new()).has_inout_ports());
+    }
+
+    #[test]
+    fn input_and_output_metadata_has_no_inout_ports() {
+        assert!(
+            !metadata(vec![
+                port(PortDirection::Input),
+                port(PortDirection::Output),
+            ])
+            .has_inout_ports()
+        );
+    }
+
+    #[test]
+    fn mixed_directions_detect_inout() {
+        assert!(
+            metadata(vec![
+                port(PortDirection::Input),
+                port(PortDirection::Inout),
+                port(PortDirection::Output),
+            ])
+            .has_inout_ports()
+        );
+    }
 }

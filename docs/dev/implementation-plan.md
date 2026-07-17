@@ -1373,7 +1373,24 @@ Implement only after the MVP is stable.
 
 ### 11.6.1 — Inout metadata and model-generation contract
 
-- [ ] Determine Verilator representation.
+- [x] Adopt one direct Verilator model-member ABI.
+- [x] Preserve semantic inout metadata.
+- [x] Accept plain packed-scalar inouts.
+- [x] Reject aggregate inouts precisely.
+- [x] Detect inout presence from normalized metadata.
+- [x] Enable `--pins-inout-enables` automatically.
+- [x] Verify direct `<port>`, `<port>__en`, and `<port>__out` members.
+- [ ] Add generated safe inout API.
+- [ ] Add external resolution and contention handling.
+- [ ] Add vertical tri-state example.
+
+### Inout model-generation contract
+
+- Metadata preserves one semantic `PortDirection::Inout`.
+- Final model generation uses `--pins-inout-enables`.
+- The direct Verilator model exposes `<port>`, `<port>__en`, and `<port>__out`.
+- Generated VVM-facing methods remain absent until 11.6.2.
+- External resolution remains caller-owned and is introduced in 11.6.3.
 
 ### 11.6.2 — Inout generated API
 

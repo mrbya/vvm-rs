@@ -329,6 +329,30 @@ mod tests {
         }
     }
 
+    #[test]
+    fn generated_artifacts_omit_inout_access() -> Result<(), Box<dyn std::error::Error>> {
+        let width = BitWidth::new(NonZeroU32::MIN);
+        let metadata = DutMetadata {
+            name: String::from("inout_ports"),
+            top_module: String::from("inout_ports"),
+            ports: vec![scalar_port("bus", PortDirection::Inout, width, false)],
+        };
+        let output = tempdir()?;
+        let generated = generate(&metadata, "Vinout_ports", output.path(), None, false)?;
+
+        let header = std::fs::read_to_string(&generated.cpp_header)?;
+        let source = std::fs::read_to_string(&generated.cpp_source)?;
+        let bridge = std::fs::read_to_string(&generated.cxx_bridge)?;
+        let wrapper = std::fs::read_to_string(&generated.rust_wrapper)?;
+
+        assert!(!header.contains("bus("));
+        assert!(!source.contains("model->bus"));
+        assert!(!bridge.contains("fn bus("));
+        assert!(!wrapper.contains("pub fn bus("));
+
+        Ok(())
+    }
+
     fn assert_wide_header_artifacts(header: &str) {
         assert!(header.contains("#include \"rust/cxx.h\""));
         for width in [65, 96, 129, 256] {

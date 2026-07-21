@@ -11,6 +11,7 @@ members = [
     "examples/packed-struct",
     "examples/signed-adder",
     "examples/timing-delay",
+    "examples/tri-state-bus",
     "examples/wide-transform",
     "examples/unpacked-array",
 ]

@@ -1380,17 +1380,17 @@ Implement only after the MVP is stable.
 - [x] Detect inout presence from normalized metadata.
 - [x] Enable `--pins-inout-enables` automatically.
 - [x] Verify direct `<port>`, `<port>__en`, and `<port>__out` members.
-- [ ] Add generated safe inout API.
-- [ ] Add external resolution and contention handling.
-- [ ] Add vertical tri-state example.
+- [x] Add generated safe inout API.
+- [x] Add external resolution and contention handling.
+- [x] Add vertical tri-state example.
 
 ### Inout model-generation contract
 
 - Metadata preserves one semantic `PortDirection::Inout`.
 - Final model generation uses `--pins-inout-enables`.
 - The direct Verilator model exposes `<port>`, `<port>__en`, and `<port>__out`.
-- Generated VVM-facing methods remain absent until 11.6.2.
-- External resolution remains caller-owned and is introduced in 11.6.3.
+- Generated VVM-facing methods expose raw inout components.
+- External resolution remains caller-owned.
 
 ### 11.6.2 — Inout generated API
 
@@ -1402,8 +1402,8 @@ Implement only after the MVP is stable.
 - [x] Generate `set_<port>` compatibility aliases.
 - [x] Generate `<port>()` composite snapshots.
 - [x] Integrate inouts naturally with `Drive` and `Sample`.
-- [ ] Add external resolution and contention handling.
-- [ ] Add the full vertical tri-state example.
+- [x] Add external resolution and contention handling.
+- [x] Add the full vertical tri-state example.
 
 ### Generated inout API
 
@@ -1417,8 +1417,24 @@ Implement only after the MVP is stable.
 
 ### 11.6.3 — Tri-state example and documentation
 
-- [ ] Add a tri-state example.
-- [ ] Document two-state limitations.
+- [x] Add caller-owned external resolution.
+- [x] Add exact per-bit contention detection.
+- [x] Add an explicit floating-bit policy.
+- [x] Add bounded combinational settling.
+- [x] Add a vertical tri-state bus example.
+- [x] Add VCD coverage.
+- [x] Document two-state limitations.
+- [x] Document open-drain adaptation.
+
+### Inout resolution semantics
+
+- VVM exposes raw inout components and does not prescribe an electrical resolution policy.
+- The caller combines DUT and external driver proposals.
+- Driver values are meaningful only where their enable mask is set.
+- Floating-bit and contention policies are explicit.
+- Successfully resolved values are written through `set_<port>_input`.
+- Combinational feedback is settled through bounded repeated evaluation at one logical simulation time.
+- Two-state Verilator execution does not expose Rust-visible `X` or `Z` values.
 
 ## Arrays and aggregates
 

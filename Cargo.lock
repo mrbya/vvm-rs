@@ -572,6 +572,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "vvm-example-tri-state-bus"
+version = "0.1.0-alpha.1"
+dependencies = [
+ "tempfile",
+ "vvm-build",
+ "vvm-rs",
+]
+
+[[package]]
 name = "vvm-example-unpacked-array"
 version = "0.1.0-alpha.1"
 dependencies = [

@@ -75,10 +75,10 @@ pub(super) fn render(
     for (port, port_names) in metadata.ports.iter().zip(&names.ports) {
         match port.direction {
             PortDirection::Input => {
-                render_input(&mut output, port, port_names, names);
+                render_input(&mut output, port, port_names, names, false);
             }
             PortDirection::Output => {
-                render_output(&mut output, port, port_names, names);
+                render_output(&mut output, port, port_names, names, false);
             }
             PortDirection::Inout => render_inout(&mut output, port, port_names, names),
         }
@@ -2346,7 +2346,13 @@ fn render_timing_queries(output: &mut String) {
 }
 
 /// Renders one typed input setter.
-fn render_input(output: &mut String, port: &Port, port_names: &PortNames, names: &DutNames) {
+fn render_input(
+    output: &mut String,
+    port: &Port,
+    port_names: &PortNames,
+    names: &DutNames,
+    is_inout_component: bool,
+) {
     if let Some(array) = UnpackedArrayType::from_port(port) {
         render_unpacked_input(output, port_names, array, names);
         return;
@@ -2371,7 +2377,13 @@ fn render_input(output: &mut String, port: &Port, port_names: &PortNames, names:
 
     match PortType::from_port(port) {
         PortType::Scalar(signal_type) => {
-            render_scalar_input(output, port, &port_names.method, signal_type);
+            render_scalar_input(
+                output,
+                port,
+                &port_names.method,
+                signal_type,
+                is_inout_component,
+            );
         }
         PortType::Wide(wide_type) => {
             render_wide_input(output, port, &port_names.method, wide_type, names);
@@ -2380,7 +2392,13 @@ fn render_input(output: &mut String, port: &Port, port_names: &PortNames, names:
 }
 
 /// Renders one scalar typed input setter.
-fn render_scalar_input(output: &mut String, port: &Port, method: &str, signal_type: SignalType) {
+fn render_scalar_input(
+    output: &mut String,
+    port: &Port,
+    method: &str,
+    signal_type: SignalType,
+    is_inout_component: bool,
+) {
     let rust_type = signal_type.rust_type();
 
     push_line(output, "");
@@ -2389,6 +2407,13 @@ fn render_scalar_input(output: &mut String, port: &Port, method: &str, signal_ty
         &format!("    /// Drives the `{}` DUT input.", port.name),
     );
     push_line(output, "    ///");
+    if is_inout_component {
+        push_line(
+            output,
+            "    /// This operation does not evaluate the DUT, advance time, or resolve drivers.",
+        );
+        push_line(output, "    ///");
+    }
     push_line(
         output,
         "    /// The value may be supplied by value or by reference.",
@@ -2432,7 +2457,13 @@ fn render_scalar_input(output: &mut String, port: &Port, method: &str, signal_ty
 }
 
 /// Renders one typed output getter.
-fn render_output(output: &mut String, port: &Port, port_names: &PortNames, names: &DutNames) {
+fn render_output(
+    output: &mut String,
+    port: &Port,
+    port_names: &PortNames,
+    names: &DutNames,
+    is_inout_component: bool,
+) {
     if let Some(array) = UnpackedArrayType::from_port(port) {
         render_unpacked_output(output, port_names, array, names);
         return;
@@ -2457,7 +2488,13 @@ fn render_output(output: &mut String, port: &Port, port_names: &PortNames, names
 
     match PortType::from_port(port) {
         PortType::Scalar(signal_type) => {
-            render_scalar_output(output, port, &port_names.method, signal_type);
+            render_scalar_output(
+                output,
+                port,
+                &port_names.method,
+                signal_type,
+                is_inout_component,
+            );
         }
         PortType::Wide(wide_type) => {
             render_wide_output(output, port, &port_names.method, wide_type, names);
@@ -2509,10 +2546,10 @@ fn render_inout(output: &mut String, port: &Port, port_names: &PortNames, names:
     let mut enable_port = port.clone();
     enable_port.signed = false;
 
-    render_input(output, port, &input_names, names);
-    render_output(output, port, &input_value_names, names);
-    render_output(output, &enable_port, &output_enable_names, names);
-    render_output(output, port, &output_value_names, names);
+    render_input(output, port, &input_names, names, true);
+    render_output(output, port, &input_value_names, names, true);
+    render_output(output, &enable_port, &output_enable_names, names, true);
+    render_output(output, port, &output_value_names, names, true);
 
     let port_type = PortType::from_port(port);
     let enable_type = PortType::from_port(&enable_port);
@@ -2541,6 +2578,11 @@ fn render_inout(output: &mut String, port: &Port, port_names: &PortNames, names:
             "    /// Samples the complete `{}` DUT inout state.",
             port.name
         ),
+    );
+    push_line(output, "    ///");
+    push_line(
+        output,
+        "    /// This operation does not evaluate the DUT, advance time, or resolve drivers.",
     );
     push_line(
         output,
@@ -3270,13 +3312,26 @@ fn render_packed_aggregate_output(
 }
 
 /// Renders one scalar typed output getter.
-fn render_scalar_output(output: &mut String, port: &Port, method: &str, signal_type: SignalType) {
+fn render_scalar_output(
+    output: &mut String,
+    port: &Port,
+    method: &str,
+    signal_type: SignalType,
+    is_inout_component: bool,
+) {
     push_line(output, "");
     push_line(
         output,
         &format!("    /// Samples the `{}` DUT output.", port.name),
     );
     push_line(output, "    ///");
+    if is_inout_component {
+        push_line(
+            output,
+            "    /// This operation does not evaluate the DUT, advance time, or resolve drivers.",
+        );
+        push_line(output, "    ///");
+    }
     push_line(output, "    /// # Errors");
     push_line(output, "    ///");
     push_line(

@@ -70,11 +70,10 @@ pub fn normalize(dut_name: &str, top_module: &str, raw: &RawMetadata) -> BuildRe
         }
 
         let var_type = optional_string(statement, "varType", path)?;
-        let is_primary_inout_wire = var_type == Some("WIRE")
-            && optional_string(statement, "direction", path)? == Some("INOUT")
+        let is_primary_wire = var_type == Some("WIRE")
             && optional_bool(statement, "isPrimaryIO", path)? == Some(true);
 
-        if var_type != Some("PORT") && !is_primary_inout_wire {
+        if var_type != Some("PORT") && !is_primary_wire {
             continue;
         }
 

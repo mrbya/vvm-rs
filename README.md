@@ -15,6 +15,7 @@ VVM provides strongly typed Rust testbenches, generated DUT bridges, and normal 
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Bidirectional Ports](#bidirectional-ports)
 - [Timing-enabled Models](#timing-enabled-models)
 - [Running VVM Tests](#running-vvm-tests)
 - [Test Configuration](#test-configuration)
@@ -185,6 +186,20 @@ cargo test counter_smoke
 
 For unit-style VVM tests, keep them inside an explicit `#[cfg(test)]` module as shown above. Integration tests under `tests/` are already test-only and do not need an additional `#[cfg(test)]`.
 
+## Bidirectional Ports
+
+VVM supports plain packed-scalar top-level `inout` ports. Generated wrappers
+separate the caller-presented input from the DUT's `output_enable` mask and
+`output_value` proposal through `set_<port>_input`, `<port>_input()`,
+`<port>_output_enable()`, `<port>_output_value()`, and `<port>()` returning
+`InoutState`.
+
+Resolution remains caller-owned: combine DUT and external enable/value
+proposals, choose an explicit floating-bit policy, and write successful values
+through `set_<port>_input`. Verilator execution is two-state, so Rust does not
+receive `X` or `Z` values. See [`examples/tri-state-bus`](examples/tri-state-bus)
+for bounded settling, exact contention detection, and VCD tracing.
+
 ## Timing-enabled Models
 
 Timing mode builds a model that exposes internally scheduled HDL delays:
@@ -286,6 +301,7 @@ If `VVM_TRACE_DIR` is not set, trace-capable tests write VCDs under a generated 
 - `vvm-example-counter`: minimal cycle-driven verification.
 - `vvm-example-multi-clock`: independently timed externally driven clocks.
 - `vvm-example-timing-delay`: internally scheduled HDL delays.
+- `vvm-example-tri-state-bus`: caller-owned top-level inout resolution.
 
 ## Development
 

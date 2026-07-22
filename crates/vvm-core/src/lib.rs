@@ -65,6 +65,8 @@
 pub(crate) mod bits;
 /// Synchronous clock-driving abstraction and configuration.
 pub mod clock;
+/// Functional coverage primitives.
+pub(crate) mod coverage;
 /// Stimulus driving abstraction.
 pub(crate) mod drive;
 /// DUT lifecycle abstraction.
@@ -106,9 +108,10 @@ pub use dut::{Dut, TimedDut, TraceableDut};
 pub use failure_policy::{FailurePolicy, InvalidFailureLimit};
 pub use inout::InoutState;
 pub use packed::{
-    PackedEnumLayout, PackedEnumVariantLayout, PackedFieldLayout, PackedLayout, PackedLayoutError,
-    PackedRange, PackedValue, extract_packed, extract_signed, extract_signed_packed,
-    extract_unsigned, insert_packed, insert_signed, insert_signed_packed, insert_unsigned,
+    extract_packed, extract_signed, extract_signed_packed, extract_unsigned, insert_packed,
+    insert_signed, insert_signed_packed, insert_unsigned, PackedEnumLayout,
+    PackedEnumVariantLayout, PackedFieldLayout, PackedLayout, PackedLayoutError, PackedRange,
+    PackedValue,
 };
 pub use random::{
     ParseReplayTokenError, RandomAlgorithm, RandomContext, Randomize, ReplayToken,
@@ -126,7 +129,7 @@ pub use scoreboard::{ExactScoreboard, Mismatch, Scoreboard};
 pub use testbench::{Testbench, Unconfigured};
 pub use time::{CycleTiming, InvalidTimeStep, SimulationTime, TimeStep};
 pub use timing::{TimingEvent, TimingRun, TimingScheduler, TimingSchedulerError, TimingStage};
-pub use unpacked::{UnpackedArrayIndexError, unpacked_array_ordinal};
+pub use unpacked::{unpacked_array_ordinal, UnpackedArrayIndexError};
 
 // Unit tests.
 #[cfg(test)]

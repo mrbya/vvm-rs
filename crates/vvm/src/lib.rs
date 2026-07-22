@@ -20,6 +20,7 @@
 //! - stateful reference models;
 //! - scoreboards and structured mismatches;
 //! - deterministic testbench execution.
+//! - explicitly sampled Rust-native functional coverage through [`Coverpoint`] and [`Bin`];
 //!
 //! Native compilation and DUT generation are configured separately through
 //! the `vvm-build` crate from a consuming package's `build.rs`.
@@ -103,15 +104,17 @@ pub(crate) mod test;
 
 #[doc(inline)]
 pub use vvm_core::{
-    Bits, CheckFailure, Clock, ClockConfigurationError, ClockScheduler, ClockTiming, CycleTiming,
-    DetailedTestReport, Drive, Dut, ExactScoreboard, FailurePolicy, InoutState, IntoTestOutcome,
-    InvalidBitVectorWordCount, InvalidFailureLimit, InvalidTimeStep, Mismatch, PackedEnumLayout,
-    PackedEnumVariantLayout, PackedFieldLayout, PackedLayout, PackedLayoutError, PackedRange,
-    PackedValue, ParseReplayTokenError, RandomAlgorithm, RandomContext, Randomize, ReferenceModel,
-    ReplayToken, ReplayableSequence, Sample, Scoreboard, Seed, SignedBits, SimulationError,
-    SimulationStage, SimulationTime, TestCapabilities, TestDescriptor, TestFunction, TestOutcome,
-    TestRegistry, TestRegistryError, TestResult, TestRun, TestRunConfig, TestStatistics,
-    TestStatus, TestSummary, Testbench, TimeStep, TimedDut, TimingEvent, TimingRun,
+    Bin, BinId, BinKind, Bits, CheckFailure, Clock, ClockConfigurationError, ClockScheduler,
+    ClockTiming, CoverageBuildError, CoverageCounterKind, CoverageRatio, CoverageSampleDisposition,
+    CoverageSampleError, Coverpoint, CoverpointBin, CoverpointBuilder, CoverpointSample,
+    CycleTiming, DetailedTestReport, Drive, Dut, ExactScoreboard, FailurePolicy, InoutState,
+    IntoTestOutcome, InvalidBitVectorWordCount, InvalidFailureLimit, InvalidTimeStep, Mismatch,
+    PackedEnumLayout, PackedEnumVariantLayout, PackedFieldLayout, PackedLayout, PackedLayoutError,
+    PackedRange, PackedValue, ParseReplayTokenError, RandomAlgorithm, RandomContext, Randomize,
+    ReferenceModel, ReplayToken, ReplayableSequence, Sample, Scoreboard, Seed, SignedBits,
+    SimulationError, SimulationStage, SimulationTime, TestCapabilities, TestDescriptor,
+    TestFunction, TestOutcome, TestRegistry, TestRegistryError, TestResult, TestRun, TestRunConfig,
+    TestStatistics, TestStatus, TestSummary, Testbench, TimeStep, TimedDut, TimingEvent, TimingRun,
     TimingScheduler, TimingSchedulerError, TimingStage, TraceableDut, UnpackedArrayIndexError,
     extract_packed, extract_signed, extract_signed_packed, extract_unsigned, insert_packed,
     insert_signed, insert_signed_packed, insert_unsigned, unpacked_array_ordinal,
@@ -129,10 +132,10 @@ pub use vvm_macros::{Clock, Drive, Sample, test};
 /// ```
 pub mod prelude {
     pub use crate::{
-        Bits, Clock, ClockScheduler, ClockTiming, CycleTiming, Drive, Dut, ExactScoreboard,
-        FailurePolicy, InoutState, RandomContext, Randomize, ReferenceModel, ReplayableSequence,
-        Sample, Scoreboard, Seed, SignedBits, SimulationTime, TestDescriptor, TestRegistryError,
-        TestRunConfig, Testbench, TimeStep, TimedDut, TimingScheduler,
+        Bin, Bits, Clock, ClockScheduler, ClockTiming, Coverpoint, CycleTiming, Drive, Dut,
+        ExactScoreboard, FailurePolicy, InoutState, RandomContext, Randomize, ReferenceModel,
+        ReplayableSequence, Sample, Scoreboard, Seed, SignedBits, SimulationTime, TestDescriptor,
+        TestRegistryError, TestRunConfig, Testbench, TimeStep, TimedDut, TimingScheduler,
     };
 }
 

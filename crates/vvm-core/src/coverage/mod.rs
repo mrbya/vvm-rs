@@ -6,6 +6,8 @@ pub mod coverpoint;
 pub mod error;
 /// Declarative matcher representation and validation.
 pub mod matcher;
+/// Exact coverage ratio.
+pub mod ratio;
 
 pub use bin::{Bin, BinId, BinKind, CoverpointBin};
 pub use coverpoint::{
@@ -13,3 +15,4 @@ pub use coverpoint::{
 };
 pub use error::{CoverageBuildError, CoverageSampleError};
 pub use matcher::{BinMatcher, MatcherValidationError};
+pub use ratio::CoverageRatio;

@@ -36,6 +36,12 @@ impl BinId {
     pub const fn new(ordinal: u32) -> Self {
         Self(ordinal)
     }
+
+    /// Returns the coverpoint-local ordinal.
+    #[must_use]
+    pub const fn ordinal(self) -> u32 {
+        self.0
+    }
 }
 
 /// Declarative definition of one functional coverage bin.

@@ -64,7 +64,7 @@
 /// Arbitrary-width packed bit values.
 pub(crate) mod bits;
 /// Synchronous clock-driving abstraction and configuration.
-pub mod clock;
+pub(crate) mod clock;
 /// Functional coverage primitives.
 pub(crate) mod coverage;
 /// Stimulus driving abstraction.
@@ -104,8 +104,9 @@ pub(crate) mod unpacked;
 pub use bits::{Bits, InvalidBitVectorWordCount, SignedBits};
 pub use clock::{Clock, ClockConfigurationError, ClockScheduler, ClockTiming};
 pub use coverage::{
-    Bin, BinId, BinKind, CoverageBuildError, CoverageCounterKind, CoverageSampleDisposition,
-    CoverageSampleError, Coverpoint, CoverpointBin, CoverpointBuilder, CoverpointSample,
+    Bin, BinId, BinKind, CoverageBuildError, CoverageCounterKind, CoverageRatio,
+    CoverageSampleDisposition, CoverageSampleError, Coverpoint, CoverpointBin, CoverpointBuilder,
+    CoverpointSample,
 };
 pub use drive::Drive;
 pub use dut::{Dut, TimedDut, TraceableDut};

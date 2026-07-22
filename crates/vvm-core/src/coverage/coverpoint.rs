@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 use std::num::NonZeroU64;
 
 use crate::coverage::{
-    Bin, BinId, BinKind, CoverageBuildError, CoverageSampleError, CoverpointBin,
+    Bin, BinId, BinKind, CoverageBuildError, CoverageRatio, CoverageSampleError, CoverpointBin,
     MatcherValidationError,
 };
 
@@ -109,16 +109,84 @@ impl<T> Coverpoint<T> {
 
     /// Returns coverpoint bins in declaration order.
     #[must_use]
-    pub fn bins(&self) -> impl ExactSizeIterator<Item = &CoverpointBin<T>> {
-        self.bins.iter()
+    pub fn bins(&self) -> &[CoverpointBin<T>] {
+        &self.bins
     }
 
-    /// Samples one value into the coverpoint.
+    /// Returns normal bins in declaration order.
+    pub fn normal_bins(&self) -> impl Iterator<Item = &CoverpointBin<T>> {
+        self.bins.iter().filter(|bin| bin.kind() == BinKind::Normal)
+    }
+
+    /// Returns ignored bins in declaration order.
+    pub fn ignore_bins(&self) -> impl Iterator<Item = &CoverpointBin<T>> {
+        self.bins.iter().filter(|bin| bin.kind() == BinKind::Ignore)
+    }
+
+    /// Returns illegal bins in declaration order.
+    pub fn illegal_bins(&self) -> impl Iterator<Item = &CoverpointBin<T>> {
+        self.bins
+            .iter()
+            .filter(|bin| bin.kind() == BinKind::Illegal)
+    }
+
+    /// Finds one bin by its coverpoint-local identifier.
+    #[must_use]
+    pub fn bin(&self, id: BinId) -> Option<&CoverpointBin<T>> {
+        let index = usize::try_from(id.ordinal()).ok()?;
+
+        self.bins.get(index)
+    }
+
+    /// Returns the number of attempted samples.
+    ///
+    /// This includes normal, ignored, illegal and unmatched samples.
+    #[must_use]
+    pub const fn sample_count(&self) -> u64 {
+        self.samples
+    }
+
+    /// Returns the number of samples excluded by ignore bins.
+    #[must_use]
+    pub const fn ignored_sample_count(&self) -> u64 {
+        self.ignored_samples
+    }
+
+    /// Returns the number of samples rejected by illegal bins.
+    #[must_use]
+    pub const fn illegal_sample_count(&self) -> u64 {
+        self.illegal_samples
+    }
+
+    /// Returns the number of samples matching no declared bin.
+    #[must_use]
+    pub const fn unmatched_sample_count(&self) -> u64 {
+        self.unmatched_samples
+    }
+
+    /// Samples one value into this coverpoint.
+    ///
+    /// Matching precedence is:
+    ///
+    /// 1. illegal bins;
+    /// 2. ignore bins;
+    /// 3. normal bins;
+    /// 4. unmatched.
+    ///
+    /// All matching bins within the selected category increment. Bins
+    /// from lower-precedence categories do not increment.
+    ///
+    /// Counter updates are atomic with respect to counter-overflow
+    /// failures. Illegal-bin counters are committed before an
+    /// [`CoverageSampleError::IllegalBinHit`] error is returned.
     ///
     /// # Errors
     ///
-    /// Returns an error when an illegal bin matches or a coverage
-    /// counter cannot be incremented.
+    /// Returns [`CoverageSampleError::IllegalBinHit`] when one or more
+    /// illegal bins match.
+    ///
+    /// Returns [`CoverageSampleError::CounterOverflow`] when any affected
+    /// coverage counter cannot be incremented.
     pub fn sample(&mut self, sampled: &T) -> Result<CoverpointSample, CoverageSampleError>
     where
         T: std::fmt::Debug,
@@ -144,6 +212,28 @@ impl<T> Coverpoint<T> {
                 sampled_value,
             }),
         }
+    }
+
+    /// Returns the exact normal-bin coverage ratio.
+    #[must_use]
+    pub fn coverage(&self) -> CoverageRatio {
+        let covered = self.normal_bins().filter(|bin| bin.covered()).count();
+
+        let uncovered = self.normal_bins().filter(|bin| !bin.covered()).count();
+
+        let total = self.normal_bins().count();
+
+        CoverageRatio::new(covered, uncovered, total)
+    }
+
+    /// Returns uncovered normal bins in declaration order.
+    pub fn uncovered_bins(&self) -> impl Iterator<Item = &CoverpointBin<T>> {
+        self.normal_bins().filter(|bin| !bin.covered())
+    }
+
+    /// Returns covered normal bins in declaration order.
+    pub fn covered_bins(&self) -> impl Iterator<Item = &CoverpointBin<T>> {
+        self.normal_bins().filter(|bin| bin.covered())
     }
 
     /// Prepare full sample.
@@ -297,6 +387,18 @@ pub enum CoverageCounterKind {
     BinHits,
 }
 
+impl std::fmt::Display for CoverageCounterKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::Samples => f.write_str("total sample count"),
+            Self::IgnoredSamples => f.write_str("ignored sample count"),
+            Self::IllegalSamples => f.write_str("illegal sample count"),
+            Self::UnmatchedSamples => f.write_str("unmatched sample count"),
+            Self::BinHits => f.write_str("bin hit count"),
+        }
+    }
+}
+
 /// Disposition of one successfully processed sample.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CoverageSampleDisposition {
@@ -321,7 +423,7 @@ pub struct CoverpointSample {
 }
 
 impl CoverpointSample {
-    /// Creates a normal-hit result.
+    /// Creates a normal-hit sample result.
     const fn new_hit(matched_bins: Box<[BinId]>) -> Self {
         Self {
             disposition: CoverageSampleDisposition::Hit,
@@ -329,7 +431,7 @@ impl CoverpointSample {
         }
     }
 
-    /// Creates an ignored result.
+    /// Creates an ignored sample result.
     fn new_ignored() -> Self {
         Self {
             disposition: CoverageSampleDisposition::Ignored,
@@ -337,7 +439,7 @@ impl CoverpointSample {
         }
     }
 
-    /// Creates an unmatched result.
+    /// Creates an unmatched sample result.
     fn new_unmatched() -> Self {
         Self {
             disposition: CoverageSampleDisposition::Unmatched,
@@ -345,7 +447,7 @@ impl CoverpointSample {
         }
     }
 
-    /// Returns the disposition.
+    /// Returns the sample disposition.
     #[must_use]
     pub const fn disposition(&self) -> CoverageSampleDisposition {
         self.disposition
@@ -357,22 +459,22 @@ impl CoverpointSample {
         &self.matched_bins
     }
 
-    /// Returns whether normal bins were hit.
+    /// Returns whether one or more normal bins were hit.
     #[must_use]
     pub const fn hit(&self) -> bool {
-        matches!(self.disposition, CoverageSampleDisposition::Hit)
+        matches!(self.disposition, CoverageSampleDisposition::Hit,)
     }
 
-    /// Returns whether the sample was ignored.
+    /// Returns whether an ignore bin excluded the sample.
     #[must_use]
     pub const fn ignored(&self) -> bool {
-        matches!(self.disposition, CoverageSampleDisposition::Ignored)
+        matches!(self.disposition, CoverageSampleDisposition::Ignored,)
     }
 
-    /// Returns whether no bin matched.
+    /// Returns whether no declared bin matched.
     #[must_use]
     pub const fn unmatched(&self) -> bool {
-        matches!(self.disposition, CoverageSampleDisposition::Unmatched)
+        matches!(self.disposition, CoverageSampleDisposition::Unmatched,)
     }
 }
 

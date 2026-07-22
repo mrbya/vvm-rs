@@ -1,7 +1,7 @@
 use crate::{CycleTiming, Dut, TimeStep};
 
 /// Independently timed clock scheduling primitives.
-pub(crate) mod scheduler;
+pub mod scheduler;
 
 pub use scheduler::{ClockConfigurationError, ClockScheduler};
 

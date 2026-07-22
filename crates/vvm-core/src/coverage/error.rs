@@ -187,3 +187,96 @@ pub enum CoverageSampleError {
         counter: CoverageCounterKind,
     },
 }
+
+impl CoverageSampleError {
+    /// Returns the affected coverpoint name.
+    #[must_use]
+    pub fn coverpoint(&self) -> &str {
+        match *self {
+            Self::IllegalBinHit { ref coverpoint, .. }
+            | Self::CounterOverflow { ref coverpoint, .. } => coverpoint,
+        }
+    }
+
+    /// Returns the overflowing bin name, when applicable.
+    #[must_use]
+    pub fn bin(&self) -> Option<&str> {
+        match *self {
+            Self::CounterOverflow { ref bin, .. } => bin.as_deref(),
+            Self::IllegalBinHit { .. } => None,
+        }
+    }
+
+    /// Returns the overflowing counter kind.
+    #[must_use]
+    pub const fn counter(&self) -> Option<CoverageCounterKind> {
+        match *self {
+            Self::CounterOverflow { ref counter, .. } => Some(*counter),
+            Self::IllegalBinHit { .. } => None,
+        }
+    }
+
+    /// Returns matching illegal-bin names.
+    #[must_use]
+    pub fn illegal_bins(&self) -> Option<&[String]> {
+        match *self {
+            Self::IllegalBinHit { ref bins, .. } => Some(bins),
+            Self::CounterOverflow { .. } => None,
+        }
+    }
+
+    /// Returns the formatted illegal sampled value.
+    #[must_use]
+    pub fn sampled_value(&self) -> Option<&str> {
+        match *self {
+            Self::IllegalBinHit {
+                ref sampled_value, ..
+            } => Some(sampled_value),
+            Self::CounterOverflow { .. } => None,
+        }
+    }
+}
+
+impl std::fmt::Display for CoverageSampleError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::IllegalBinHit {
+                ref coverpoint,
+                ref bins,
+                ref sampled_value,
+            } => {
+                write!(f, "illegal coverage bin hit in `{coverpoint}`: bins [")?;
+
+                for (index, bin) in bins.iter().enumerate() {
+                    if index != 0 {
+                        f.write_str(", ")?;
+                    }
+
+                    write!(f, "`{bin}`")?;
+                }
+
+                write!(f, "], sampled value {sampled_value}")
+            }
+
+            Self::CounterOverflow {
+                ref coverpoint,
+                ref bin,
+                ref counter,
+            } => {
+                if let Some(bin) = bin.as_deref() {
+                    write!(
+                        f,
+                        "functional coverage counter overflow in `{coverpoint}.{bin}`: {counter}",
+                    )
+                } else {
+                    write!(
+                        f,
+                        "functional coverage counter overflow in `{coverpoint}`: {counter}",
+                    )
+                }
+            }
+        }
+    }
+}
+
+impl std::error::Error for CoverageSampleError {}

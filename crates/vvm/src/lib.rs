@@ -25,6 +25,21 @@
 //! Native compilation and DUT generation are configured separately through
 //! the `vvm-build` crate from a consuming package's `build.rs`.
 //!
+//! Functional coverage is owned by ordinary Rust values and sampled explicitly:
+//!
+//! ```
+//! use vvm::{Bin, Coverpoint};
+//!
+//! let mut coverage = Coverpoint::builder("value")
+//!     .bin(Bin::value("zero", 0_u8))
+//!     .bin(Bin::inclusive_range("nonzero", 1_u8, u8::MAX))
+//!     .build()?;
+//!
+//! assert!(coverage.sample(&0)?.hit());
+//! assert_eq!(coverage.coverage().covered(), 1);
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
 //! # Example
 //!
 //! A build script describes the DUT:
@@ -214,3 +229,22 @@ pub mod __private {
 
 #[doc(hidden)]
 pub use cxx::*;
+
+#[cfg(test)]
+mod tests {
+    use crate::prelude::{Bin, Coverpoint};
+
+    #[test]
+    fn coverage_primitives_are_usable_from_the_prelude() {
+        let mut coverage = Coverpoint::builder("value")
+            .bin(Bin::value("zero", 0_u8))
+            .bin(Bin::inclusive_range("nonzero", 1_u8, u8::MAX))
+            .build()
+            .expect("valid coverpoint");
+        let sample = coverage.sample(&0).expect("normal sample");
+
+        assert!(sample.hit());
+        assert_eq!(coverage.coverage().covered(), 1);
+        assert_eq!(coverage.coverage().total(), 2);
+    }
+}

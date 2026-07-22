@@ -184,3 +184,125 @@ fn validate_values<T>(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::BinMatcher;
+    use crate::Bits;
+    use crate::coverage::MatcherValidationError;
+
+    #[test]
+    fn exact_value_matches() {
+        let matcher = BinMatcher::value(7_u8);
+
+        assert!(matcher.matches(&7));
+    }
+
+    #[test]
+    fn exact_value_rejects_other_value() {
+        let matcher = BinMatcher::value(7_u8);
+
+        assert!(!matcher.matches(&8));
+    }
+
+    #[test]
+    fn exact_value_supports_wide_bits() {
+        let expected = Bits::<65>::from_words_le([0x0123_4567, 0x89ab_cdef, 1])
+            .expect("correct wide bit-vector word count");
+        let matcher = BinMatcher::value(expected.clone());
+
+        assert!(matcher.matches(&expected));
+        assert!(!matcher.matches(&Bits::<65>::zero()));
+    }
+
+    #[test]
+    fn value_set_matches_each_member() {
+        let matcher = BinMatcher::values([1_u8, 3, 5]);
+
+        assert!(matcher.matches(&1));
+        assert!(matcher.matches(&3));
+        assert!(matcher.matches(&5));
+    }
+
+    #[test]
+    fn value_set_rejects_non_member() {
+        let matcher = BinMatcher::values([1_u8, 3, 5]);
+
+        assert!(!matcher.matches(&2));
+    }
+
+    #[test]
+    fn value_set_validation_rejects_empty_definition() {
+        let matcher = BinMatcher::values(Vec::<u8>::new());
+
+        assert_eq!(
+            matcher.validate(),
+            Err(MatcherValidationError::EmptyValueSet)
+        );
+    }
+
+    #[test]
+    fn value_set_validation_reports_duplicate_indices() {
+        let matcher = BinMatcher::values(["Read", "Write", "Read"]);
+
+        assert_eq!(
+            matcher.validate(),
+            Err(MatcherValidationError::DuplicateValue {
+                first: 0,
+                duplicate: 2,
+            }),
+        );
+    }
+
+    #[test]
+    fn inclusive_range_matches_lower_bound() {
+        assert!(BinMatcher::inclusive_range(2_u8, 4).matches(&2));
+    }
+
+    #[test]
+    fn inclusive_range_matches_upper_bound() {
+        assert!(BinMatcher::inclusive_range(2_u8, 4).matches(&4));
+    }
+
+    #[test]
+    fn inclusive_range_matches_interior() {
+        assert!(BinMatcher::inclusive_range(2_u8, 4).matches(&3));
+    }
+
+    #[test]
+    fn inclusive_range_rejects_below() {
+        assert!(!BinMatcher::inclusive_range(2_u8, 4).matches(&1));
+    }
+
+    #[test]
+    fn inclusive_range_rejects_above() {
+        assert!(!BinMatcher::inclusive_range(2_u8, 4).matches(&5));
+    }
+
+    #[test]
+    fn inclusive_range_validation_rejects_reversed_bounds() {
+        let matcher = BinMatcher::inclusive_range(4_u8, 2);
+
+        assert_eq!(
+            matcher.validate(),
+            Err(MatcherValidationError::InvalidInclusiveRange)
+        );
+    }
+
+    #[test]
+    fn inclusive_range_validation_rejects_incomparable_bounds() {
+        let matcher = BinMatcher::inclusive_range(f32::NAN, 1.0);
+
+        assert_eq!(
+            matcher.validate(),
+            Err(MatcherValidationError::InvalidInclusiveRange)
+        );
+    }
+
+    #[test]
+    fn incomparable_sample_does_not_match() {
+        let matcher = BinMatcher::inclusive_range(0.0_f32, 1.0);
+
+        assert!(!matcher.matches(&f32::NAN));
+    }
+}

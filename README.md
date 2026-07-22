@@ -17,6 +17,7 @@ VVM provides strongly typed Rust testbenches, generated DUT bridges, and normal 
 - [Quick Start](#quick-start)
 - [Bidirectional Ports](#bidirectional-ports)
 - [Timing-enabled Models](#timing-enabled-models)
+- [Functional Coverage](#functional-coverage)
 - [Running VVM Tests](#running-vvm-tests)
 - [Test Configuration](#test-configuration)
 - [Workspace Crates](#workspace-crates)
@@ -57,6 +58,7 @@ The working reference for public usage in this repository is `examples/counter`.
 - Native `cargo test` and `cargo nextest run` execution.
 - Standard Rust filtering, package selection, parallelism, and `#[ignore]` handling.
 - Environment-based test configuration with replay, cycle, and trace overrides.
+- Explicit Rust-native functional coverage with typed coverpoints and bins.
 
 ## Requirements
 
@@ -227,6 +229,13 @@ Timing mode: Verilator schedules internal delayed HDL processes.
 The two schedulers are intentionally separate. See
 [`examples/timing-delay`](examples/timing-delay) for the complete build,
 stepping, tracing, and finalization example.
+
+## Functional Coverage
+
+VVM provides Rust-native functional coverage through typed coverpoints and
+bins. Normal, ignore, and illegal bins support exact values, value sets, and
+inclusive ranges. Sampling is explicit, and only normal bins contribute to
+completion. Cross coverage and persistence are subsequent milestones.
 
 ## Running VVM Tests
 

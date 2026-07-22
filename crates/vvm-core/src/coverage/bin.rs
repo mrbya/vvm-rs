@@ -1,9 +1,13 @@
 use std::fmt;
 use std::num::NonZeroU64;
 
-use crate::coverage::BinMatcher;
+use crate::coverage::matcher::BinMatcher;
 
 /// Semantic role of one functional coverage bin.
+///
+/// [`BinKind::Normal`] contributes to coverage. [`BinKind::Ignore`] excludes a
+/// matching sample from normal coverage. [`BinKind::Illegal`] records invalid
+/// behavior and causes sampling to return an error.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BinKind {
     /// A normal bin contributing to functional coverage.
@@ -26,18 +30,24 @@ impl fmt::Display for BinKind {
     }
 }
 
-/// Identifier of one bin within its owning coverpoint.
+/// Opaque identifier of one bin within its owning coverpoint.
+///
+/// IDs are assigned in global declaration order, are local to one coverpoint,
+/// and must not be interpreted as global or persistent identifiers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct BinId(u32);
 
 impl BinId {
     /// Creates a coverpoint-local bin identifier.
+    ///
+    /// This constructor is primarily useful for comparing IDs returned by a
+    /// coverpoint; the ordinal is not a global persistent identity.
     #[must_use]
     pub const fn new(ordinal: u32) -> Self {
         Self(ordinal)
     }
 
-    /// Returns the coverpoint-local ordinal.
+    /// Returns the coverpoint-local declaration ordinal.
     #[must_use]
     pub const fn ordinal(self) -> u32 {
         self.0
@@ -45,6 +55,12 @@ impl BinId {
 }
 
 /// Declarative definition of one functional coverage bin.
+///
+/// A definition has no runtime counter until a [`crate::CoverpointBuilder`]
+/// validates and binds it into a [`CoverpointBin`]. [`Bin::value`] and
+/// [`Bin::values`] require `PartialEq`; [`Bin::inclusive_range`] requires
+/// `PartialOrd`. [`Bin::at_least`] is validated by builder [`build`][crate::CoverpointBuilder::build]:
+/// zero is invalid and custom thresholds apply only to normal bins.
 pub struct Bin<T> {
     /// Stable user-provided name.
     name: String,
@@ -96,7 +112,10 @@ impl<T> Bin<T> {
         }
     }
 
-    /// Sets the normal-bin hit requirement.
+    /// Sets the requested normal-bin hit requirement.
+    ///
+    /// The builder rejects zero and rejects custom thresholds on ignore or
+    /// illegal bins.
     #[must_use]
     pub const fn at_least(mut self, required_hits: u64) -> Self {
         self.required_hits = required_hits;
@@ -113,13 +132,17 @@ impl<T> Bin<T> {
         self.required_hits
     }
 
-    /// Returns the declarative matcher.
-    pub const fn matcher(&self) -> &BinMatcher<T> {
+    /// Returns the declarative matcher for coverpoint validation and sampling.
+    pub(crate) const fn matcher(&self) -> &BinMatcher<T> {
         &self.matcher
     }
 }
 
-/// Validated bin bounded to a live coverpoint.
+/// Validated bin bound to a live coverpoint.
+///
+/// It exposes its kind, coverpoint-local ID, hit threshold, and runtime hit
+/// count. [`Self::covered`] is meaningful only for normal bins; ignore and
+/// illegal bins always report uncovered.
 pub struct CoverpointBin<T> {
     /// Deterministic coverpoint-local identifier.
     id: BinId,
@@ -203,5 +226,127 @@ impl<T> CoverpointBin<T> {
     /// Replaces the hit counter with a prepared value.
     pub const fn set_hits(&mut self, hits: u64) {
         self.hits = hits;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::num::NonZeroU64;
+
+    use crate::{Bin, BinId, BinKind, Coverpoint, CoverpointBin};
+
+    #[test]
+    fn formats_normal_bin_kind() {
+        assert_eq!(BinKind::Normal.to_string(), "normal");
+    }
+
+    #[test]
+    fn formats_ignore_bin_kind() {
+        assert_eq!(BinKind::Ignore.to_string(), "ignore");
+    }
+
+    #[test]
+    fn formats_illegal_bin_kind() {
+        assert_eq!(BinKind::Illegal.to_string(), "illegal");
+    }
+
+    #[test]
+    fn bin_ids_preserve_declaration_order() {
+        let coverage = Coverpoint::builder("kind_order")
+            .bin(Bin::value("normal_a", 1_u8))
+            .ignore_bin(Bin::value("ignore_a", 2))
+            .illegal_bin(Bin::value("illegal_a", 3))
+            .bin(Bin::value("normal_b", 4))
+            .build()
+            .expect("valid coverpoint");
+        let ids = coverage
+            .bins()
+            .iter()
+            .map(CoverpointBin::id)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            ids,
+            [BinId::new(0), BinId::new(1), BinId::new(2), BinId::new(3)]
+        );
+    }
+
+    #[test]
+    fn live_bin_starts_with_zero_hits() {
+        let bin = CoverpointBin::new(
+            BinId::new(0),
+            BinKind::Normal,
+            Bin::value("one", 1_u8),
+            NonZeroU64::MIN,
+        );
+
+        assert_eq!(bin.hits(), 0);
+    }
+
+    #[test]
+    fn normal_bin_is_uncovered_before_threshold() {
+        let bin = normal_bin(2, 0);
+
+        assert!(!bin.covered());
+    }
+
+    #[test]
+    fn normal_bin_remains_uncovered_below_threshold() {
+        let bin = normal_bin(2, 1);
+
+        assert!(!bin.covered());
+    }
+
+    #[test]
+    fn normal_bin_is_covered_at_threshold() {
+        let bin = normal_bin(2, 2);
+
+        assert!(bin.covered());
+    }
+
+    #[test]
+    fn normal_bin_remains_covered_above_threshold() {
+        let bin = normal_bin(2, 3);
+
+        assert!(bin.covered());
+    }
+
+    #[test]
+    fn ignore_bin_never_reports_covered() {
+        let mut bin = CoverpointBin::new(
+            BinId::new(0),
+            BinKind::Ignore,
+            Bin::value("ignored", 1_u8),
+            NonZeroU64::MIN,
+        );
+        bin.set_hits(1);
+
+        assert!(!bin.covered());
+    }
+
+    #[test]
+    fn illegal_bin_never_reports_covered() {
+        let mut bin = CoverpointBin::new(
+            BinId::new(0),
+            BinKind::Illegal,
+            Bin::value("illegal", 1_u8),
+            NonZeroU64::MIN,
+        );
+        bin.set_hits(1);
+
+        assert!(!bin.covered());
+    }
+
+    fn normal_bin(required_hits: u64, hits: u64) -> CoverpointBin<u8> {
+        let required_hits = NonZeroU64::new(required_hits).expect("non-zero threshold");
+        let mut bin = CoverpointBin::new(
+            BinId::new(0),
+            BinKind::Normal,
+            Bin::value("normal", 1_u8),
+            required_hits,
+        );
+        bin.set_hits(hits);
+
+        bin
     }
 }

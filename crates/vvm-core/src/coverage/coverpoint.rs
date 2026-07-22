@@ -15,7 +15,12 @@ struct PendingBin<T> {
     definition: Bin<T>,
 }
 
-/// Builder for one typed functional coverpoint.
+/// Consuming fluent builder for one typed functional coverpoint.
+///
+/// Build validates identifiers, uniqueness across every bin kind, matcher
+/// definitions, and thresholds. At least one normal bin is required. Overlap
+/// between matchers is allowed and is resolved at sampling by category
+/// precedence.
 pub struct CoverpointBuilder<T> {
     /// Stable coverpoint name.
     name: String,
@@ -70,7 +75,11 @@ impl<T> CoverpointBuilder<T> {
     }
 }
 
-/// Explicitly owned typed functional coverpoint.
+/// Explicitly owned typed functional coverpoint and its runtime counters.
+///
+/// Sampling occurs only through [`Self::sample`]. A coverpoint has no global
+/// registration and is not automatically tied to `Sample`, `Scoreboard`, a
+/// DUT, `Testbench`, or `vvm::test`. Only normal bins contribute to completion.
 pub struct Coverpoint<T> {
     /// Stable coverpoint name.
     name: String,
@@ -92,7 +101,7 @@ pub struct Coverpoint<T> {
 }
 
 impl<T> Coverpoint<T> {
-    /// Start constructing a coverpoint.
+    /// Starts constructing a coverpoint.
     #[must_use]
     pub fn builder(name: impl Into<String>) -> CoverpointBuilder<T> {
         CoverpointBuilder {
@@ -399,7 +408,7 @@ impl std::fmt::Display for CoverageCounterKind {
     }
 }
 
-/// Disposition of one successfully processed sample.
+/// Disposition of one successfully processed non-illegal sample.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CoverageSampleDisposition {
     /// One or more normal bins were hit.
@@ -412,7 +421,11 @@ pub enum CoverageSampleDisposition {
     Unmatched,
 }
 
-/// Result of one non-illegal coverpoint sample.
+/// Result of one successful non-illegal coverpoint sample.
+///
+/// [`Self::matched_bins`] contains normal-bin IDs only, in declaration order.
+/// Ignored and unmatched samples contain no IDs; illegal samples instead return
+/// [`CoverageSampleError`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CoverpointSample {
     /// Selected disposition.
@@ -748,4 +761,1002 @@ fn prepared_bin_hits<T>(
         })
         .collect::<Result<Vec<_>, CoverageSampleError>>()
         .map(Vec::into_boxed_slice)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        Bin, BinId, BinKind, CoverageBuildError, CoverageCounterKind, CoverageSampleDisposition,
+        CoverageSampleError, Coverpoint, CoverpointBin,
+    };
+
+    /// Complete mutable counter state used by atomicity tests.
+    #[derive(Debug, PartialEq, Eq)]
+    struct CounterSnapshot {
+        /// Total attempted samples.
+        samples: u64,
+        /// Ignored sample count.
+        ignored_samples: u64,
+        /// Illegal sample count.
+        illegal_samples: u64,
+        /// Unmatched sample count.
+        unmatched_samples: u64,
+        /// Bin hit counters in declaration order.
+        bin_hits: Vec<u64>,
+    }
+
+    #[test]
+    fn builds_coverpoint() {
+        let _coverage = Coverpoint::builder("opcode")
+            .bin(Bin::value("read", 1_u8))
+            .build()
+            .expect("valid coverpoint");
+    }
+
+    #[test]
+    fn preserves_coverpoint_name() {
+        assert_eq!(coverage().name(), "opcode");
+    }
+
+    #[test]
+    fn preserves_mixed_bin_declaration_order() {
+        let coverage = mixed_coverage();
+        let names = coverage
+            .bins()
+            .iter()
+            .map(CoverpointBin::name)
+            .collect::<Vec<_>>();
+
+        assert_eq!(names, ["normal_a", "ignore_a", "illegal_a", "normal_b"]);
+    }
+
+    #[test]
+    fn assigns_bin_ids_in_global_declaration_order() {
+        let ids = mixed_coverage()
+            .bins()
+            .iter()
+            .map(CoverpointBin::id)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            ids,
+            [BinId::new(0), BinId::new(1), BinId::new(2), BinId::new(3)]
+        );
+    }
+
+    #[test]
+    fn all_live_bins_begin_with_zero_hits() {
+        assert!(coverage().bins().iter().all(|bin| bin.hits() == 0));
+    }
+
+    #[test]
+    fn all_sample_counters_begin_at_zero() {
+        let coverage = coverage();
+
+        assert_eq!(coverage.sample_count(), 0);
+        assert_eq!(coverage.ignored_sample_count(), 0);
+        assert_eq!(coverage.illegal_sample_count(), 0);
+        assert_eq!(coverage.unmatched_sample_count(), 0);
+    }
+
+    #[test]
+    fn accepts_valid_coverage_identifiers() {
+        for name in [
+            "opcode",
+            "response_code",
+            "_reserved",
+            "length_0_to_15",
+            "A",
+            "a9",
+        ] {
+            let _coverage = Coverpoint::builder(name)
+                .bin(Bin::value("bin", 1_u8))
+                .build()
+                .expect("valid coverpoint identifier");
+        }
+    }
+
+    #[test]
+    fn rejects_empty_coverpoint_name() {
+        invalid_coverpoint_name("");
+    }
+
+    #[test]
+    fn rejects_coverpoint_name_starting_with_digit() {
+        invalid_coverpoint_name("1opcode");
+    }
+
+    #[test]
+    fn rejects_coverpoint_name_containing_dot() {
+        invalid_coverpoint_name("opcode.value");
+    }
+
+    #[test]
+    fn rejects_coverpoint_name_containing_space() {
+        invalid_coverpoint_name("opcode value");
+    }
+
+    #[test]
+    fn rejects_control_character_coverpoint_name() {
+        invalid_coverpoint_name("opcode_");
+    }
+
+    #[test]
+    fn rejects_unicode_coverpoint_name_when_not_ascii_identifier() {
+        invalid_coverpoint_name("opcode_\u{00e9}");
+    }
+
+    #[test]
+    fn rejects_empty_bin_name() {
+        invalid_bin_name("");
+    }
+
+    #[test]
+    fn rejects_bin_name_starting_with_digit() {
+        invalid_bin_name("1bin");
+    }
+
+    #[test]
+    fn rejects_bin_name_containing_dot() {
+        invalid_bin_name("my.bin");
+    }
+
+    #[test]
+    fn rejects_bin_name_containing_space() {
+        invalid_bin_name("my bin");
+    }
+
+    #[test]
+    fn rejects_duplicate_normal_bin_name() {
+        duplicate_name_error(
+            Coverpoint::builder("opcode")
+                .bin(Bin::value("same", 1_u8))
+                .bin(Bin::value("same", 2)),
+        );
+    }
+
+    #[test]
+    fn rejects_duplicate_name_between_normal_and_ignore() {
+        duplicate_name_error(
+            Coverpoint::builder("opcode")
+                .bin(Bin::value("same", 1_u8))
+                .ignore_bin(Bin::value("same", 2)),
+        );
+    }
+
+    #[test]
+    fn rejects_duplicate_name_between_normal_and_illegal() {
+        duplicate_name_error(
+            Coverpoint::builder("opcode")
+                .bin(Bin::value("same", 1_u8))
+                .illegal_bin(Bin::value("same", 2)),
+        );
+    }
+
+    #[test]
+    fn rejects_duplicate_name_between_ignore_and_illegal() {
+        duplicate_name_error(
+            Coverpoint::builder("opcode")
+                .bin(Bin::value("normal", 1_u8))
+                .ignore_bin(Bin::value("same", 2))
+                .illegal_bin(Bin::value("same", 3)),
+        );
+    }
+
+    #[test]
+    fn rejects_coverpoint_without_normal_bins() {
+        let error = Coverpoint::builder("opcode")
+            .ignore_bin(Bin::value("reset", 0_u8))
+            .illegal_bin(Bin::value("reserved", u8::MAX))
+            .build()
+            .err()
+            .expect("coverpoint must contain a normal bin");
+
+        assert_eq!(
+            error,
+            CoverageBuildError::NoNormalBins {
+                coverpoint: "opcode".into()
+            }
+        );
+    }
+
+    #[test]
+    fn rejects_empty_value_set() {
+        let error = Coverpoint::builder("opcode")
+            .bin(Bin::values("values", Vec::<u8>::new()))
+            .build()
+            .err()
+            .expect("empty value set must fail");
+
+        assert_eq!(
+            error,
+            CoverageBuildError::EmptyValueSet {
+                coverpoint: "opcode".into(),
+                bin: "values".into()
+            }
+        );
+    }
+
+    #[test]
+    fn rejects_duplicate_values_in_set() {
+        let error = Coverpoint::builder("opcode")
+            .bin(Bin::values("values", [1_u8, 2, 1]))
+            .build()
+            .err()
+            .expect("duplicate values must fail");
+
+        assert_eq!(
+            error,
+            CoverageBuildError::DuplicateValue {
+                coverpoint: "opcode".into(),
+                bin: "values".into(),
+                first: 0,
+                duplicate: 2
+            }
+        );
+    }
+
+    #[test]
+    fn rejects_reversed_inclusive_range() {
+        let error = Coverpoint::builder("opcode")
+            .bin(Bin::inclusive_range("range", 2_u8, 1))
+            .build()
+            .err()
+            .expect("reversed range must fail");
+
+        assert_eq!(
+            error,
+            CoverageBuildError::InvalidInclusiveRange {
+                coverpoint: "opcode".into(),
+                bin: "range".into()
+            }
+        );
+    }
+
+    #[test]
+    fn rejects_incomparable_inclusive_range() {
+        let error = Coverpoint::builder("opcode")
+            .bin(Bin::inclusive_range("range", f32::NAN, 1.0))
+            .build()
+            .err()
+            .expect("incomparable range must fail");
+
+        assert_eq!(
+            error,
+            CoverageBuildError::InvalidInclusiveRange {
+                coverpoint: "opcode".into(),
+                bin: "range".into()
+            }
+        );
+    }
+
+    #[test]
+    fn normal_bin_defaults_to_one_required_hit() {
+        assert_eq!(
+            coverage().bins().first().map(CoverpointBin::required_hits),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn normal_bin_accepts_custom_nonzero_threshold() {
+        let coverage = Coverpoint::builder("opcode")
+            .bin(Bin::value("read", 1_u8).at_least(2))
+            .build()
+            .expect("valid threshold");
+
+        assert_eq!(
+            coverage.bins().first().map(CoverpointBin::required_hits),
+            Some(2)
+        );
+    }
+
+    #[test]
+    fn rejects_zero_normal_hit_threshold() {
+        let error = Coverpoint::builder("opcode")
+            .bin(Bin::value("read", 1_u8).at_least(0))
+            .build()
+            .err()
+            .expect("zero threshold must fail");
+
+        assert_eq!(
+            error,
+            CoverageBuildError::ZeroRequiredHits {
+                coverpoint: "opcode".into(),
+                bin: "read".into()
+            }
+        );
+    }
+
+    #[test]
+    fn rejects_custom_ignore_hit_threshold() {
+        let error = Coverpoint::builder("opcode")
+            .bin(Bin::value("normal", 1_u8))
+            .ignore_bin(Bin::value("ignored", 0).at_least(2))
+            .build()
+            .err()
+            .expect("ignore thresholds are not supported");
+
+        assert_eq!(
+            error,
+            CoverageBuildError::HitRequirementOnExcludedBin {
+                coverpoint: "opcode".into(),
+                bin: "ignored".into(),
+                kind: BinKind::Ignore
+            }
+        );
+    }
+
+    #[test]
+    fn rejects_custom_illegal_hit_threshold() {
+        let error = Coverpoint::builder("opcode")
+            .bin(Bin::value("normal", 1_u8))
+            .illegal_bin(Bin::value("illegal", 0).at_least(2))
+            .build()
+            .err()
+            .expect("illegal thresholds are not supported");
+
+        assert_eq!(
+            error,
+            CoverageBuildError::HitRequirementOnExcludedBin {
+                coverpoint: "opcode".into(),
+                bin: "illegal".into(),
+                kind: BinKind::Illegal
+            }
+        );
+    }
+
+    #[test]
+    fn normal_sample_increments_matching_bin() {
+        let mut coverage = coverage();
+
+        coverage.sample(&1).expect("normal sample");
+
+        assert_eq!(coverage.bins().first().map(CoverpointBin::hits), Some(1));
+    }
+
+    #[test]
+    fn normal_sample_does_not_increment_nonmatching_bins() {
+        let mut coverage = coverage();
+
+        coverage.sample(&1).expect("normal sample");
+
+        assert_eq!(coverage.bins().get(1).map(CoverpointBin::hits), Some(0));
+    }
+
+    #[test]
+    fn normal_sample_returns_matching_bin_id() {
+        let mut coverage = coverage();
+        let sample = coverage.sample(&1).expect("normal sample");
+
+        assert_eq!(sample.matched_bins(), [BinId::new(0)]);
+    }
+
+    #[test]
+    fn overlapping_normal_sample_increments_all_matches() {
+        let mut coverage = overlapping_coverage();
+
+        coverage.sample(&6).expect("normal sample");
+
+        assert_eq!(bin_hits(&coverage), [1, 1, 1]);
+    }
+
+    #[test]
+    fn overlapping_normal_sample_returns_all_matching_ids() {
+        let mut coverage = overlapping_coverage();
+        let sample = coverage.sample(&6).expect("normal sample");
+
+        assert_eq!(
+            sample.matched_bins(),
+            [BinId::new(0), BinId::new(1), BinId::new(2)]
+        );
+        assert_eq!(sample.disposition(), CoverageSampleDisposition::Hit);
+    }
+
+    #[test]
+    fn matching_ids_preserve_declaration_order() {
+        let mut coverage = overlapping_coverage();
+        let sample = coverage.sample(&6).expect("normal sample");
+
+        assert_eq!(
+            sample.matched_bins(),
+            [BinId::new(0), BinId::new(1), BinId::new(2)]
+        );
+    }
+
+    #[test]
+    fn normal_sample_increments_total_sample_count() {
+        let mut coverage = coverage();
+
+        coverage.sample(&1).expect("normal sample");
+
+        assert_eq!(coverage.sample_count(), 1);
+    }
+
+    #[test]
+    fn ignored_sample_increments_matching_ignore_bin() {
+        let mut coverage = ignore_coverage();
+
+        coverage.sample(&0).expect("ignored sample");
+
+        assert_eq!(coverage.bins().get(1).map(CoverpointBin::hits), Some(1));
+    }
+
+    #[test]
+    fn ignored_sample_increments_all_matching_ignore_bins() {
+        let mut coverage = Coverpoint::builder("value")
+            .bin(Bin::inclusive_range("normal", 0_u8, 15))
+            .ignore_bin(Bin::value("zero_a", 0))
+            .ignore_bin(Bin::inclusive_range("zero_b", 0, 0))
+            .build()
+            .expect("valid coverpoint");
+
+        coverage.sample(&0).expect("ignored sample");
+
+        assert_eq!(bin_hits(&coverage), [0, 1, 1]);
+    }
+
+    #[test]
+    fn ignored_sample_increments_total_sample_count() {
+        let mut coverage = ignore_coverage();
+
+        coverage.sample(&0).expect("ignored sample");
+
+        assert_eq!(coverage.sample_count(), 1);
+    }
+
+    #[test]
+    fn ignored_sample_increments_ignored_sample_count() {
+        let mut coverage = ignore_coverage();
+
+        coverage.sample(&0).expect("ignored sample");
+
+        assert_eq!(coverage.ignored_sample_count(), 1);
+    }
+
+    #[test]
+    fn ignored_sample_suppresses_normal_bin_hits() {
+        let mut coverage = ignore_coverage();
+
+        coverage.sample(&0).expect("ignored sample");
+
+        assert_eq!(coverage.bins().first().map(CoverpointBin::hits), Some(0));
+    }
+
+    #[test]
+    fn ignored_sample_returns_ignored_disposition() {
+        let mut coverage = ignore_coverage();
+        let sample = coverage.sample(&0).expect("ignored sample");
+
+        assert!(sample.ignored());
+    }
+
+    #[test]
+    fn ignored_sample_returns_no_normal_bin_ids() {
+        let mut coverage = ignore_coverage();
+        let sample = coverage.sample(&0).expect("ignored sample");
+
+        assert!(sample.matched_bins().is_empty());
+    }
+
+    #[test]
+    fn illegal_sample_increments_matching_illegal_bin() {
+        let mut coverage = illegal_coverage();
+
+        let _error = coverage.sample(&u8::MAX).expect_err("illegal sample");
+
+        assert_eq!(coverage.bins().get(2).map(CoverpointBin::hits), Some(1));
+    }
+
+    #[test]
+    fn illegal_sample_increments_all_matching_illegal_bins() {
+        let mut coverage = illegal_coverage();
+
+        let _error = coverage.sample(&u8::MAX).expect_err("illegal sample");
+
+        assert_eq!(bin_hits(&coverage), [0, 0, 1, 1]);
+    }
+
+    #[test]
+    fn illegal_sample_increments_total_sample_count() {
+        let mut coverage = illegal_coverage();
+
+        let _error = coverage.sample(&u8::MAX).expect_err("illegal sample");
+
+        assert_eq!(coverage.sample_count(), 1);
+    }
+
+    #[test]
+    fn illegal_sample_increments_illegal_sample_count() {
+        let mut coverage = illegal_coverage();
+
+        let _error = coverage.sample(&u8::MAX).expect_err("illegal sample");
+
+        assert_eq!(coverage.illegal_sample_count(), 1);
+    }
+
+    #[test]
+    fn illegal_sample_suppresses_ignore_bin_hits() {
+        let mut coverage = illegal_coverage();
+
+        let _error = coverage.sample(&u8::MAX).expect_err("illegal sample");
+
+        assert_eq!(coverage.bins().get(1).map(CoverpointBin::hits), Some(0));
+    }
+
+    #[test]
+    fn illegal_sample_suppresses_normal_bin_hits() {
+        let mut coverage = illegal_coverage();
+
+        let _error = coverage.sample(&u8::MAX).expect_err("illegal sample");
+
+        assert_eq!(coverage.bins().first().map(CoverpointBin::hits), Some(0));
+    }
+
+    #[test]
+    fn illegal_sample_returns_error() {
+        let mut coverage = illegal_coverage();
+
+        assert!(matches!(
+            coverage.sample(&u8::MAX),
+            Err(CoverageSampleError::IllegalBinHit { .. })
+        ));
+    }
+
+    #[test]
+    fn illegal_error_contains_coverpoint_name() {
+        assert_eq!(illegal_error().coverpoint(), "value");
+    }
+
+    #[test]
+    fn illegal_error_contains_all_matching_bin_names() {
+        assert_eq!(
+            illegal_error().illegal_bins(),
+            Some(["illegal_a".into(), "illegal_b".into()].as_slice())
+        );
+    }
+
+    #[test]
+    fn illegal_error_preserves_bin_declaration_order() {
+        assert_eq!(
+            illegal_error().illegal_bins(),
+            Some(["illegal_a".into(), "illegal_b".into()].as_slice())
+        );
+    }
+
+    #[test]
+    fn illegal_error_contains_sampled_value() {
+        assert_eq!(illegal_error().sampled_value(), Some("255"));
+    }
+
+    #[test]
+    fn unmatched_sample_increments_total_sample_count() {
+        let mut coverage = coverage();
+
+        coverage.sample(&9).expect("unmatched sample");
+
+        assert_eq!(coverage.sample_count(), 1);
+    }
+
+    #[test]
+    fn unmatched_sample_increments_unmatched_sample_count() {
+        let mut coverage = coverage();
+
+        coverage.sample(&9).expect("unmatched sample");
+
+        assert_eq!(coverage.unmatched_sample_count(), 1);
+    }
+
+    #[test]
+    fn unmatched_sample_does_not_increment_any_bin() {
+        let mut coverage = coverage();
+
+        coverage.sample(&9).expect("unmatched sample");
+
+        assert_eq!(bin_hits(&coverage), [0, 0]);
+    }
+
+    #[test]
+    fn unmatched_sample_returns_unmatched_disposition() {
+        let mut coverage = coverage();
+        let sample = coverage.sample(&9).expect("unmatched sample");
+
+        assert!(sample.unmatched());
+    }
+
+    #[test]
+    fn unmatched_sample_returns_no_bin_ids() {
+        let mut coverage = coverage();
+        let sample = coverage.sample(&9).expect("unmatched sample");
+
+        assert!(sample.matched_bins().is_empty());
+    }
+
+    #[test]
+    fn illegal_takes_precedence_over_ignore() {
+        let mut coverage = illegal_coverage();
+
+        let _error = coverage.sample(&u8::MAX).expect_err("illegal sample");
+
+        assert_eq!(coverage.illegal_sample_count(), 1);
+        assert_eq!(coverage.ignored_sample_count(), 0);
+    }
+
+    #[test]
+    fn illegal_takes_precedence_over_normal() {
+        let mut coverage = illegal_coverage();
+
+        let _error = coverage.sample(&u8::MAX).expect_err("illegal sample");
+
+        assert_eq!(coverage.bins().first().map(CoverpointBin::hits), Some(0));
+    }
+
+    #[test]
+    fn ignore_takes_precedence_over_normal() {
+        let mut coverage = ignore_coverage();
+
+        coverage.sample(&0).expect("ignored sample");
+
+        assert_eq!(coverage.bins().first().map(CoverpointBin::hits), Some(0));
+    }
+
+    #[test]
+    fn all_matches_within_selected_category_increment() {
+        let mut coverage = overlapping_coverage();
+
+        coverage.sample(&6).expect("normal sample");
+
+        assert_eq!(bin_hits(&coverage), [1, 1, 1]);
+    }
+
+    #[test]
+    fn lower_precedence_categories_do_not_increment() {
+        let mut coverage = illegal_coverage();
+
+        let _error = coverage.sample(&u8::MAX).expect_err("illegal sample");
+
+        assert_eq!(bin_hits(&coverage), [0, 0, 1, 1]);
+    }
+
+    #[test]
+    fn bin_is_uncovered_before_required_hits() {
+        let coverage = threshold_coverage();
+
+        assert!(!coverage.bins().first().is_some_and(CoverpointBin::covered));
+    }
+
+    #[test]
+    fn bin_remains_uncovered_below_required_hits() {
+        let mut coverage = threshold_coverage();
+
+        coverage.sample(&1).expect("normal sample");
+
+        assert!(!coverage.bins().first().is_some_and(CoverpointBin::covered));
+    }
+
+    #[test]
+    fn bin_becomes_covered_at_required_hits() {
+        let mut coverage = threshold_coverage();
+
+        coverage.sample(&1).expect("normal sample");
+        coverage.sample(&1).expect("normal sample");
+
+        assert!(coverage.bins().first().is_some_and(CoverpointBin::covered));
+    }
+
+    #[test]
+    fn bin_remains_covered_above_required_hits() {
+        let mut coverage = threshold_coverage();
+
+        for _ in 0..3 {
+            coverage.sample(&1).expect("normal sample");
+        }
+
+        assert!(coverage.bins().first().is_some_and(CoverpointBin::covered));
+    }
+
+    #[test]
+    fn initial_coverage_has_zero_covered_bins() {
+        assert_eq!(ratio_coverage().coverage().covered(), 0);
+    }
+
+    #[test]
+    fn coverage_counts_only_normal_bins() {
+        assert_eq!(ratio_coverage().coverage().total(), 2);
+    }
+
+    #[test]
+    fn coverage_excludes_ignore_bins_from_denominator() {
+        assert_eq!(ratio_coverage().coverage().total(), 2);
+    }
+
+    #[test]
+    fn coverage_excludes_illegal_bins_from_denominator() {
+        assert_eq!(ratio_coverage().coverage().total(), 2);
+    }
+
+    #[test]
+    fn coverage_reports_covered_count() {
+        let mut coverage = ratio_coverage();
+
+        coverage.sample(&2).expect("normal sample");
+
+        assert_eq!(coverage.coverage().covered(), 1);
+    }
+
+    #[test]
+    fn coverage_reports_uncovered_count() {
+        assert_eq!(ratio_coverage().coverage().uncovered(), 2);
+    }
+
+    #[test]
+    fn coverage_reports_total_normal_bins() {
+        assert_eq!(ratio_coverage().coverage().total(), 2);
+    }
+
+    #[test]
+    fn coverage_is_incomplete_when_any_normal_bin_is_uncovered() {
+        let mut coverage = ratio_coverage();
+
+        coverage.sample(&2).expect("normal sample");
+
+        assert!(!coverage.coverage().is_complete());
+    }
+
+    #[test]
+    fn coverage_is_complete_when_all_normal_bins_are_covered() {
+        let mut coverage = ratio_coverage();
+
+        coverage.sample(&1).expect("normal sample");
+        coverage.sample(&1).expect("normal sample");
+        coverage.sample(&2).expect("normal sample");
+
+        assert!(coverage.coverage().is_complete());
+    }
+
+    #[test]
+    fn uncovered_bins_returns_only_normal_bins() {
+        assert!(
+            ratio_coverage()
+                .uncovered_bins()
+                .all(|bin| bin.kind() == BinKind::Normal)
+        );
+    }
+
+    #[test]
+    fn uncovered_bins_excludes_covered_bins() {
+        let mut coverage = ratio_coverage();
+
+        coverage.sample(&2).expect("normal sample");
+
+        assert_eq!(uncovered_names(&coverage), ["read"]);
+    }
+
+    #[test]
+    fn uncovered_bins_excludes_ignore_bins() {
+        assert!(!uncovered_names(&ratio_coverage()).contains(&"reset"));
+    }
+
+    #[test]
+    fn uncovered_bins_excludes_illegal_bins() {
+        assert!(!uncovered_names(&ratio_coverage()).contains(&"reserved"));
+    }
+
+    #[test]
+    fn uncovered_bins_preserves_declaration_order() {
+        assert_eq!(uncovered_names(&ratio_coverage()), ["read", "write"]);
+    }
+
+    #[test]
+    fn total_sample_counter_overflow_is_atomic() {
+        let mut coverage = coverage();
+        coverage.samples = u64::MAX;
+
+        assert_atomic_overflow(&mut coverage, 1, CoverageCounterKind::Samples);
+    }
+
+    #[test]
+    fn ignored_sample_counter_overflow_is_atomic() {
+        let mut coverage = ignore_coverage();
+        coverage.ignored_samples = u64::MAX;
+
+        assert_atomic_overflow(&mut coverage, 0, CoverageCounterKind::IgnoredSamples);
+    }
+
+    #[test]
+    fn illegal_sample_counter_overflow_is_atomic() {
+        let mut coverage = illegal_coverage();
+        coverage.illegal_samples = u64::MAX;
+
+        assert_atomic_overflow(&mut coverage, u8::MAX, CoverageCounterKind::IllegalSamples);
+    }
+
+    #[test]
+    fn unmatched_sample_counter_overflow_is_atomic() {
+        let mut coverage = coverage();
+        coverage.unmatched_samples = u64::MAX;
+
+        assert_atomic_overflow(&mut coverage, 9, CoverageCounterKind::UnmatchedSamples);
+    }
+
+    #[test]
+    fn first_matching_bin_counter_overflow_is_atomic() {
+        let mut coverage = overlapping_coverage();
+        coverage
+            .bins
+            .first_mut()
+            .expect("first bin")
+            .set_hits(u64::MAX);
+
+        assert_atomic_overflow(&mut coverage, 6, CoverageCounterKind::BinHits);
+    }
+
+    #[test]
+    fn later_matching_bin_counter_overflow_is_atomic() {
+        let mut coverage = overlapping_coverage();
+        coverage.bins.first_mut().expect("first bin").set_hits(10);
+        coverage
+            .bins
+            .get_mut(1)
+            .expect("second bin")
+            .set_hits(u64::MAX);
+
+        assert_atomic_overflow(&mut coverage, 6, CoverageCounterKind::BinHits);
+    }
+
+    #[test]
+    fn illegal_bin_counter_overflow_precedes_illegal_bin_error() {
+        let mut coverage = illegal_coverage();
+        coverage
+            .bins
+            .get_mut(2)
+            .expect("first illegal bin")
+            .set_hits(u64::MAX);
+        let before = counter_snapshot(&coverage);
+        let error = coverage
+            .sample(&u8::MAX)
+            .expect_err("overflow must fail before illegal result");
+
+        assert_eq!(error.counter(), Some(CoverageCounterKind::BinHits));
+        assert_eq!(counter_snapshot(&coverage), before);
+    }
+
+    fn coverage() -> Coverpoint<u8> {
+        Coverpoint::builder("opcode")
+            .bin(Bin::value("read", 1_u8))
+            .bin(Bin::value("write", 2))
+            .build()
+            .expect("valid coverpoint")
+    }
+
+    fn mixed_coverage() -> Coverpoint<u8> {
+        Coverpoint::builder("mixed")
+            .bin(Bin::value("normal_a", 1_u8))
+            .ignore_bin(Bin::value("ignore_a", 2))
+            .illegal_bin(Bin::value("illegal_a", 3))
+            .bin(Bin::value("normal_b", 4))
+            .build()
+            .expect("valid coverpoint")
+    }
+
+    fn overlapping_coverage() -> Coverpoint<u8> {
+        Coverpoint::builder("operation")
+            .bin(Bin::inclusive_range("all_operations", 0_u8, 15))
+            .bin(Bin::values("writes", [4, 5, 6]))
+            .bin(Bin::values("privileged", [6, 7]))
+            .build()
+            .expect("valid coverpoint")
+    }
+
+    fn ignore_coverage() -> Coverpoint<u8> {
+        Coverpoint::builder("value")
+            .bin(Bin::inclusive_range("normal", 0_u8, 15))
+            .ignore_bin(Bin::value("zero", 0))
+            .build()
+            .expect("valid coverpoint")
+    }
+
+    fn illegal_coverage() -> Coverpoint<u8> {
+        Coverpoint::builder("value")
+            .bin(Bin::inclusive_range("normal", 0_u8, u8::MAX))
+            .ignore_bin(Bin::value("ignored", u8::MAX))
+            .illegal_bin(Bin::inclusive_range("illegal_a", 0xf0, u8::MAX))
+            .illegal_bin(Bin::value("illegal_b", u8::MAX))
+            .build()
+            .expect("valid coverpoint")
+    }
+
+    fn threshold_coverage() -> Coverpoint<u8> {
+        Coverpoint::builder("threshold")
+            .bin(Bin::value("twice", 1_u8).at_least(2))
+            .build()
+            .expect("valid coverpoint")
+    }
+
+    fn ratio_coverage() -> Coverpoint<u8> {
+        Coverpoint::builder("opcode")
+            .bin(Bin::value("read", 1_u8).at_least(2))
+            .bin(Bin::value("write", 2))
+            .ignore_bin(Bin::value("reset", 0))
+            .illegal_bin(Bin::value("reserved", u8::MAX))
+            .build()
+            .expect("valid coverpoint")
+    }
+
+    fn invalid_coverpoint_name(name: &str) {
+        let error = Coverpoint::builder(name)
+            .bin(Bin::value("bin", 1_u8))
+            .build()
+            .err()
+            .expect("invalid name");
+
+        assert_eq!(
+            error,
+            CoverageBuildError::InvalidCoverpointName { name: name.into() }
+        );
+    }
+
+    fn invalid_bin_name(bin: &str) {
+        let error = Coverpoint::builder("opcode")
+            .bin(Bin::value(bin, 1_u8))
+            .build()
+            .err()
+            .expect("invalid name");
+
+        assert_eq!(
+            error,
+            CoverageBuildError::InvalidBinName {
+                coverpoint: "opcode".into(),
+                bin: bin.into()
+            }
+        );
+    }
+
+    fn duplicate_name_error(builder: crate::CoverpointBuilder<u8>) {
+        let error = builder.build().err().expect("duplicate name");
+
+        assert_eq!(
+            error,
+            CoverageBuildError::DuplicateBinName {
+                coverpoint: "opcode".into(),
+                bin: "same".into()
+            }
+        );
+    }
+
+    fn bin_hits(coverage: &Coverpoint<u8>) -> Vec<u64> {
+        coverage.bins().iter().map(CoverpointBin::hits).collect()
+    }
+
+    fn uncovered_names(coverage: &Coverpoint<u8>) -> Vec<&str> {
+        coverage.uncovered_bins().map(CoverpointBin::name).collect()
+    }
+
+    fn illegal_error() -> CoverageSampleError {
+        let mut coverage = illegal_coverage();
+
+        coverage.sample(&u8::MAX).expect_err("illegal sample")
+    }
+
+    fn counter_snapshot<T>(coverpoint: &Coverpoint<T>) -> CounterSnapshot {
+        CounterSnapshot {
+            samples: coverpoint.samples,
+            ignored_samples: coverpoint.ignored_samples,
+            illegal_samples: coverpoint.illegal_samples,
+            unmatched_samples: coverpoint.unmatched_samples,
+            bin_hits: coverpoint.bins.iter().map(CoverpointBin::hits).collect(),
+        }
+    }
+
+    fn assert_atomic_overflow(
+        coverage: &mut Coverpoint<u8>,
+        sampled: u8,
+        expected_counter: CoverageCounterKind,
+    ) {
+        let before = counter_snapshot(coverage);
+        let error = coverage.sample(&sampled).expect_err("counter overflow");
+
+        assert_eq!(error.counter(), Some(expected_counter));
+        assert_eq!(counter_snapshot(coverage), before);
+    }
 }

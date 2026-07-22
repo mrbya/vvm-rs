@@ -176,7 +176,7 @@ Removed. Shared ABI support should only return once concrete cross-DUT native fu
 | 8 | Derive macros | Complete |
 | 9 | Public facade | Complete |
 | 10 | Tracing, reporting, and standard test harness | Complete |
-| 11 | Wider HDL feature support | In progress |
+| 11 | Wider HDL feature support and Rust-native coverage | In progress (11.7.1 complete) |
 
 ---
 
@@ -1466,14 +1466,56 @@ Implement only after the MVP is stable.
 - Cycle-driven `Testbench` and internal timing scheduling remain separate.
 - Same-time and `#0` scheduling remain unsupported.
 
-## DPI and coverage
+### 11.7 — Rust-native functional coverage
 
-- [ ] Identify inbound and outbound DPI use cases.
-- [ ] Define safe callback ownership.
-- [ ] Define panic behavior across FFI.
-- [ ] Enable Verilator coverage generation.
-- [ ] Write coverage data on finish.
-- [ ] Document merge and reporting tools.
+#### 11.7.1 — Coverage primitives
+
+- [x] Add typed `Coverpoint<T>`.
+- [x] Add normal, ignore, and illegal bins.
+- [x] Add exact-value bins.
+- [x] Add value-set bins.
+- [x] Add inclusive-range bins.
+- [x] Add configurable non-zero hit thresholds.
+- [x] Add explicit sampling.
+- [x] Define illegal, ignore, normal, and unmatched precedence.
+- [x] Record all matching bins within the selected category.
+- [x] Add deterministic coverpoint-local `BinId`s.
+- [x] Add live bin and coverpoint inspection.
+- [x] Add exact `CoverageRatio`.
+- [x] Add uncovered-bin inspection.
+- [x] Add structured construction errors.
+- [x] Add structured sampling errors.
+- [x] Guarantee atomic counter updates on overflow.
+- [x] Add comprehensive matcher, builder, sampling, metric, error, and atomicity tests.
+- [x] Document the primitive functional-coverage API.
+- [ ] Add two-way cross coverage.
+- [ ] Add coverage groups and instances.
+- [ ] Add per-test coverage sessions.
+- [ ] Add versioned JSON persistence.
+- [ ] Add deterministic coverage merging.
+- [ ] Add text and HTML reporting.
+- [ ] Add a vertical functional-coverage example.
+
+Functional coverage primitive semantics:
+
+- Coverage state is owned explicitly by ordinary Rust values.
+- Sampling occurs only through `Coverpoint::sample`.
+- No global or thread-local coverage database exists.
+- Illegal bins take precedence over ignore and normal bins.
+- Ignore bins take precedence over normal bins.
+- All matching bins within the selected category increment.
+- Illegal hits are recorded before an error is returned.
+- Ignore and illegal bins do not contribute to coverage completion.
+- Normal bins become covered after reaching their configured hit count.
+- Primitive coverage remains an exact integer ratio.
+- Percentages are deferred to the reporting layer.
+- Matchers remain declarative for later fingerprinting, persistence, merging, reporting, and UCIS export.
+
+### Future — DPI interoperability
+
+DPI support is deferred until a concrete third-party HDL, native-model, legacy
+verification-environment, or commercial-simulator interoperability requirement
+justifies the additional FFI, scope, callback, and lifecycle surface.
 
 ---
 

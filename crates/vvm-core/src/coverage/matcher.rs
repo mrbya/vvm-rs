@@ -129,7 +129,7 @@ impl<T> BinMatcher<T> {
 
 /// Invalid declarative matcher definition.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum MatcherValidationError {
+pub enum MatcherValidationError {
     /// A value-set bin contains no values.
     EmptyValueSet,
 

@@ -1,6 +1,7 @@
-use std::{fmt, num::NonZeroU64};
+use std::fmt;
+use std::num::NonZeroU64;
 
-use crate::coverage::matcher::BinMatcher;
+use crate::coverage::BinMatcher;
 
 /// Semantic role of one functional coverage bin.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -25,11 +26,13 @@ impl fmt::Display for BinKind {
     }
 }
 
+/// Identifier of one bin within its owning coverpoint.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct BinId(u32);
 
 impl BinId {
     /// Creates a coverpoint-local bin identifier.
+    #[must_use]
     pub const fn new(ordinal: u32) -> Self {
         Self(ordinal)
     }
@@ -189,5 +192,10 @@ impl<T> CoverpointBin<T> {
     /// Returns the next hit count.
     pub const fn checked_next_hits(&self) -> Option<u64> {
         self.hits.checked_add(1)
+    }
+
+    /// Replaces the hit counter with a prepared value.
+    pub const fn set_hits(&mut self, hits: u64) {
+        self.hits = hits;
     }
 }

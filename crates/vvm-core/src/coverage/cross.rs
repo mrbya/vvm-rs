@@ -268,6 +268,16 @@ impl Cross2 {
     pub fn name(&self) -> &str {
         &self.name
     }
+
+    /// Returns the exact left source identity.
+    pub(crate) const fn left_source_identity(&self) -> &Arc<str> {
+        &self.left.source
+    }
+
+    /// Returns the exact right source identity.
+    pub(crate) const fn right_source_identity(&self) -> &Arc<str> {
+        &self.right.source
+    }
     /// Returns the left coverpoint name.
     #[must_use]
     pub fn left_coverpoint_name(&self) -> &str {

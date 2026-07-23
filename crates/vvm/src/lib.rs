@@ -128,7 +128,9 @@ pub(crate) mod test;
 #[doc(inline)]
 pub use vvm_core::{
     Bin, BinId, BinKind, Bits, CheckFailure, Clock, ClockConfigurationError, ClockScheduler,
-    ClockTiming, CoverageBuildError, CoverageCounterKind, CoverageRatio, CoverageSampleDisposition,
+    ClockTiming, CoverageBuildError, CoverageCounterKind, CoverageGroup, CoverageGroupCountKind,
+    CoverageGroupError, CoverageGroupInstance, CoverageGroupSummary, CoverageGroupVisitor,
+    CoverageItemKind, CoverageItemRef, CoverageRatio, CoverageSampleDisposition,
     CoverageSampleError, Coverpoint, CoverpointBin, CoverpointBuilder, CoverpointSample, Cross2,
     Cross2Builder, CrossAxis, CrossBin, CrossBinId, CrossBuildError, CrossCounterKind, CrossSample,
     CrossSampleDisposition, CrossSampleError, CycleTiming, DetailedTestReport, Drive, Dut,
@@ -157,7 +159,8 @@ pub use vvm_macros::{Clock, Drive, Sample, test};
 /// ```
 pub mod prelude {
     pub use crate::{
-        Bin, Bits, Clock, ClockScheduler, ClockTiming, Coverpoint, Cross2, CycleTiming, Drive, Dut,
+        Bin, Bits, Clock, ClockScheduler, ClockTiming, CoverageGroup, CoverageGroupInstance,
+        CoverageGroupVisitor, CoverageItemRef, Coverpoint, Cross2, CycleTiming, Drive, Dut,
         ExactScoreboard, FailurePolicy, InoutState, RandomContext, Randomize, ReferenceModel,
         ReplayableSequence, Sample, Scoreboard, Seed, SignedBits, SimulationTime, TestDescriptor,
         TestRegistryError, TestRunConfig, Testbench, TimeStep, TimedDut, TimingScheduler,

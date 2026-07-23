@@ -1507,13 +1507,23 @@ Implement only after the MVP is stable.
 - [x] Reuse exact `CoverageRatio`.
 - [x] Add covered and uncovered cross-bin inspection.
 - [x] Document two-way cross semantics.
-- [ ] Add coverage groups and instances.
+#### 11.7.3 — Coverage groups and instances
+
+- [x] Add stable group-definition and instance-path metadata.
+- [x] Add hierarchical instance-path validation.
+- [x] Add read-only type-erased coverage-item views.
+- [x] Add the object-safe `CoverageGroup` trait.
+- [x] Add deterministic item visitation.
+- [x] Validate unique item names and cross source membership.
+- [x] Add exact aggregate group metrics.
+- [x] Preserve independent per-instance counters.
 - [ ] Add per-test coverage sessions.
-- [ ] Add versioned JSON persistence.
+- [ ] Add versioned JSON persistence and fingerprints.
 - [ ] Add deterministic coverage merging.
 - [ ] Add text and HTML reporting.
 - [ ] Add a vertical functional-coverage example.
-- [ ] Add coverage groups and instances.
+
+- [ ] Add per-test coverage sessions.
 - [ ] Add per-test coverage sessions.
 - [ ] Add versioned JSON persistence.
 - [ ] Add deterministic coverage merging.
@@ -1547,6 +1557,16 @@ Two-way cross semantics:
 - Cross cardinality is bounded during construction.
 - Counter-overflow failures mutate nothing.
 - Cross coverage remains an exact integer ratio.
+
+Coverage-group semantics:
+
+- Coverage groups are ordinary user-defined Rust structs.
+- Concrete structs retain ownership of typed coverpoints and crosses.
+- Sampling remains concrete and user-defined.
+- Item visitation is deterministic and read-only.
+- Cross membership uses exact process-local coverpoint identity.
+- Group coverage is a flat exact ratio over all item bins.
+- Instance merging and definition compatibility are deferred.
 
 ### Future — DPI interoperability
 

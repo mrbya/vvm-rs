@@ -104,7 +104,9 @@ pub(crate) mod unpacked;
 pub use bits::{Bits, InvalidBitVectorWordCount, SignedBits};
 pub use clock::{Clock, ClockConfigurationError, ClockScheduler, ClockTiming};
 pub use coverage::{
-    Bin, BinId, BinKind, CoverageBuildError, CoverageCounterKind, CoverageRatio,
+    Bin, BinId, BinKind, CoverageBuildError, CoverageCounterKind, CoverageGroup,
+    CoverageGroupCountKind, CoverageGroupError, CoverageGroupInstance, CoverageGroupSummary,
+    CoverageGroupVisitor, CoverageItemKind, CoverageItemRef, CoverageRatio,
     CoverageSampleDisposition, CoverageSampleError, Coverpoint, CoverpointBin, CoverpointBuilder,
     CoverpointSample, Cross2, Cross2Builder, CrossAxis, CrossBin, CrossBinId, CrossBuildError,
     CrossCounterKind, CrossSample, CrossSampleDisposition, CrossSampleError,

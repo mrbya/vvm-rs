@@ -54,6 +54,9 @@
 //! have a bounded generated-bin cardinality and use exact [`CoverageRatio`]s.
 //! Percentages, persistence, merging, reporting, covergroups, and sessions are
 //! deliberately deferred.
+//! Coverage groups are user-owned structs implementing [`CoverageGroup`]. They
+//! expose typed coverpoints and crosses through deterministic read-only
+//! visitation; sampling remains a concrete method on the user type.
 /// Coverage bin model.
 pub mod bin;
 /// Coverpoint runtime.
@@ -64,8 +67,14 @@ pub mod cross;
 pub mod cross_error;
 /// Structured coverage errors.
 pub mod error;
+/// User-defined typed coverage groups.
+pub mod group;
+/// Structured coverage-group errors.
+pub mod group_error;
 /// Shared coverage identifier validation.
 mod identifier;
+/// Read-only type-erased coverage item inspection.
+pub mod item;
 /// Declarative matcher representation and validation.
 pub mod matcher;
 /// Exact coverage ratio.
@@ -78,5 +87,8 @@ pub use coverpoint::{
 pub use cross::{Cross2, Cross2Builder, CrossBin, CrossBinId, CrossSample, CrossSampleDisposition};
 pub use cross_error::{CrossAxis, CrossBuildError, CrossCounterKind, CrossSampleError};
 pub use error::{CoverageBuildError, CoverageSampleError};
+pub use group::{CoverageGroup, CoverageGroupInstance, CoverageGroupSummary, CoverageGroupVisitor};
+pub use group_error::{CoverageGroupCountKind, CoverageGroupError};
+pub use item::{CoverageItemKind, CoverageItemRef};
 use matcher::MatcherValidationError;
 pub use ratio::CoverageRatio;

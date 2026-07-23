@@ -239,6 +239,10 @@ coverpoint samples, combine only normal-bin identities in deterministic
 row-major order, and skip ignored or unmatched axes. Coverage remains an exact
 integer ratio; persistence is a subsequent milestone.
 
+Coverage groups are ordinary user-defined structs. They retain typed sampling
+while implementing `CoverageGroup` for read-only validation and aggregate
+inspection of coverpoints and crosses.
+
 ## Running VVM Tests
 
 VVM tests are ordinary Rust tests.

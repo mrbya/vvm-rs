@@ -1,6 +1,8 @@
 use std::collections::BTreeSet;
 use std::num::NonZeroU64;
+use std::sync::Arc;
 
+use super::identifier::is_valid_coverage_identifier;
 use crate::coverage::{
     Bin, BinId, BinKind, CoverageBuildError, CoverageRatio, CoverageSampleError, CoverpointBin,
     MatcherValidationError,
@@ -82,7 +84,7 @@ impl<T> CoverpointBuilder<T> {
 /// DUT, `Testbench`, or `vvm::test`. Only normal bins contribute to completion.
 pub struct Coverpoint<T> {
     /// Stable coverpoint name.
-    name: String,
+    name: Arc<str>,
 
     /// Validated bins in declaration order.
     bins: Vec<CoverpointBin<T>>,
@@ -113,6 +115,11 @@ impl<T> Coverpoint<T> {
     /// Returns the coverpoint name.
     #[must_use]
     pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Returns this coverpoint's process-local source identity.
+    pub(crate) const fn source_identity(&self) -> &Arc<str> {
         &self.name
     }
 
@@ -205,18 +212,24 @@ impl<T> Coverpoint<T> {
         self.commit_sample(&prepared);
 
         match prepared.outcome {
-            PreparedOutcome::Hit { bins } => Ok(CoverpointSample::new_hit(bins)),
+            PreparedOutcome::Hit { bins } => {
+                Ok(CoverpointSample::new_hit(Arc::clone(&self.name), bins))
+            }
 
-            PreparedOutcome::Ignored { .. } => Ok(CoverpointSample::new_ignored()),
+            PreparedOutcome::Ignored { .. } => {
+                Ok(CoverpointSample::new_ignored(Arc::clone(&self.name)))
+            }
 
-            PreparedOutcome::Unmatched { .. } => Ok(CoverpointSample::new_unmatched()),
+            PreparedOutcome::Unmatched { .. } => {
+                Ok(CoverpointSample::new_unmatched(Arc::clone(&self.name)))
+            }
 
             PreparedOutcome::Illegal {
                 bins,
                 sampled_value,
                 ..
             } => Err(CoverageSampleError::IllegalBinHit {
-                coverpoint: self.name.clone(),
+                coverpoint: self.name.to_string(),
                 bins,
                 sampled_value,
             }),
@@ -428,6 +441,9 @@ pub enum CoverageSampleDisposition {
 /// [`CoverageSampleError`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CoverpointSample {
+    /// Exact producing coverpoint instance and name.
+    source: Arc<str>,
+
     /// Selected disposition.
     disposition: CoverageSampleDisposition,
 
@@ -437,24 +453,27 @@ pub struct CoverpointSample {
 
 impl CoverpointSample {
     /// Creates a normal-hit sample result.
-    const fn new_hit(matched_bins: Box<[BinId]>) -> Self {
+    const fn new_hit(source: Arc<str>, matched_bins: Box<[BinId]>) -> Self {
         Self {
+            source,
             disposition: CoverageSampleDisposition::Hit,
             matched_bins,
         }
     }
 
     /// Creates an ignored sample result.
-    fn new_ignored() -> Self {
+    fn new_ignored(source: Arc<str>) -> Self {
         Self {
+            source,
             disposition: CoverageSampleDisposition::Ignored,
             matched_bins: Box::default(),
         }
     }
 
     /// Creates an unmatched sample result.
-    fn new_unmatched() -> Self {
+    fn new_unmatched(source: Arc<str>) -> Self {
         Self {
+            source,
             disposition: CoverageSampleDisposition::Unmatched,
             matched_bins: Box::default(),
         }
@@ -464,6 +483,17 @@ impl CoverpointSample {
     #[must_use]
     pub const fn disposition(&self) -> CoverageSampleDisposition {
         self.disposition
+    }
+
+    /// Returns the producing coverpoint name.
+    #[must_use]
+    pub fn coverpoint_name(&self) -> &str {
+        &self.source
+    }
+
+    /// Returns whether this sample originated from one expected source.
+    pub(crate) fn originates_from(&self, source: &Arc<str>) -> bool {
+        Arc::ptr_eq(&self.source, source)
     }
 
     /// Returns matching normal-bin identifiers.
@@ -552,19 +582,6 @@ struct PreparedSample {
 
     /// Semantic result.
     outcome: PreparedOutcome,
-}
-
-/// Returns whether a name is a valid coverage identifier.
-fn is_valid_coverage_identifier(name: &str) -> bool {
-    let mut bytes = name.bytes();
-
-    let Some(first) = bytes.next() else {
-        return false;
-    };
-
-    let valid_first = first.is_ascii_alphabetic() || first == b'_';
-
-    valid_first && bytes.all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
 }
 
 /// Validates and normalizes one hit threshold.
@@ -681,7 +698,7 @@ fn build_coverpoint<T>(builder: CoverpointBuilder<T>) -> Result<Coverpoint<T>, C
     }
 
     Ok(Coverpoint {
-        name,
+        name: Arc::<str>::from(name),
         bins: live_bins,
         samples: 0,
         ignored_samples: 0,

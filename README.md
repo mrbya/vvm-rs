@@ -232,10 +232,12 @@ stepping, tracing, and finalization example.
 
 ## Functional Coverage
 
-VVM provides Rust-native functional coverage through typed coverpoints and
-bins. Normal, ignore, and illegal bins support exact values, value sets, and
-inclusive ranges. Sampling is explicit, and only normal bins contribute to
-completion. Cross coverage and persistence are subsequent milestones.
+VVM provides Rust-native functional coverage through typed coverpoints, bins,
+and explicit two-way crosses. Normal, ignore, and illegal bins support exact
+values, value sets, and inclusive ranges. Crosses consume successful
+coverpoint samples, combine only normal-bin identities in deterministic
+row-major order, and skip ignored or unmatched axes. Coverage remains an exact
+integer ratio; persistence is a subsequent milestone.
 
 ## Running VVM Tests
 

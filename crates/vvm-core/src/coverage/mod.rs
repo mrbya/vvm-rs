@@ -22,20 +22,50 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
+//! ```
+//! use vvm_core::{Bin, Coverpoint, Cross2};
+//!
+//! let mut opcode = Coverpoint::builder("opcode")
+//!     .bin(Bin::value("read", 1_u8))
+//!     .build()?;
+//! let mut response = Coverpoint::builder("response")
+//!     .bin(Bin::value("okay", true))
+//!     .build()?;
+//! let mut cross = Cross2::builder("opcode_x_response", &opcode, &response).build()?;
+//!
+//! let opcode_sample = opcode.sample(&1)?;
+//! let response_sample = response.sample(&true)?;
+//! let cross_sample = cross.sample(&opcode_sample, &response_sample)?;
+//!
+//! assert!(cross_sample.hit());
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
 //! Matching precedence is illegal, then ignore, then normal, then unmatched.
 //! All matching bins in the selected category increment; lower-precedence bins
 //! do not. Illegal hits are recorded before their error is returned. Counter
 //! overflow errors leave all counters unchanged.
 //!
-//! Only normal bins contribute to [`CoverageRatio`] completion. Percentages,
-//! persistence, merging, reporting, and cross coverage are deliberately
-//! outside this primitive layer.
+//! A [`Cross2`] explicitly combines successful samples from two coverpoints.
+//! It captures normal-bin definitions at construction, validates the exact
+//! producing coverpoint instances, and increments the Cartesian product of
+//! overlapping normal bins in row-major order. Ignored or unmatched axes skip
+//! the cross; illegal coverpoint samples return before cross sampling. Crosses
+//! have a bounded generated-bin cardinality and use exact [`CoverageRatio`]s.
+//! Percentages, persistence, merging, reporting, covergroups, and sessions are
+//! deliberately deferred.
 /// Coverage bin model.
 pub mod bin;
 /// Coverpoint runtime.
 pub mod coverpoint;
+/// Explicit two-way functional cross coverage.
+pub mod cross;
+/// Structured cross coverage errors.
+pub mod cross_error;
 /// Structured coverage errors.
 pub mod error;
+/// Shared coverage identifier validation.
+mod identifier;
 /// Declarative matcher representation and validation.
 pub mod matcher;
 /// Exact coverage ratio.
@@ -45,6 +75,8 @@ pub use bin::{Bin, BinId, BinKind, CoverpointBin};
 pub use coverpoint::{
     CoverageCounterKind, CoverageSampleDisposition, Coverpoint, CoverpointBuilder, CoverpointSample,
 };
+pub use cross::{Cross2, Cross2Builder, CrossBin, CrossBinId, CrossSample, CrossSampleDisposition};
+pub use cross_error::{CrossAxis, CrossBuildError, CrossCounterKind, CrossSampleError};
 pub use error::{CoverageBuildError, CoverageSampleError};
 use matcher::MatcherValidationError;
 pub use ratio::CoverageRatio;

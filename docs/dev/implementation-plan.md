@@ -176,7 +176,7 @@ Removed. Shared ABI support should only return once concrete cross-DUT native fu
 | 8 | Derive macros | Complete |
 | 9 | Public facade | Complete |
 | 10 | Tracing, reporting, and standard test harness | Complete |
-| 11 | Wider HDL feature support and Rust-native coverage | In progress (11.7.1 complete) |
+| 11 | Wider HDL feature support and Rust-native coverage | In progress (11.7.2 complete) |
 
 ---
 
@@ -1488,7 +1488,31 @@ Implement only after the MVP is stable.
 - [x] Guarantee atomic counter updates on overflow.
 - [x] Add comprehensive matcher, builder, sampling, metric, error, and atomicity tests.
 - [x] Document the primitive functional-coverage API.
-- [ ] Add two-way cross coverage.
+
+#### 11.7.2 — Two-way cross coverage
+
+- [x] Add exact coverpoint-sample provenance.
+- [x] Validate exact source coverpoint instances.
+- [x] Add complete two-way normal-bin crosses.
+- [x] Add deterministic row-major cross-bin IDs.
+- [x] Preserve source bin IDs and names.
+- [x] Add configurable cross-bin hit thresholds.
+- [x] Add a default cardinality guard.
+- [x] Add an explicit cardinality override.
+- [x] Detect cardinality arithmetic overflow.
+- [x] Cross overlapping normal bins through Cartesian products.
+- [x] Skip crosses for ignored and unmatched samples.
+- [x] Preserve source sample dispositions.
+- [x] Guarantee atomic cross-counter updates.
+- [x] Reuse exact `CoverageRatio`.
+- [x] Add covered and uncovered cross-bin inspection.
+- [x] Document two-way cross semantics.
+- [ ] Add coverage groups and instances.
+- [ ] Add per-test coverage sessions.
+- [ ] Add versioned JSON persistence.
+- [ ] Add deterministic coverage merging.
+- [ ] Add text and HTML reporting.
+- [ ] Add a vertical functional-coverage example.
 - [ ] Add coverage groups and instances.
 - [ ] Add per-test coverage sessions.
 - [ ] Add versioned JSON persistence.
@@ -1510,6 +1534,19 @@ Functional coverage primitive semantics:
 - Primitive coverage remains an exact integer ratio.
 - Percentages are deferred to the reporting layer.
 - Matchers remain declarative for later fingerprinting, persistence, merging, reporting, and UCIS export.
+
+Two-way cross semantics:
+
+- Crosses bind to exact coverpoint instances.
+- Crosses consume `CoverpointSample` normal-bin identities.
+- Cross sampling remains explicit.
+- Only normal bins participate.
+- Overlapping bins form a Cartesian product.
+- Cross-bin ordering is deterministic and row-major.
+- Ignored or unmatched axes skip the cross.
+- Cross cardinality is bounded during construction.
+- Counter-overflow failures mutate nothing.
+- Cross coverage remains an exact integer ratio.
 
 ### Future — DPI interoperability
 

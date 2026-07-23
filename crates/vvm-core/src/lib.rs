@@ -106,7 +106,8 @@ pub use clock::{Clock, ClockConfigurationError, ClockScheduler, ClockTiming};
 pub use coverage::{
     Bin, BinId, BinKind, CoverageBuildError, CoverageCounterKind, CoverageRatio,
     CoverageSampleDisposition, CoverageSampleError, Coverpoint, CoverpointBin, CoverpointBuilder,
-    CoverpointSample,
+    CoverpointSample, Cross2, Cross2Builder, CrossAxis, CrossBin, CrossBinId, CrossBuildError,
+    CrossCounterKind, CrossSample, CrossSampleDisposition, CrossSampleError,
 };
 pub use drive::Drive;
 pub use dut::{Dut, TimedDut, TraceableDut};

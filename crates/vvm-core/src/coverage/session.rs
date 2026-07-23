@@ -23,6 +23,22 @@ pub struct CoverageSessionSummary {
     coverage: CoverageRatio,
 }
 impl CoverageSessionSummary {
+    /// Reconstructs a persisted session summary.
+    pub(crate) const fn from_parts(
+        groups: usize,
+        items: usize,
+        coverpoints: usize,
+        crosses: usize,
+        coverage: CoverageRatio,
+    ) -> Self {
+        Self {
+            groups,
+            items,
+            coverpoints,
+            crosses,
+            coverage,
+        }
+    }
     /// Returns captured group instances.
     #[must_use]
     pub const fn group_count(self) -> usize {
@@ -190,6 +206,17 @@ impl CoverageSessionSnapshot {
     #[must_use]
     pub const fn coverage(&self) -> CoverageRatio {
         self.summary.coverage()
+    }
+
+    /// Consumes the snapshot into its test name, groups, and summary.
+    pub(crate) fn into_parts(
+        self,
+    ) -> (
+        Arc<str>,
+        Box<[CoverageGroupSnapshot]>,
+        CoverageSessionSummary,
+    ) {
+        (self.test_name, self.groups, self.summary)
     }
 }
 

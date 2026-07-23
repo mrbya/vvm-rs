@@ -14,12 +14,13 @@ pub struct CrossBinId(u32);
 
 impl CrossBinId {
     /// Creates a cross-local bin identifier.
-    const fn new(ordinal: u32) -> Self {
+    pub(crate) const fn new(ordinal: u32) -> Self {
         Self(ordinal)
     }
 
     /// Returns the cross-local ordinal.
-    const fn ordinal(self) -> u32 {
+    #[must_use]
+    pub const fn ordinal(self) -> u32 {
         self.0
     }
 }

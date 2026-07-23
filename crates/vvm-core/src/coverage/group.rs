@@ -12,6 +12,8 @@ use crate::coverage::{
 pub struct CoverageGroupInstance {
     /// Reusable group-definition name.
     definition_name: Arc<str>,
+    /// Explicit semantic definition revision.
+    definition_revision: u64,
     /// Hierarchical instance path.
     instance_path: Arc<str>,
 }
@@ -27,6 +29,20 @@ impl CoverageGroupInstance {
         definition_name: impl Into<String>,
         instance_path: impl Into<String>,
     ) -> Result<Self, CoverageGroupError> {
+        Self::new_with_revision(definition_name, instance_path, 0)
+    }
+
+    /// Constructs one validated group instance with a semantic definition revision.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CoverageGroupError`] when the definition name or instance path
+    /// is invalid.
+    pub fn new_with_revision(
+        definition_name: impl Into<String>,
+        instance_path: impl Into<String>,
+        definition_revision: u64,
+    ) -> Result<Self, CoverageGroupError> {
         let definition_name = definition_name.into();
         let instance_path = instance_path.into();
         if !is_valid_coverage_identifier(&definition_name) {
@@ -41,6 +57,7 @@ impl CoverageGroupInstance {
         }
         Ok(Self {
             definition_name: Arc::from(definition_name),
+            definition_revision,
             instance_path: Arc::from(instance_path),
         })
     }
@@ -48,6 +65,11 @@ impl CoverageGroupInstance {
     #[must_use]
     pub fn definition_name(&self) -> &str {
         &self.definition_name
+    }
+    /// Returns the semantic definition revision.
+    #[must_use]
+    pub const fn definition_revision(&self) -> u64 {
+        self.definition_revision
     }
     /// Returns the hierarchical instance path.
     #[must_use]
@@ -108,6 +130,20 @@ pub struct CoverageGroupSummary {
 }
 
 impl CoverageGroupSummary {
+    /// Reconstructs a persisted group summary.
+    pub(crate) const fn from_parts(
+        items: usize,
+        coverpoints: usize,
+        crosses: usize,
+        coverage: CoverageRatio,
+    ) -> Self {
+        Self {
+            items,
+            coverpoints,
+            crosses,
+            coverage,
+        }
+    }
     /// Returns total item count.
     #[must_use]
     pub const fn item_count(self) -> usize {

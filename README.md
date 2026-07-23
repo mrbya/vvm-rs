@@ -57,7 +57,7 @@ The working reference for public usage in this repository is `examples/counter`.
 - `#[vvm::test]` for standard Rust test generation.
 - Native `cargo test` and `cargo nextest run` execution.
 - Standard Rust filtering, package selection, parallelism, and `#[ignore]` handling.
-- Environment-based test configuration with replay, cycle, and trace overrides.
+- Environment-based test configuration with replay, cycle, trace, and coverage overrides.
 - Explicit Rust-native functional coverage with typed coverpoints and bins.
 
 ## Requirements
@@ -237,7 +237,9 @@ and explicit two-way crosses. Normal, ignore, and illegal bins support exact
 values, value sets, and inclusive ranges. Crosses consume successful
 coverpoint samples, combine only normal-bin identities in deterministic
 row-major order, and skip ignored or unmatched axes. Coverage remains an exact
-integer ratio; persistence is a subsequent milestone.
+integer ratio. Tests that capture coverage through a `TestContext` persist one
+schema-v1 JSON artifact after the test runs; see
+[`docs/coverage-json-v1.md`](docs/coverage-json-v1.md) for the file contract.
 
 Coverage groups are ordinary user-defined structs. They retain typed sampling
 while implementing `CoverageGroup` for read-only validation and aggregate
@@ -277,6 +279,7 @@ VVM uses environment variables for global test configuration:
 - `VVM_REPLAY`
 - `VVM_CYCLES`
 - `VVM_TRACE_DIR`
+- `VVM_COVERAGE_DIR`
 
 Examples:
 
@@ -290,6 +293,9 @@ VVM_REPLAY=chacha8-v1:0123456789abcdef \
 
 VVM_TRACE_DIR=target/vvm-traces \
     cargo test counter_smoke
+
+VVM_COVERAGE_DIR=target/vvm-coverage-artifacts \
+    cargo test decoder_random
 ```
 
 Replay precedence for replay-capable tests is:
@@ -306,6 +312,13 @@ Capability behavior:
 - trace configuration affects tests declaring trace support.
 
 If `VVM_TRACE_DIR` is not set, trace-capable tests write VCDs under a generated per-run directory rooted at `target/vvm-trace/`.
+
+Tests that capture coverage write a separate `.vvmcov.json` artifact per test
+under `VVM_COVERAGE_DIR`, or under a generated per-run directory rooted at
+`target/vvm-coverage/` when it is unset. The bridge attempts this write after
+the test body, including when the test has failed, and reports persistence
+errors through the test result. No artifact is written when the test captures
+no coverage.
 
 ## Workspace Crates
 

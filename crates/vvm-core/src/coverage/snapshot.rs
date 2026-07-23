@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
 use crate::coverage::{
-    BinId, BinKind, CoverageGroup, CoverageGroupError, CoverageGroupSummary, CoverageGroupVisitor,
-    CoverageItemKind, CoverageItemRef, CoverageRatio, Coverpoint, Cross2, CrossBinId,
+    BinId, BinKind, BinMatcherKind, CoverageGroup, CoverageGroupError, CoverageGroupSummary,
+    CoverageGroupVisitor, CoverageItemKind, CoverageItemRef, CoverageRatio, Coverpoint, Cross2,
+    CrossBinId,
 };
 
 /// Immutable runtime snapshot of one coverpoint bin.
@@ -14,6 +15,10 @@ pub struct CoverpointBinSnapshot {
     name: Arc<str>,
     /// Normal, ignore, or illegal role.
     kind: BinKind,
+    /// Declarative matcher shape.
+    matcher_kind: BinMatcherKind,
+    /// Declared matcher operand count.
+    matcher_operand_count: usize,
     /// Captured hit count.
     hits: u64,
     /// Required hit count.
@@ -21,6 +26,26 @@ pub struct CoverpointBinSnapshot {
 }
 
 impl CoverpointBinSnapshot {
+    /// Reconstructs a persisted coverpoint-bin snapshot.
+    pub(crate) const fn from_parts(
+        id: BinId,
+        name: Arc<str>,
+        kind: BinKind,
+        matcher_kind: BinMatcherKind,
+        matcher_operand_count: usize,
+        hits: u64,
+        required_hits: u64,
+    ) -> Self {
+        Self {
+            id,
+            name,
+            kind,
+            matcher_kind,
+            matcher_operand_count,
+            hits,
+            required_hits,
+        }
+    }
     /// Returns the coverpoint-local bin identifier.
     #[must_use]
     pub const fn id(&self) -> BinId {
@@ -35,6 +60,16 @@ impl CoverpointBinSnapshot {
     #[must_use]
     pub const fn kind(&self) -> BinKind {
         self.kind
+    }
+    /// Returns the matcher shape.
+    #[must_use]
+    pub const fn matcher_kind(&self) -> BinMatcherKind {
+        self.matcher_kind
+    }
+    /// Returns the declared matcher operand count.
+    #[must_use]
+    pub const fn matcher_operand_count(&self) -> usize {
+        self.matcher_operand_count
     }
     /// Returns the captured hit count.
     #[must_use]
@@ -73,6 +108,26 @@ pub struct CrossBinSnapshot {
 }
 
 impl CrossBinSnapshot {
+    /// Reconstructs a persisted cross-bin snapshot.
+    pub(crate) const fn from_parts(
+        id: CrossBinId,
+        left_bin_id: BinId,
+        left_bin_name: Arc<str>,
+        right_bin_id: BinId,
+        right_bin_name: Arc<str>,
+        hits: u64,
+        required_hits: u64,
+    ) -> Self {
+        Self {
+            id,
+            left_bin_id,
+            left_bin_name,
+            right_bin_id,
+            right_bin_name,
+            hits,
+            required_hits,
+        }
+    }
     /// Returns the cross-local bin identifier.
     #[must_use]
     pub const fn id(&self) -> CrossBinId {
@@ -135,6 +190,26 @@ pub struct CoverpointSnapshot {
 }
 
 impl CoverpointSnapshot {
+    /// Reconstructs a persisted coverpoint snapshot.
+    pub(crate) const fn from_parts(
+        name: Arc<str>,
+        bins: Box<[CoverpointBinSnapshot]>,
+        samples: u64,
+        ignored_samples: u64,
+        illegal_samples: u64,
+        unmatched_samples: u64,
+        coverage: CoverageRatio,
+    ) -> Self {
+        Self {
+            name,
+            bins,
+            samples,
+            ignored_samples,
+            illegal_samples,
+            unmatched_samples,
+            coverage,
+        }
+    }
     /// Captures an owned snapshot of one live coverpoint.
     pub(crate) fn capture<T>(coverpoint: &Coverpoint<T>) -> Self {
         let bins = coverpoint
@@ -144,6 +219,8 @@ impl CoverpointSnapshot {
                 id: bin.id(),
                 name: Arc::from(bin.name()),
                 kind: bin.kind(),
+                matcher_kind: bin.matcher_kind(),
+                matcher_operand_count: bin.matcher_operand_count(),
                 hits: bin.hits(),
                 required_hits: bin.required_hits(),
             })
@@ -227,6 +304,26 @@ pub struct Cross2Snapshot {
 }
 
 impl Cross2Snapshot {
+    /// Reconstructs a persisted two-way cross snapshot.
+    pub(crate) const fn from_parts(
+        name: Arc<str>,
+        left_coverpoint_name: Arc<str>,
+        right_coverpoint_name: Arc<str>,
+        bins: Box<[CrossBinSnapshot]>,
+        samples: u64,
+        skipped_samples: u64,
+        coverage: CoverageRatio,
+    ) -> Self {
+        Self {
+            name,
+            left_coverpoint_name,
+            right_coverpoint_name,
+            bins,
+            samples,
+            skipped_samples,
+            coverage,
+        }
+    }
     /// Captures an owned snapshot of one live cross.
     pub(crate) fn capture(cross: &Cross2) -> Self {
         let bins = cross
@@ -367,6 +464,8 @@ impl CoverageItemSnapshot {
 pub struct CoverageGroupSnapshot {
     /// Reusable definition name.
     definition_name: Arc<str>,
+    /// Explicit semantic definition revision.
+    definition_revision: u64,
     /// Hierarchical instance path.
     instance_path: Arc<str>,
     /// Items in group visitation order.
@@ -376,10 +475,31 @@ pub struct CoverageGroupSnapshot {
 }
 
 impl CoverageGroupSnapshot {
+    /// Reconstructs a persisted coverage-group snapshot.
+    pub(crate) const fn from_parts(
+        definition_name: Arc<str>,
+        definition_revision: u64,
+        instance_path: Arc<str>,
+        items: Box<[CoverageItemSnapshot]>,
+        summary: CoverageGroupSummary,
+    ) -> Self {
+        Self {
+            definition_name,
+            definition_revision,
+            instance_path,
+            items,
+            summary,
+        }
+    }
     /// Returns the reusable definition name.
     #[must_use]
     pub fn definition_name(&self) -> &str {
         &self.definition_name
+    }
+    /// Returns the semantic definition revision.
+    #[must_use]
+    pub const fn definition_revision(&self) -> u64 {
+        self.definition_revision
     }
     /// Returns the hierarchical instance path.
     #[must_use]
@@ -432,6 +552,7 @@ where
 
     Ok(CoverageGroupSnapshot {
         definition_name: Arc::from(instance.definition_name()),
+        definition_revision: instance.definition_revision(),
         instance_path: Arc::from(instance.instance_path()),
         items: collector.items.into_boxed_slice(),
         summary,

@@ -1,5 +1,26 @@
 use std::cmp::Ordering;
 
+/// Declarative shape of one built-in bin matcher.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BinMatcherKind {
+    /// Matches one exact value.
+    Value,
+    /// Matches one declared value set.
+    Values,
+    /// Matches one inclusive range.
+    InclusiveRange,
+}
+
+impl std::fmt::Display for BinMatcherKind {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(match *self {
+            Self::Value => "value",
+            Self::Values => "values",
+            Self::InclusiveRange => "inclusive_range",
+        })
+    }
+}
+
 /// Type-erased equality operation for one concrete value type.
 type EqualityFunction<T> = fn(&T, &T) -> bool;
 
@@ -41,6 +62,25 @@ pub enum BinMatcher<T> {
 }
 
 impl<T> BinMatcher<T> {
+    /// Returns the matcher shape.
+    #[must_use]
+    pub const fn kind(&self) -> BinMatcherKind {
+        match *self {
+            Self::Value { .. } => BinMatcherKind::Value,
+            Self::Values { .. } => BinMatcherKind::Values,
+            Self::InclusiveRange { .. } => BinMatcherKind::InclusiveRange,
+        }
+    }
+
+    /// Returns the number of declared matcher operands.
+    #[must_use]
+    pub fn operand_count(&self) -> usize {
+        match *self {
+            Self::Value { .. } => 1,
+            Self::Values { ref expected, .. } => expected.len(),
+            Self::InclusiveRange { .. } => 2,
+        }
+    }
     /// Creates an exact-value matcher.
     pub fn value(expected: T) -> Self
     where

@@ -4,7 +4,7 @@ use std::sync::OnceLock;
 use std::time::{Duration, SystemTime};
 use std::{env, fmt, fs};
 
-use vvm_core::{ReplayToken, Seed, TestDescriptor, TestRun, TestRunConfig};
+use vvm_core::{CoverageArtifact, ReplayToken, Seed, TestDescriptor, TestRun, TestRunConfig};
 
 /// Environment variable selecting a seed-derived replay token.
 const ENV_SEED: &str = "VVM_SEED";
@@ -14,6 +14,8 @@ const ENV_REPLAY: &str = "VVM_REPLAY";
 const ENV_CYCLES: &str = "VVM_CYCLES";
 /// Environment variable selecting the root directory for trace files.
 const ENV_TRACE_DIR: &str = "VVM_TRACE_DIR";
+/// Environment variable selecting the root directory for coverage artifacts.
+const ENV_COVERAGE_DIR: &str = "VVM_COVERAGE_DIR";
 
 /// Runs one VVM descriptor through the standard Rust test harness bridge.
 ///
@@ -22,16 +24,53 @@ const ENV_TRACE_DIR: &str = "VVM_TRACE_DIR";
 /// Returns a formatted test failure when configuration or execution fails.
 pub fn run_test(descriptor: &TestDescriptor) -> Result<(), TestFailure> {
     let overrides = EnvOverrides::parse(descriptor.name())?;
+
+    run_test_with_overrides(descriptor, &overrides)
+}
+
+/// Runs one descriptor with already-parsed environment overrides.
+fn run_test_with_overrides(
+    descriptor: &TestDescriptor,
+    overrides: &EnvOverrides,
+) -> Result<(), TestFailure> {
     let config = overrides.config_for(descriptor)?;
     let run = descriptor
         .run(&config)
         .map_err(|error| TestFailure::configuration(descriptor.name(), error.to_string()))?;
 
-    if run.passed() {
-        return Ok(());
-    }
+    let test_failure = (!run.passed()).then(|| TestFailure::from_run(&run));
+    let test_name = run.test().name();
+    let (outcome, coverage) = run.into_parts();
 
-    Err(TestFailure::from_run(&run))
+    let persistence_result = coverage
+        .map(|session| {
+            let artifact =
+                CoverageArtifact::from_session(outcome.status(), outcome.replay_token(), session)
+                    .map_err(|error| {
+                    TestFailure::configuration(
+                        test_name,
+                        format!("coverage persistence failed: {error}"),
+                    )
+                })?;
+            let path = overrides.coverage_path_for(test_name)?;
+
+            artifact.write_to(path).map_err(|error| {
+                TestFailure::configuration(
+                    test_name,
+                    format!("coverage persistence failed: {error}"),
+                )
+            })
+        })
+        .transpose();
+
+    match (test_failure, persistence_result) {
+        (Some(failure), Ok(_)) => Err(failure),
+        (Some(failure), Err(persistence)) => {
+            Err(failure.with_coverage_persistence_error(persistence))
+        }
+        (None, Ok(_)) => Ok(()),
+        (None, Err(persistence)) => Err(persistence),
+    }
 }
 
 /// Human-readable failure returned from generated standard Rust tests.
@@ -75,6 +114,13 @@ impl TestFailure {
 
         Self { message }
     }
+
+    /// Appends a coverage persistence failure to an existing test failure.
+    fn with_coverage_persistence_error(mut self, error: impl fmt::Display) -> Self {
+        self.message.push_str("\n\nCoverage persistence error:\n  ");
+        self.message.push_str(&error.to_string());
+        self
+    }
 }
 
 impl fmt::Debug for TestFailure {
@@ -102,6 +148,9 @@ struct EnvOverrides {
 
     /// Root directory for generated waveform files, if explicitly configured.
     trace_root: Option<PathBuf>,
+
+    /// Root directory for generated coverage artifacts, if explicitly configured.
+    coverage_root: Option<PathBuf>,
 }
 
 impl EnvOverrides {
@@ -170,10 +219,24 @@ impl EnvOverrides {
             })
             .transpose()?;
 
+        let coverage_root = lookup(ENV_COVERAGE_DIR)
+            .map(|value| {
+                if value.is_empty() {
+                    return Err(TestFailure::configuration(
+                        test_name,
+                        format!("environment variable `{ENV_COVERAGE_DIR}` must not be empty"),
+                    ));
+                }
+
+                Ok(PathBuf::from(value))
+            })
+            .transpose()?;
+
         Ok(Self {
             replay_token,
             cycles,
             trace_root,
+            coverage_root,
         })
     }
 
@@ -208,24 +271,55 @@ impl EnvOverrides {
 
         Ok(root.join(format!("{}.vcd", descriptor.name())))
     }
+
+    /// Resolves one isolated artifact path for a descriptor.
+    fn coverage_path_for(&self, test_name: &str) -> Result<PathBuf, TestFailure> {
+        let root = self
+            .coverage_root
+            .clone()
+            .unwrap_or_else(default_coverage_root);
+
+        if root.exists() && !root.is_dir() {
+            return Err(TestFailure::configuration(
+                test_name,
+                format!(
+                    "coverage output path `{}` from `{ENV_COVERAGE_DIR}` is not a directory",
+                    root.display()
+                ),
+            ));
+        }
+
+        Ok(root.join(format!(
+            "pid-{}-{test_name}{}",
+            std::process::id(),
+            CoverageArtifact::FILE_SUFFIX
+        )))
+    }
 }
 
 /// Returns the default trace root for this process.
 fn default_trace_root() -> PathBuf {
+    PathBuf::from("target").join("vvm-trace").join(run_id())
+}
+
+/// Returns the stable identifier for this process-wide test invocation.
+fn run_id() -> &'static str {
     static RUN_ID: OnceLock<String> = OnceLock::new();
 
-    let run_id = RUN_ID.get_or_init(|| {
+    RUN_ID.get_or_init(|| {
         env::var("NEXTEST_RUN_ID").unwrap_or_else(|_| {
             let elapsed = SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap_or(Duration::ZERO)
                 .as_nanos();
-
             format!("pid-{}-{elapsed:032x}", std::process::id())
         })
-    });
+    })
+}
 
-    PathBuf::from("target").join("vvm-trace").join(run_id)
+/// Returns the default coverage root for this process.
+fn default_coverage_root() -> PathBuf {
+    PathBuf::from("target").join("vvm-coverage").join(run_id())
 }
 
 /// Ensures the trace output root exists and is a directory.
@@ -260,11 +354,14 @@ mod tests {
     use std::fs::{self, File};
     use std::path::Path;
 
-    use vvm_core::{TestCapabilities, TestOutcome};
+    use vvm_core::{
+        Bin, CoverageGroup, CoverageGroupInstance, CoverageGroupVisitor, CoverageItemRef,
+        TestCapabilities, TestContext, TestOutcome,
+    };
 
     use super::{
-        ENV_CYCLES, ENV_REPLAY, ENV_SEED, ENV_TRACE_DIR, EnvOverrides, TestFailure,
-        default_trace_root, ensure_trace_root,
+        ENV_COVERAGE_DIR, ENV_CYCLES, ENV_REPLAY, ENV_SEED, ENV_TRACE_DIR, EnvOverrides,
+        TestFailure, default_trace_root, ensure_trace_root, run_test_with_overrides,
     };
     use crate::{ReplayToken, Seed, TestDescriptor};
 
@@ -275,6 +372,44 @@ mod tests {
             |_config| TestOutcome::error("not used"),
             capabilities,
         )
+    }
+
+    struct CapturedCoverage {
+        instance: CoverageGroupInstance,
+        value: vvm_core::Coverpoint<u8>,
+    }
+
+    impl CoverageGroup for CapturedCoverage {
+        fn instance(&self) -> &CoverageGroupInstance {
+            &self.instance
+        }
+
+        fn visit_items(&self, visitor: &mut dyn CoverageGroupVisitor) {
+            visitor.visit(CoverageItemRef::coverpoint(&self.value));
+        }
+    }
+
+    fn captures_coverage(context: &mut TestContext) -> TestOutcome {
+        let mut value = match vvm_core::Coverpoint::builder("value")
+            .bin(Bin::value("one", 1_u8))
+            .build()
+        {
+            Ok(value) => value,
+            Err(error) => return TestOutcome::error(error),
+        };
+        if let Err(error) = value.sample(&1) {
+            return TestOutcome::error(error);
+        }
+
+        let coverage = match CoverageGroupInstance::new("sample", "dut.sample") {
+            Ok(instance) => CapturedCoverage { instance, value },
+            Err(error) => return TestOutcome::error(error),
+        };
+        if let Err(error) = context.capture_coverage(&coverage) {
+            return TestOutcome::error(error);
+        }
+
+        TestOutcome::error("intentional failure after coverage capture")
     }
 
     #[test]
@@ -332,6 +467,29 @@ mod tests {
 
         assert_eq!(parsed.cycles, Some(100));
         Ok(())
+    }
+
+    #[test]
+    fn parses_coverage_root_from_environment() -> Result<(), Box<dyn std::error::Error>> {
+        let directory = tempfile::tempdir()?;
+        let root = directory.path().join("custom-coverage");
+        let parsed = EnvOverrides::parse_with("counter-random", |name| {
+            (name == ENV_COVERAGE_DIR).then(|| root.display().to_string())
+        })?;
+
+        assert_eq!(parsed.coverage_root.as_deref(), Some(root.as_path()));
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_empty_coverage_root() {
+        let error = EnvOverrides::parse_with("counter-random", |name| {
+            (name == ENV_COVERAGE_DIR).then(String::new)
+        });
+
+        assert!(
+            matches!(error, Err(ref failure) if format!("{failure:?}").contains(ENV_COVERAGE_DIR))
+        );
     }
 
     #[test]
@@ -405,6 +563,75 @@ mod tests {
         let config = overrides.config_for(&descriptor(TestCapabilities::new()))?;
 
         assert!(config.trace_path().is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn coverage_path_uses_configured_root_and_process_test_name()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let directory = tempfile::tempdir()?;
+        let root = directory.path().join("coverage");
+        let overrides = EnvOverrides::parse_with("counter-random", |name| {
+            (name == ENV_COVERAGE_DIR).then(|| root.display().to_string())
+        })?;
+        let path = overrides.coverage_path_for("counter-random")?;
+
+        assert_eq!(path.parent(), Some(root.as_path()));
+        assert!(path.file_name().is_some_and(|name| {
+            name.to_string_lossy()
+                .starts_with(&format!("pid-{}-counter-random", std::process::id()))
+        }));
+        assert!(path.to_string_lossy().ends_with(".vvmcov.json"));
+        assert!(!root.exists());
+        Ok(())
+    }
+
+    #[test]
+    fn coverage_path_rejects_a_file_root() -> Result<(), Box<dyn std::error::Error>> {
+        let directory = tempfile::tempdir()?;
+        let root = directory.path().join("coverage");
+        let _file = File::create(&root)?;
+        let overrides = EnvOverrides {
+            coverage_root: Some(root),
+            ..EnvOverrides::default()
+        };
+
+        let error = overrides.coverage_path_for("counter-random");
+
+        assert!(
+            matches!(error, Err(ref failure) if format!("{failure:?}").contains("not a directory"))
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn bridge_persists_captured_coverage_after_a_test_failure()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let directory = tempfile::tempdir()?;
+        let root = directory.path().join("coverage");
+        let descriptor = TestDescriptor::new_with_context(
+            "covered-failure",
+            "Captures coverage before failure",
+            captures_coverage,
+            TestCapabilities::new(),
+        );
+        let overrides = EnvOverrides {
+            coverage_root: Some(root.clone()),
+            ..EnvOverrides::default()
+        };
+
+        let result = run_test_with_overrides(&descriptor, &overrides);
+        let artifact = root.join(format!(
+            "pid-{}-covered-failure.vvmcov.json",
+            std::process::id()
+        ));
+
+        assert!(result.is_err());
+        assert!(artifact.is_file());
+        assert_eq!(
+            vvm_core::CoverageArtifact::read_from(artifact)?.test_name(),
+            "covered-failure"
+        );
         Ok(())
     }
 

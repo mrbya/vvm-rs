@@ -106,15 +106,16 @@ pub(crate) mod unpacked;
 pub use bits::{Bits, InvalidBitVectorWordCount, SignedBits};
 pub use clock::{Clock, ClockConfigurationError, ClockScheduler, ClockTiming};
 pub use coverage::{
-    Bin, BinId, BinKind, CoverageBuildError, CoverageCounterKind, CoverageGroup,
+    Bin, BinId, BinKind, BinMatcherKind, CoverageArtifact, CoverageArtifactGroup,
+    CoverageBuildError, CoverageCounterKind, CoverageDefinitionFingerprint, CoverageGroup,
     CoverageGroupCountKind, CoverageGroupError, CoverageGroupInstance, CoverageGroupSnapshot,
-    CoverageGroupSummary, CoverageGroupVisitor, CoverageItemKind, CoverageItemRef,
-    CoverageItemSnapshot, CoverageRatio, CoverageSampleDisposition, CoverageSampleError,
-    CoverageSession, CoverageSessionCountKind, CoverageSessionError, CoverageSessionSnapshot,
-    CoverageSessionSummary, Coverpoint, CoverpointBin, CoverpointBinSnapshot, CoverpointBuilder,
-    CoverpointSample, CoverpointSnapshot, Cross2, Cross2Builder, Cross2Snapshot, CrossAxis,
-    CrossBin, CrossBinId, CrossBinSnapshot, CrossBuildError, CrossCounterKind, CrossSample,
-    CrossSampleDisposition, CrossSampleError,
+    CoverageGroupSummary, CoverageGroupVisitor, CoverageIoOperation, CoverageItemKind,
+    CoverageItemRef, CoverageItemSnapshot, CoveragePersistenceError, CoverageRatio,
+    CoverageSampleDisposition, CoverageSampleError, CoverageSession, CoverageSessionCountKind,
+    CoverageSessionError, CoverageSessionSnapshot, CoverageSessionSummary, Coverpoint,
+    CoverpointBin, CoverpointBinSnapshot, CoverpointBuilder, CoverpointSample, CoverpointSnapshot,
+    Cross2, Cross2Builder, Cross2Snapshot, CrossAxis, CrossBin, CrossBinId, CrossBinSnapshot,
+    CrossBuildError, CrossCounterKind, CrossSample, CrossSampleDisposition, CrossSampleError,
 };
 pub use drive::Drive;
 pub use dut::{Dut, TimedDut, TraceableDut};

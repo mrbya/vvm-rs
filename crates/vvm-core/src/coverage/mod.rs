@@ -56,6 +56,10 @@
 //! Coverage groups are user-owned structs implementing [`CoverageGroup`]. They
 //! expose typed coverpoints and crosses through deterministic read-only
 //! visitation; sampling remains a concrete method on the user type.
+/// Persisted coverage artifacts.
+pub mod artifact;
+/// Coverage persistence errors.
+pub mod artifact_error;
 /// Coverage bin model.
 pub mod bin;
 /// Coverpoint runtime.
@@ -66,6 +70,8 @@ pub mod cross;
 pub mod cross_error;
 /// Structured coverage errors.
 pub mod error;
+/// Stable structural coverage fingerprints.
+pub mod fingerprint;
 /// User-defined typed coverage groups.
 pub mod group;
 /// Structured coverage-group errors.
@@ -85,6 +91,8 @@ pub mod session_error;
 /// Immutable owned coverage snapshots.
 pub mod snapshot;
 
+pub use artifact::{CoverageArtifact, CoverageArtifactGroup};
+pub use artifact_error::{CoverageIoOperation, CoveragePersistenceError};
 pub use bin::{Bin, BinId, BinKind, CoverpointBin};
 pub use coverpoint::{
     CoverageCounterKind, CoverageSampleDisposition, Coverpoint, CoverpointBuilder, CoverpointSample,
@@ -92,9 +100,11 @@ pub use coverpoint::{
 pub use cross::{Cross2, Cross2Builder, CrossBin, CrossBinId, CrossSample, CrossSampleDisposition};
 pub use cross_error::{CrossAxis, CrossBuildError, CrossCounterKind, CrossSampleError};
 pub use error::{CoverageBuildError, CoverageSampleError};
+pub use fingerprint::CoverageDefinitionFingerprint;
 pub use group::{CoverageGroup, CoverageGroupInstance, CoverageGroupSummary, CoverageGroupVisitor};
 pub use group_error::{CoverageGroupCountKind, CoverageGroupError};
 pub use item::{CoverageItemKind, CoverageItemRef};
+pub use matcher::BinMatcherKind;
 use matcher::MatcherValidationError;
 pub use ratio::CoverageRatio;
 pub use session::{CoverageSession, CoverageSessionSnapshot, CoverageSessionSummary};

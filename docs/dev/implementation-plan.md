@@ -176,7 +176,7 @@ Removed. Shared ABI support should only return once concrete cross-DUT native fu
 | 8 | Derive macros | Complete |
 | 9 | Public facade | Complete |
 | 10 | Tracing, reporting, and standard test harness | Complete |
-| 11 | Wider HDL feature support and Rust-native coverage | In progress (11.7.2 complete) |
+| 11 | Wider HDL feature support and Rust-native coverage | In progress (11.7.5 complete) |
 
 ---
 
@@ -1526,7 +1526,7 @@ Implement only after the MVP is stable.
 - [x] Add context-aware VVM test execution while preserving legacy descriptors.
 - [x] Add `&mut TestContext` support to `#[vvm::test]`.
 - [x] Attach completed coverage snapshots to `TestRun`.
-- [ ] Add versioned JSON persistence and definition fingerprints.
+- [x] Add versioned JSON persistence and definition fingerprints.
 - [ ] Add deterministic coverage merging.
 - [ ] Add text and HTML reporting.
 - [ ] Add a vertical functional-coverage example.
@@ -1579,7 +1579,18 @@ Per-test coverage-session semantics:
 - `TestContext` owns the effective configuration and coverage session.
 - Existing `&TestRunConfig` tests remain supported; context-aware tests use `&mut TestContext`.
 - `TestRun` owns the completed optional coverage snapshot.
-- Persistence and file output remain deferred.
+- Artifact persistence is implemented; merging and reporting remain deferred.
+
+#### 11.7.5 — Versioned JSON coverage artifacts
+
+- [x] Add strict schema-v1 JSON serialization and validation.
+- [x] Add SHA-256 structural definition fingerprints.
+- [x] Add atomic same-directory artifact writes.
+- [x] Persist captured test-session coverage through the standard facade bridge.
+- [x] Add `VVM_COVERAGE_DIR` output-root configuration.
+- [x] Document schema-v1 and fingerprint limitations.
+- [ ] Add deterministic coverage merging.
+- [ ] Add text and HTML reporting.
 
 ### Future — DPI interoperability
 

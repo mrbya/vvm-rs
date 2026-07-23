@@ -1,7 +1,7 @@
 use std::fmt;
 use std::num::NonZeroU64;
 
-use crate::coverage::matcher::BinMatcher;
+use crate::coverage::matcher::{BinMatcher, BinMatcherKind};
 
 /// Semantic role of one functional coverage bin.
 ///
@@ -193,6 +193,18 @@ impl<T> CoverpointBin<T> {
     #[must_use]
     pub const fn kind(&self) -> BinKind {
         self.kind
+    }
+
+    /// Returns the declarative matcher shape.
+    #[must_use]
+    pub const fn matcher_kind(&self) -> BinMatcherKind {
+        self.definition.matcher().kind()
+    }
+
+    /// Returns the declared matcher operand count.
+    #[must_use]
+    pub fn matcher_operand_count(&self) -> usize {
+        self.definition.matcher().operand_count()
     }
 
     /// Returns the required hit count.

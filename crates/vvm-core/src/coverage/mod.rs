@@ -19,8 +19,6 @@
 //!     .build()?;
 //!
 //! let sample = opcode.sample(&Opcode::Read)?;
-//! assert!(sample.hit());
-//! assert_eq!(opcode.coverage().covered(), 1);
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!

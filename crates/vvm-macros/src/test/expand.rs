@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::ItemFn;
 
-use crate::test::input::Input;
+use crate::test::input::{Input, TestArgument};
 use crate::test::names::{adapter_ident, descriptor_ident};
 
 /// Expands one validated VVM test function.
@@ -17,18 +17,18 @@ pub(super) fn expand(input: Input) -> TokenStream {
         trace,
         cycles,
         replay,
-        accepts_config,
+        argument,
     } = input;
 
     let adapter = adapter_ident(&function);
     let descriptor = descriptor_ident(&function);
-    let implementation_call = implementation_call(&implementation, accepts_config);
+    let implementation_call = implementation_call(&implementation, argument);
 
     let adapter_body = if replay.enabled() {
         quote! {
             let __vvm_result = #implementation_call;
 
-            match __vvm_config.replay_token() {
+            match __vvm_context.config().replay_token() {
                 ::core::option::Option::Some(__vvm_replay) => {
                     ::vvm::IntoTestOutcome::into_test_outcome_with_replay(
                         __vvm_result,
@@ -68,14 +68,14 @@ pub(super) fn expand(input: Input) -> TokenStream {
         #(#helper_attributes)*
         #[doc(hidden)]
         #[allow(dead_code)]
-        fn #adapter(__vvm_config: &::vvm::TestRunConfig) -> ::vvm::TestOutcome {
+        fn #adapter(__vvm_context: &mut ::vvm::TestContext) -> ::vvm::TestOutcome {
             #adapter_body
         }
 
         #(#helper_attributes)*
         #[doc(hidden)]
         #[allow(dead_code, non_upper_case_globals)]
-        const #descriptor: ::vvm::TestDescriptor = ::vvm::TestDescriptor::new(
+        const #descriptor: ::vvm::TestDescriptor = ::vvm::TestDescriptor::new_with_context(
             #name,
             #description,
             #adapter,
@@ -91,13 +91,13 @@ pub(super) fn expand(input: Input) -> TokenStream {
 }
 
 /// Builds the call from the generated adapter into the hidden implementation.
-fn implementation_call(implementation: &ItemFn, accepts_config: bool) -> TokenStream {
+fn implementation_call(implementation: &ItemFn, argument: TestArgument) -> TokenStream {
     let function = &implementation.sig.ident;
 
-    if accepts_config {
-        quote!(#function(__vvm_config))
-    } else {
-        quote!(#function())
+    match argument {
+        TestArgument::None => quote!(#function()),
+        TestArgument::Config => quote!(#function(__vvm_context.config())),
+        TestArgument::Context => quote!(#function(__vvm_context)),
     }
 }
 

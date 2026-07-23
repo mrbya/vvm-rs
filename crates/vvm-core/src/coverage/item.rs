@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use crate::coverage::{CoverageRatio, Coverpoint, Cross2};
+use crate::coverage::{
+    CoverageItemSnapshot, CoverageRatio, Coverpoint, CoverpointSnapshot, Cross2, Cross2Snapshot,
+};
 
 /// Internal read-only view over any typed coverpoint.
 trait ErasedCoverpoint {
@@ -12,6 +14,8 @@ trait ErasedCoverpoint {
     fn item_coverage(&self) -> CoverageRatio;
     /// Returns attempted sample count.
     fn item_sample_count(&self) -> u64;
+    /// Captures one owned immutable snapshot.
+    fn item_snapshot(&self) -> CoverpointSnapshot;
 }
 
 impl<T> ErasedCoverpoint for Coverpoint<T> {
@@ -26,6 +30,9 @@ impl<T> ErasedCoverpoint for Coverpoint<T> {
     }
     fn item_sample_count(&self) -> u64 {
         self.sample_count()
+    }
+    fn item_snapshot(&self) -> CoverpointSnapshot {
+        CoverpointSnapshot::capture(self)
     }
 }
 
@@ -123,6 +130,17 @@ impl<'a> CoverageItemRef<'a> {
             CoverageItemRefKind::Coverpoint(_) => None,
             CoverageItemRefKind::Cross2(item) => {
                 Some((item.left_source_identity(), item.right_source_identity()))
+            }
+        }
+    }
+    /// Captures an immutable owned snapshot.
+    pub(crate) fn snapshot(self) -> CoverageItemSnapshot {
+        match self.inner {
+            CoverageItemRefKind::Coverpoint(item) => {
+                CoverageItemSnapshot::Coverpoint(item.item_snapshot())
+            }
+            CoverageItemRefKind::Cross2(item) => {
+                CoverageItemSnapshot::Cross2(Cross2Snapshot::capture(item))
             }
         }
     }

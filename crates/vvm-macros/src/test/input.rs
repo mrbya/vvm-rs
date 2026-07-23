@@ -39,8 +39,19 @@ pub(super) struct Input {
     /// Replay capability configuration.
     pub(super) replay: ReplayAttribute,
 
-    /// Whether the original function accepts `&TestRunConfig`.
-    pub(super) accepts_config: bool,
+    /// Supported argument accepted by the original function.
+    pub(super) argument: TestArgument,
+}
+
+/// Supported optional VVM test argument.
+#[derive(Clone, Copy)]
+pub(super) enum TestArgument {
+    /// No argument.
+    None,
+    /// Immutable resolved execution configuration.
+    Config,
+    /// Mutable per-test execution context.
+    Context,
 }
 
 impl Input {
@@ -55,7 +66,7 @@ impl Input {
         validate_function_attributes(&item.attrs)?;
         validates_function_shape(&item)?;
 
-        let accepts_config = validate_arguments(&item, attributes.configurable())?;
+        let argument = validate_arguments(&item, attributes.configurable())?;
         let name = resolve_name(&attributes, &item)?;
         let description = resolve_description(&attributes, &item)?;
         let (wrapper_attributes, implementation_attributes, helper_attributes) =
@@ -77,7 +88,7 @@ impl Input {
             trace: attributes.trace,
             cycles: attributes.cycles,
             replay: attributes.replay,
-            accepts_config,
+            argument,
         })
     }
 }
@@ -190,15 +201,15 @@ fn validates_function_shape(item: &ItemFn) -> Result<()> {
     Ok(())
 }
 
-/// Validates the optional `&TestRunConfig` argument.
-fn validate_arguments(item: &ItemFn, configurable: bool) -> Result<bool> {
+/// Validates the optional VVM execution argument.
+fn validate_arguments(item: &ItemFn, configurable: bool) -> Result<TestArgument> {
     let mut inputs = item.sig.inputs.iter();
     let first = inputs.next();
 
     if inputs.next().is_some() {
         return Err(Error::new_spanned(
             &item.sig.inputs,
-            "VVM tests accept at most one `&TestRunConfig` argument",
+            "VVM tests accept at most one `&TestRunConfig` or `&mut TestContext` argument",
         ));
     }
 
@@ -206,11 +217,12 @@ fn validate_arguments(item: &ItemFn, configurable: bool) -> Result<bool> {
         if configurable {
             return Err(Error::new_spanned(
                 &item.sig.ident,
-                "tests with configurable capabilities must accept `&TestRunConfig`",
+                "tests with configurable capabilities must accept `&TestRunConfig` or `&mut \
+                 TestContext`",
             ));
         }
 
-        return Ok(false);
+        return Ok(TestArgument::None);
     };
 
     let argument = match *argument {
@@ -226,37 +238,40 @@ fn validate_arguments(item: &ItemFn, configurable: bool) -> Result<bool> {
     let Type::Reference(ref reference) = *argument.ty else {
         return Err(Error::new_spanned(
             &argument.ty,
-            "VVM test configuration must be passed as `&TestRunConfig`",
+            "VVM tests accept `&TestRunConfig` or `&mut TestContext`",
         ));
     };
-
-    if reference.mutability.is_some() {
-        return Err(Error::new_spanned(
-            reference,
-            "VVM test configuration must be an immutable `&TestRunConfig` reference",
-        ));
-    }
 
     let Type::Path(ref path) = *reference.elem else {
         return Err(Error::new_spanned(
             &reference.elem,
-            "VVM test configuration must be `&TestRunConfig`",
+            "VVM tests accept `&TestRunConfig` or `&mut TestContext`",
         ));
     };
 
-    let valid = path.qself.is_none()
-        && path.path.segments.last().is_some_and(|segment| {
-            segment.ident == "TestRunConfig" && matches!(&segment.arguments, PathArguments::None)
-        });
+    let type_name = path
+        .path
+        .segments
+        .last()
+        .filter(|segment| path.qself.is_none() && matches!(&segment.arguments, PathArguments::None))
+        .map(|segment| &segment.ident);
 
-    if !valid {
-        return Err(Error::new_spanned(
+    match (reference.mutability.is_some(), type_name) {
+        (false, Some(name)) if name == "TestRunConfig" => Ok(TestArgument::Config),
+        (true, Some(name)) if name == "TestContext" => Ok(TestArgument::Context),
+        (false, Some(name)) if name == "TestContext" => Err(Error::new_spanned(
+            reference,
+            "VVM test context must be passed as mutable `&mut TestContext`",
+        )),
+        (true, Some(name)) if name == "TestRunConfig" => Err(Error::new_spanned(
+            reference,
+            "VVM test configuration must be an immutable `&TestRunConfig` reference",
+        )),
+        _ => Err(Error::new_spanned(
             &reference.elem,
-            "VVM test configuration must be `&TestRunConfig`",
-        ));
+            "VVM tests accept `&TestRunConfig` or `&mut TestContext`",
+        )),
     }
-
-    Ok(true)
 }
 
 /// Resolves and validates the registry name.
@@ -489,7 +504,7 @@ mod tests {
     use quote::quote;
     use syn::{ItemFn, parse_quote};
 
-    use super::Input;
+    use super::{Input, TestArgument};
 
     #[test]
     fn infers_name_and_description() -> Result<(), Box<dyn std::error::Error>> {
@@ -508,8 +523,33 @@ mod tests {
         assert_eq!(input.description.value(), "Randomized counter regression.");
         assert!(input.trace);
         assert!(input.replay.enabled());
-        assert!(input.accepts_config);
+        assert!(matches!(input.argument, TestArgument::Config));
         Ok(())
+    }
+
+    #[test]
+    fn accepts_mutable_test_context() -> Result<(), Box<dyn std::error::Error>> {
+        let item: ItemFn = parse_quote! {
+            /// Covered smoke test.
+            fn covered(context: &mut vvm::TestContext) -> ResultType {
+                run(context.config())
+            }
+        };
+
+        let input = Input::parse(quote!(trace), item)?;
+
+        assert!(matches!(input.argument, TestArgument::Context));
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_immutable_test_context() {
+        let item: ItemFn = parse_quote! {
+            /// Invalid test.
+            fn invalid(context: &vvm::TestContext) -> ResultType { run(context.config()) }
+        };
+
+        assert!(Input::parse(TokenStream::new(), item).is_err());
     }
 
     #[test]

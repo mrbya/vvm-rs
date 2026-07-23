@@ -2,10 +2,22 @@ use std::fmt;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
-use crate::{ReplayToken, SimulationTime, TestResult, TraceableDut};
+use crate::{ReplayToken, SimulationTime, TestContext, TestResult, TraceableDut};
 
 /// Function implementing one registered test.
 pub type TestFunction = fn(&TestRunConfig) -> TestOutcome;
+
+/// Function implementing one context-aware registered test.
+pub type ContextTestFunction = fn(&mut TestContext) -> TestOutcome;
+
+/// Private execution representation for registered tests.
+#[derive(Debug, Clone, Copy)]
+enum TestEntryPoint {
+    /// Legacy config-only entry point.
+    Config(TestFunction),
+    /// Context-aware entry point.
+    Context(ContextTestFunction),
+}
 
 /// High-level outcome of a registered test.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -457,7 +469,7 @@ pub struct TestDescriptor {
     description: &'static str,
 
     /// Execution entry point.
-    function: TestFunction,
+    entry_point: TestEntryPoint,
 
     /// Supported test capabilities.
     capabilities: TestCapabilities,
@@ -475,7 +487,23 @@ impl TestDescriptor {
         Self {
             name,
             description,
-            function,
+            entry_point: TestEntryPoint::Config(function),
+            capabilities,
+        }
+    }
+
+    /// Constructs a context-aware test descriptor from explicit metadata.
+    #[must_use]
+    pub const fn new_with_context(
+        name: &'static str,
+        description: &'static str,
+        function: ContextTestFunction,
+        capabilities: TestCapabilities,
+    ) -> Self {
+        Self {
+            name,
+            description,
+            entry_point: TestEntryPoint::Context(function),
             capabilities,
         }
     }
@@ -553,12 +581,20 @@ impl TestDescriptor {
     /// Returns an error if the supplied configuration is incompatible with the
     /// descriptor.
     pub fn run(&self, config: &TestRunConfig) -> Result<TestRun<'_>, TestRegistryError> {
+        validate_test_name(self.name())?;
+
         let effective_config = self.resolve_config(config)?;
-        let outcome = (self.function)(&effective_config);
+        let mut context = TestContext::new(self.name(), effective_config);
+        let outcome = match self.entry_point {
+            TestEntryPoint::Config(function) => function(context.config()),
+            TestEntryPoint::Context(function) => function(&mut context),
+        };
+        let coverage = context.finish();
 
         Ok(TestRun {
             test: self,
             outcome,
+            coverage,
         })
     }
 
@@ -750,10 +786,19 @@ fn generated_replay_token() -> ReplayToken {
 
 /// Validates test name.
 fn validate_test_name(name: &'static str) -> Result<(), TestRegistryError> {
+    if is_valid_test_name(name) {
+        Ok(())
+    } else {
+        Err(TestRegistryError::InvalidName { name })
+    }
+}
+
+/// Returns whether a VVM test name follows the registry naming rules.
+pub fn is_valid_test_name(name: &str) -> bool {
     let mut characters = name.chars();
 
     let Some(first) = characters.next() else {
-        return Err(TestRegistryError::InvalidName { name });
+        return false;
     };
 
     if first.is_ascii_lowercase()
@@ -763,10 +808,10 @@ fn validate_test_name(name: &'static str) -> Result<(), TestRegistryError> {
                 || matches!(character, '-' | '_' | '.')
         })
     {
-        return Ok(());
+        return true;
     }
 
-    Err(TestRegistryError::InvalidName { name })
+    false
 }
 
 /// Completed execution of one registered test.
@@ -777,6 +822,9 @@ pub struct TestRun<'a> {
 
     /// Type-erased execution outcome.
     outcome: TestOutcome,
+
+    /// Captured functional coverage, when present.
+    coverage: Option<crate::CoverageSessionSnapshot>,
 }
 
 impl<'a> TestRun<'a> {
@@ -804,7 +852,19 @@ impl<'a> TestRun<'a> {
         &self.outcome
     }
 
-    /// Consumes test run.
+    /// Returns captured functional coverage.
+    #[must_use]
+    pub const fn coverage(&self) -> Option<&crate::CoverageSessionSnapshot> {
+        self.coverage.as_ref()
+    }
+
+    /// Consumes the run into outcome and coverage.
+    #[must_use]
+    pub fn into_parts(self) -> (TestOutcome, Option<crate::CoverageSessionSnapshot>) {
+        (self.outcome, self.coverage)
+    }
+
+    /// Consumes the test run and discards captured coverage.
     #[must_use]
     pub fn into_outcome(self) -> TestOutcome {
         self.outcome

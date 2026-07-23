@@ -48,6 +48,21 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
+//! Context-aware VVM tests can capture immutable owned coverage snapshots at
+//! the end of a test body. `capture_coverage()` freezes the group's state at
+//! that call; later sampling does not alter the captured data, and no files are
+//! written by this operation.
+//!
+//! ```ignore
+//! #[vvm::test]
+//! fn covered(context: &mut vvm::TestContext) -> Result<MyTestResult, Box<dyn std::error::Error>> {
+//!     let mut coverage = MyCoverage::new("dut.decoder")?;
+//!     let result = run_test_body(context.config(), &mut coverage);
+//!     context.capture_coverage(&coverage)?;
+//!     result
+//! }
+//! ```
+//!
 //! # Example
 //!
 //! A build script describes the DUT:
@@ -128,23 +143,26 @@ pub(crate) mod test;
 #[doc(inline)]
 pub use vvm_core::{
     Bin, BinId, BinKind, Bits, CheckFailure, Clock, ClockConfigurationError, ClockScheduler,
-    ClockTiming, CoverageBuildError, CoverageCounterKind, CoverageGroup, CoverageGroupCountKind,
-    CoverageGroupError, CoverageGroupInstance, CoverageGroupSummary, CoverageGroupVisitor,
-    CoverageItemKind, CoverageItemRef, CoverageRatio, CoverageSampleDisposition,
-    CoverageSampleError, Coverpoint, CoverpointBin, CoverpointBuilder, CoverpointSample, Cross2,
-    Cross2Builder, CrossAxis, CrossBin, CrossBinId, CrossBuildError, CrossCounterKind, CrossSample,
+    ClockTiming, ContextTestFunction, CoverageBuildError, CoverageCounterKind, CoverageGroup,
+    CoverageGroupCountKind, CoverageGroupError, CoverageGroupInstance, CoverageGroupSnapshot,
+    CoverageGroupSummary, CoverageGroupVisitor, CoverageItemKind, CoverageItemRef,
+    CoverageItemSnapshot, CoverageRatio, CoverageSampleDisposition, CoverageSampleError,
+    CoverageSession, CoverageSessionCountKind, CoverageSessionError, CoverageSessionSnapshot,
+    CoverageSessionSummary, Coverpoint, CoverpointBin, CoverpointBinSnapshot, CoverpointBuilder,
+    CoverpointSample, CoverpointSnapshot, Cross2, Cross2Builder, Cross2Snapshot, CrossAxis,
+    CrossBin, CrossBinId, CrossBinSnapshot, CrossBuildError, CrossCounterKind, CrossSample,
     CrossSampleDisposition, CrossSampleError, CycleTiming, DetailedTestReport, Drive, Dut,
     ExactScoreboard, FailurePolicy, InoutState, IntoTestOutcome, InvalidBitVectorWordCount,
     InvalidFailureLimit, InvalidTimeStep, Mismatch, PackedEnumLayout, PackedEnumVariantLayout,
     PackedFieldLayout, PackedLayout, PackedLayoutError, PackedRange, PackedValue,
     ParseReplayTokenError, RandomAlgorithm, RandomContext, Randomize, ReferenceModel, ReplayToken,
     ReplayableSequence, Sample, Scoreboard, Seed, SignedBits, SimulationError, SimulationStage,
-    SimulationTime, TestCapabilities, TestDescriptor, TestFunction, TestOutcome, TestRegistry,
-    TestRegistryError, TestResult, TestRun, TestRunConfig, TestStatistics, TestStatus, TestSummary,
-    Testbench, TimeStep, TimedDut, TimingEvent, TimingRun, TimingScheduler, TimingSchedulerError,
-    TimingStage, TraceableDut, UnpackedArrayIndexError, extract_packed, extract_signed,
-    extract_signed_packed, extract_unsigned, insert_packed, insert_signed, insert_signed_packed,
-    insert_unsigned, unpacked_array_ordinal,
+    SimulationTime, TestCapabilities, TestContext, TestDescriptor, TestFunction, TestOutcome,
+    TestRegistry, TestRegistryError, TestResult, TestRun, TestRunConfig, TestStatistics,
+    TestStatus, TestSummary, Testbench, TimeStep, TimedDut, TimingEvent, TimingRun,
+    TimingScheduler, TimingSchedulerError, TimingStage, TraceableDut, UnpackedArrayIndexError,
+    extract_packed, extract_signed, extract_signed_packed, extract_unsigned, insert_packed,
+    insert_signed, insert_signed_packed, insert_unsigned, unpacked_array_ordinal,
 };
 #[doc(inline)]
 pub use vvm_macros::{Clock, Drive, Sample, test};
@@ -162,8 +180,9 @@ pub mod prelude {
         Bin, Bits, Clock, ClockScheduler, ClockTiming, CoverageGroup, CoverageGroupInstance,
         CoverageGroupVisitor, CoverageItemRef, Coverpoint, Cross2, CycleTiming, Drive, Dut,
         ExactScoreboard, FailurePolicy, InoutState, RandomContext, Randomize, ReferenceModel,
-        ReplayableSequence, Sample, Scoreboard, Seed, SignedBits, SimulationTime, TestDescriptor,
-        TestRegistryError, TestRunConfig, Testbench, TimeStep, TimedDut, TimingScheduler,
+        ReplayableSequence, Sample, Scoreboard, Seed, SignedBits, SimulationTime, TestContext,
+        TestDescriptor, TestRegistryError, TestRunConfig, Testbench, TimeStep, TimedDut,
+        TimingScheduler,
     };
 }
 

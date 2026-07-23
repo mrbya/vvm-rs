@@ -1517,15 +1517,16 @@ Implement only after the MVP is stable.
 - [x] Validate unique item names and cross source membership.
 - [x] Add exact aggregate group metrics.
 - [x] Preserve independent per-instance counters.
-- [ ] Add per-test coverage sessions.
-- [ ] Add versioned JSON persistence and fingerprints.
-- [ ] Add deterministic coverage merging.
-- [ ] Add text and HTML reporting.
-- [ ] Add a vertical functional-coverage example.
 
-- [ ] Add per-test coverage sessions.
-- [ ] Add per-test coverage sessions.
-- [ ] Add versioned JSON persistence.
+#### 11.7.4 — Per-test coverage sessions
+
+- [x] Add immutable coverpoint-bin, cross-bin, item, and group snapshots.
+- [x] Add owned per-test `CoverageSession` snapshots and exact flat aggregation.
+- [x] Enforce unique group instance paths and atomic capture.
+- [x] Add context-aware VVM test execution while preserving legacy descriptors.
+- [x] Add `&mut TestContext` support to `#[vvm::test]`.
+- [x] Attach completed coverage snapshots to `TestRun`.
+- [ ] Add versioned JSON persistence and definition fingerprints.
 - [ ] Add deterministic coverage merging.
 - [ ] Add text and HTML reporting.
 - [ ] Add a vertical functional-coverage example.
@@ -1567,6 +1568,18 @@ Coverage-group semantics:
 - Cross membership uses exact process-local coverpoint identity.
 - Group coverage is a flat exact ratio over all item bins.
 - Instance merging and definition compatibility are deferred.
+
+Per-test coverage-session semantics:
+
+- Live coverage remains owned by concrete user-defined group structs.
+- Sessions capture immutable owned snapshots and never retain live group references.
+- Capture freezes group state at that call and preserves capture order.
+- Group instance paths are unique within one test session.
+- Session aggregation is an exact flat bin ratio.
+- `TestContext` owns the effective configuration and coverage session.
+- Existing `&TestRunConfig` tests remain supported; context-aware tests use `&mut TestContext`.
+- `TestRun` owns the completed optional coverage snapshot.
+- Persistence and file output remain deferred.
 
 ### Future — DPI interoperability
 

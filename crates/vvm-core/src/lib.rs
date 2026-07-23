@@ -91,6 +91,8 @@ pub(crate) mod result;
 pub(crate) mod sample;
 /// Scoreboard abstraction and exact-equality implementation.
 pub(crate) mod scoreboard;
+/// Mutable context for context-aware registered tests.
+pub(crate) mod test_context;
 /// Reusable synchronous testbench runner.
 pub(crate) mod testbench;
 /// Explicit simulation time.
@@ -105,11 +107,14 @@ pub use bits::{Bits, InvalidBitVectorWordCount, SignedBits};
 pub use clock::{Clock, ClockConfigurationError, ClockScheduler, ClockTiming};
 pub use coverage::{
     Bin, BinId, BinKind, CoverageBuildError, CoverageCounterKind, CoverageGroup,
-    CoverageGroupCountKind, CoverageGroupError, CoverageGroupInstance, CoverageGroupSummary,
-    CoverageGroupVisitor, CoverageItemKind, CoverageItemRef, CoverageRatio,
-    CoverageSampleDisposition, CoverageSampleError, Coverpoint, CoverpointBin, CoverpointBuilder,
-    CoverpointSample, Cross2, Cross2Builder, CrossAxis, CrossBin, CrossBinId, CrossBuildError,
-    CrossCounterKind, CrossSample, CrossSampleDisposition, CrossSampleError,
+    CoverageGroupCountKind, CoverageGroupError, CoverageGroupInstance, CoverageGroupSnapshot,
+    CoverageGroupSummary, CoverageGroupVisitor, CoverageItemKind, CoverageItemRef,
+    CoverageItemSnapshot, CoverageRatio, CoverageSampleDisposition, CoverageSampleError,
+    CoverageSession, CoverageSessionCountKind, CoverageSessionError, CoverageSessionSnapshot,
+    CoverageSessionSummary, Coverpoint, CoverpointBin, CoverpointBinSnapshot, CoverpointBuilder,
+    CoverpointSample, CoverpointSnapshot, Cross2, Cross2Builder, Cross2Snapshot, CrossAxis,
+    CrossBin, CrossBinId, CrossBinSnapshot, CrossBuildError, CrossCounterKind, CrossSample,
+    CrossSampleDisposition, CrossSampleError,
 };
 pub use drive::Drive;
 pub use dut::{Dut, TimedDut, TraceableDut};
@@ -126,13 +131,15 @@ pub use random::{
 };
 pub use reference_model::ReferenceModel;
 pub use registry::{
-    IntoTestOutcome, TestCapabilities, TestDescriptor, TestFunction, TestOutcome, TestRegistry,
-    TestRegistryError, TestRun, TestRunConfig, TestStatistics, TestStatus,
+    ContextTestFunction, IntoTestOutcome, TestCapabilities, TestDescriptor, TestFunction,
+    TestOutcome, TestRegistry, TestRegistryError, TestRun, TestRunConfig, TestStatistics,
+    TestStatus,
 };
 pub use report::{DetailedTestReport, TestSummary};
 pub use result::{CheckFailure, SimulationError, SimulationStage, TestResult};
 pub use sample::Sample;
 pub use scoreboard::{ExactScoreboard, Mismatch, Scoreboard};
+pub use test_context::TestContext;
 pub use testbench::{Testbench, Unconfigured};
 pub use time::{CycleTiming, InvalidTimeStep, SimulationTime, TimeStep};
 pub use timing::{TimingEvent, TimingRun, TimingScheduler, TimingSchedulerError, TimingStage};

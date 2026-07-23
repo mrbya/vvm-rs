@@ -52,8 +52,7 @@
 //! overlapping normal bins in row-major order. Ignored or unmatched axes skip
 //! the cross; illegal coverpoint samples return before cross sampling. Crosses
 //! have a bounded generated-bin cardinality and use exact [`CoverageRatio`]s.
-//! Percentages, persistence, merging, reporting, covergroups, and sessions are
-//! deliberately deferred.
+//! Persistence, merging, and reporting are deliberately deferred.
 //! Coverage groups are user-owned structs implementing [`CoverageGroup`]. They
 //! expose typed coverpoints and crosses through deterministic read-only
 //! visitation; sampling remains a concrete method on the user type.
@@ -79,6 +78,12 @@ pub mod item;
 pub mod matcher;
 /// Exact coverage ratio.
 pub mod ratio;
+/// Mutable per-test coverage-session collection.
+pub mod session;
+/// Structured coverage-session errors.
+pub mod session_error;
+/// Immutable owned coverage snapshots.
+pub mod snapshot;
 
 pub use bin::{Bin, BinId, BinKind, CoverpointBin};
 pub use coverpoint::{
@@ -92,3 +97,9 @@ pub use group_error::{CoverageGroupCountKind, CoverageGroupError};
 pub use item::{CoverageItemKind, CoverageItemRef};
 use matcher::MatcherValidationError;
 pub use ratio::CoverageRatio;
+pub use session::{CoverageSession, CoverageSessionSnapshot, CoverageSessionSummary};
+pub use session_error::{CoverageSessionCountKind, CoverageSessionError};
+pub use snapshot::{
+    CoverageGroupSnapshot, CoverageItemSnapshot, CoverpointBinSnapshot, CoverpointSnapshot,
+    Cross2Snapshot, CrossBinSnapshot,
+};

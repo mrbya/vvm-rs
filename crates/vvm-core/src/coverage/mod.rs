@@ -82,6 +82,10 @@ mod identifier;
 pub mod item;
 /// Declarative matcher representation and validation.
 pub mod matcher;
+/// Deterministic offline coverage merging.
+pub mod merge;
+/// Structured coverage merge errors.
+pub mod merge_error;
 /// Exact coverage ratio.
 pub mod ratio;
 /// Mutable per-test coverage-session collection.
@@ -106,6 +110,8 @@ pub use group_error::{CoverageGroupCountKind, CoverageGroupError};
 pub use item::{CoverageItemKind, CoverageItemRef};
 pub use matcher::BinMatcherKind;
 use matcher::MatcherValidationError;
+pub use merge::{CoverageMerge, CoverageMergeInput, CoverageMergePolicy, CoverageMergeSummary};
+pub use merge_error::{CoverageMergeCountKind, CoverageMergeCounterKind, CoverageMergeError};
 pub use ratio::CoverageRatio;
 pub use session::{CoverageSession, CoverageSessionSnapshot, CoverageSessionSummary};
 pub use session_error::{CoverageSessionCountKind, CoverageSessionError};

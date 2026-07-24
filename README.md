@@ -245,6 +245,19 @@ Coverage groups are ordinary user-defined structs. They retain typed sampling
 while implementing `CoverageGroup` for read-only validation and aggregate
 inspection of coverpoints and crosses.
 
+Per-test artifacts can be merged explicitly after tests complete:
+
+```rust
+let merged = vvm::CoverageMerge::from_files(
+    vvm::CoverageMergePolicy::passed_only(),
+    artifact_paths,
+)?;
+merged.write_to("target/coverage/combined.vvmcov-merged.json")?;
+```
+
+Merging is offline, deterministic, and never updates shared test-runtime
+state. See [`docs/coverage-merging.md`](docs/coverage-merging.md).
+
 ## Running VVM Tests
 
 VVM tests are ordinary Rust tests.

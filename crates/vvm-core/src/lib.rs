@@ -110,11 +110,13 @@ pub use coverage::{
     CoverageBuildError, CoverageCounterKind, CoverageDefinitionFingerprint, CoverageGroup,
     CoverageGroupCountKind, CoverageGroupError, CoverageGroupInstance, CoverageGroupSnapshot,
     CoverageGroupSummary, CoverageGroupVisitor, CoverageIoOperation, CoverageItemKind,
-    CoverageItemRef, CoverageItemSnapshot, CoveragePersistenceError, CoverageRatio,
-    CoverageSampleDisposition, CoverageSampleError, CoverageSession, CoverageSessionCountKind,
-    CoverageSessionError, CoverageSessionSnapshot, CoverageSessionSummary, Coverpoint,
-    CoverpointBin, CoverpointBinSnapshot, CoverpointBuilder, CoverpointSample, CoverpointSnapshot,
-    Cross2, Cross2Builder, Cross2Snapshot, CrossAxis, CrossBin, CrossBinId, CrossBinSnapshot,
+    CoverageItemRef, CoverageItemSnapshot, CoverageMerge, CoverageMergeCountKind,
+    CoverageMergeCounterKind, CoverageMergeError, CoverageMergeInput, CoverageMergePolicy,
+    CoverageMergeSummary, CoveragePersistenceError, CoverageRatio, CoverageSampleDisposition,
+    CoverageSampleError, CoverageSession, CoverageSessionCountKind, CoverageSessionError,
+    CoverageSessionSnapshot, CoverageSessionSummary, Coverpoint, CoverpointBin,
+    CoverpointBinSnapshot, CoverpointBuilder, CoverpointSample, CoverpointSnapshot, Cross2,
+    Cross2Builder, Cross2Snapshot, CrossAxis, CrossBin, CrossBinId, CrossBinSnapshot,
     CrossBuildError, CrossCounterKind, CrossSample, CrossSampleDisposition, CrossSampleError,
 };
 pub use drive::Drive;

@@ -3,6 +3,7 @@ use std::io::Write as _;
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -23,6 +24,16 @@ pub struct CoverageArtifactGroup {
 }
 
 impl CoverageArtifactGroup {
+    /// Reconstructs one artifact group from validated merged data.
+    pub(crate) const fn from_parts(
+        snapshot: CoverageGroupSnapshot,
+        definition_fingerprint: CoverageDefinitionFingerprint,
+    ) -> Self {
+        Self {
+            snapshot,
+            definition_fingerprint,
+        }
+    }
     /// Returns the definition name.
     #[must_use]
     pub fn definition_name(&self) -> &str {
@@ -78,6 +89,10 @@ pub struct CoverageArtifact {
 }
 
 impl CoverageArtifact {
+    /// Consumes only the captured group records for offline merging.
+    pub(crate) fn into_groups(self) -> Box<[CoverageArtifactGroup]> {
+        self.groups
+    }
     /// Persisted artifact format name.
     pub const FORMAT_NAME: &'static str = "vvm-functional-coverage";
     /// Supported JSON schema version.
@@ -242,7 +257,12 @@ impl CoverageArtifact {
                 path: path.display().to_string(),
                 reason: "artifact filename is not valid UTF-8".to_owned(),
             })?;
-        let temporary = parent.join(format!(".{filename}.{}.tmp", std::process::id()));
+        let sequence = TEMPORARY_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let temporary = parent.join(format!(
+            ".{filename}.{}.{}.tmp",
+            std::process::id(),
+            sequence
+        ));
         let mut file = OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -342,8 +362,11 @@ impl CoverageArtifact {
         })
     }
 }
+
+/// Process-local suffix used only to avoid temporary-file collisions.
+static TEMPORARY_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 /// Returns the stable persisted status string.
-const fn status_text(status: TestStatus) -> &'static str {
+pub const fn status_text(status: TestStatus) -> &'static str {
     match status {
         TestStatus::Passed => "passed",
         TestStatus::Failed => "failed",
@@ -351,15 +374,15 @@ const fn status_text(status: TestStatus) -> &'static str {
     }
 }
 /// Converts an exact ratio to schema JSON.
-fn ratio_json(value: CoverageRatio) -> Value {
+pub fn ratio_json(value: CoverageRatio) -> Value {
     json!({ "covered": value.covered(), "uncovered": value.uncovered(), "total": value.total() })
 }
 /// Converts a session summary to schema JSON.
-fn summary_json(value: CoverageSessionSummary) -> Value {
+pub fn summary_json(value: CoverageSessionSummary) -> Value {
     json!({ "groups": value.group_count(), "items": value.item_count(), "coverpoints": value.coverpoint_count(), "crosses": value.cross_count(), "coverage": ratio_json(value.coverage()) })
 }
 /// Converts a captured group to schema JSON.
-fn group_json(group: &CoverageArtifactGroup) -> Value {
+pub fn group_json(group: &CoverageArtifactGroup) -> Value {
     json!({ "definition": { "name": group.definition_name(), "revision": group.definition_revision(), "fingerprint": group.definition_fingerprint().to_string() }, "instance_path": group.instance_path(), "summary": { "items": group.summary().item_count(), "coverpoints": group.summary().coverpoint_count(), "crosses": group.summary().cross_count(), "coverage": ratio_json(group.coverage()) }, "items": group.snapshot().items().iter().map(item_json).collect::<Vec<_>>() })
 }
 /// Converts a captured item to schema JSON.
@@ -445,7 +468,7 @@ struct SessionSummaryDto {
 /// Strict group schema.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct GroupDto {
+pub struct GroupDto {
     /// Definition metadata.
     definition: DefinitionDto,
     /// Instance path.
@@ -571,7 +594,7 @@ struct CrossBinDto {
 }
 
 /// Builds and validates one persisted group.
-fn group_from_dto(
+pub fn group_from_dto(
     group: GroupDto,
     index: usize,
 ) -> Result<CoverageArtifactGroup, CoveragePersistenceError> {
@@ -1108,7 +1131,7 @@ fn validate_name(value: &str, path: &str) -> Result<(), CoveragePersistenceError
 }
 
 /// Parses a stable schema status string.
-fn parse_status(value: &str) -> Result<TestStatus, CoveragePersistenceError> {
+pub fn parse_status(value: &str) -> Result<TestStatus, CoveragePersistenceError> {
     match value {
         "passed" => Ok(TestStatus::Passed),
         "failed" => Ok(TestStatus::Failed),

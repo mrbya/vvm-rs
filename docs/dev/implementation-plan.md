@@ -1527,7 +1527,6 @@ Implement only after the MVP is stable.
 - [x] Add `&mut TestContext` support to `#[vvm::test]`.
 - [x] Attach completed coverage snapshots to `TestRun`.
 - [x] Add versioned JSON persistence and definition fingerprints.
-- [ ] Add deterministic coverage merging.
 - [ ] Add text and HTML reporting.
 - [ ] Add a vertical functional-coverage example.
 
@@ -1589,8 +1588,37 @@ Per-test coverage-session semantics:
 - [x] Persist captured test-session coverage through the standard facade bridge.
 - [x] Add `VVM_COVERAGE_DIR` output-root configuration.
 - [x] Document schema-v1 and fingerprint limitations.
-- [ ] Add deterministic coverage merging.
 - [ ] Add text and HTML reporting.
+
+#### 11.7.6 — Deterministic coverage merging
+
+- [x] Add explicit test-status inclusion policies.
+- [x] Default to passed-only coverage contribution.
+- [x] Preserve metadata for excluded artifacts.
+- [x] Merge group instances by hierarchical instance path.
+- [x] Require matching definition fingerprints and structural data.
+- [x] Sum runtime counters with checked arithmetic.
+- [x] Recompute coverage after merging raw hits.
+- [x] Produce deterministic results independent of input order.
+- [x] Order merged groups lexicographically by instance path.
+- [x] Add the immutable `CoverageMerge` model and strict merged JSON schema.
+- [x] Add atomic merged-document persistence and explicit file merge APIs.
+- [x] Preserve per-test schema-v1 behavior.
+- [x] Document merge semantics and status policy.
+- [ ] Add text and HTML reporting.
+- [ ] Add GitLab-compatible CI metric output.
+- [ ] Add a vertical functional-coverage example.
+
+Coverage merge semantics:
+
+- Per-test artifacts remain immutable inputs.
+- Merge contribution is controlled by an explicit status policy; passed-only is the default.
+- Groups merge by exact hierarchical instance path; different paths remain independent.
+- Compatible groups require equal names, revisions, fingerprints, and ordered structure.
+- Raw runtime counters are summed with checked arithmetic and coverage is recomputed.
+- Input order cannot affect merged results; groups use lexicographic instance-path order.
+- Excluded artifacts remain provenance metadata.
+- Merging is explicit offline post-processing; test execution has no shared merged database.
 
 ### Future — DPI interoperability
 

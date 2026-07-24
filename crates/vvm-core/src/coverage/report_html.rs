@@ -8,20 +8,77 @@ use crate::{BinKind, CoverageItemSnapshot};
 /// Renders the complete deterministic self-contained HTML document.
 pub(super) fn render(report: CoverageReport<'_>) -> String {
     let mut output = String::from(
-        "<!doctype html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta \
-         name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>VVM \
-         Functional Coverage</title>\n  <style>\n:root { color-scheme: light dark; --bg: #fff; \
-         --fg: #18212b; --muted: #667; --border: #bcc; --bad: #9b1c1c; --good: #176b3a; }\n@media \
-         (prefers-color-scheme: dark) { :root { --bg: #18212b; --fg: #f5f7fa; --muted: #b5bec8; \
-         --border: #52606d; --bad: #ff9999; --good: #89db9f; } }\nbody { max-width: 1100px; \
-         margin: 2rem auto; padding: 0 1rem; background: var(--bg); color: var(--fg); font: 16px \
-         system-ui, sans-serif; } table { width: 100%; border-collapse: collapse; margin: 1rem 0; \
-         } th, td { border: 1px solid var(--border); padding: .45rem; text-align: left; } .grid { \
-         display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .75rem; \
-         } .card { border: 1px solid var(--border); padding: .75rem; } .excluded { opacity: .72; \
-         } .covered { color: var(--good); } .uncovered, .illegal { color: var(--bad); } progress \
-         { width: 12rem; }\n  </style>\n</head>\n<body>\n<header><h1>VVM Functional \
-         Coverage</h1></header>\n<main>\n",
+        "<!doctype html>\n
+        <html lang=\"en\">\n
+        <head>\n
+          <meta charset=\"utf-8\">\n
+          <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n
+          <title>VVM Functional Coverage</title>\n
+          <style>\n
+            :root {\n
+              color-scheme: light dark;\n
+              --bg: #fff; \n
+              --fg: #18212b;\n
+              --muted: #667;\n
+              --border: #bcc;\n
+              --bad: #9b1c1c;\n
+              --good: #176b3a;\n
+            }\n
+            @media (prefers-color-scheme: dark) {\n
+              :root {\n
+                --bg: #18212b;\n
+                --fg: #f5f7fa;\n
+                --muted: #b5bec8;\n
+                --border: #52606d;\n
+                --bad: #ff9999;\n
+                --good: #89db9f;\n
+              }\n
+            }\n
+            body {\n
+              max-width: 1100px;\n
+              margin: 2rem auto;\n
+              padding: 0 1rem;\n
+              background: var(--bg);\n
+              color: var(--fg);\n
+              font: 16px system-ui, sans-serif;\n
+            }\n
+            table {\n
+              width: 100%;\n
+              border-collapse: collapse;\n
+              margin: 1rem 0;\n
+            }\n
+            th, td {\n
+              border: 1px solid var(--border);\n
+              padding: .45rem; text-align: left;\n
+            }\n
+            .grid {\n
+              display: grid;\n
+              grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));\n
+              gap: .75rem;\n
+            }\n
+            .card {\n
+              border: 1px solid var(--border);\n
+              padding: .75rem;\n
+            }\n
+            .excluded {\n
+              opacity: .72;\n
+            }\n
+            .covered {\n
+              color: var(--good);\n
+            }\n
+            .uncovered, .illegal {\n
+              color: var(--bad);\n
+            }\n
+            progress {\n
+              width: 12rem;\n
+            }\n
+          </style>\n
+        </head>\n
+        <body>\n
+        <header>
+            <h1>VVM Functional Coverage</h1>\n
+        </header>\n
+        <main>\n",
     );
     render_summary(&mut output, report);
     if report.options().includes_inputs() {
@@ -40,24 +97,25 @@ pub(super) fn render(report: CoverageReport<'_>) -> String {
 fn render_summary(output: &mut String, report: CoverageReport<'_>) {
     let summary = report.merge().summary();
     let percentage = report.percentage();
+    let coverage = ratio_text(summary.coverage());
+    let policy = report.merge().policy();
+
     writeln!(
         output,
-        "<section aria-labelledby=\"overall\"><h2 id=\"overall\">Overall</h2><div \
-         class=\"grid\"><div class=\"card\"><strong>{percentage}</strong><br><progress \
-         max=\"10000\" value=\"{}\">{percentage}</progress><br>{}</div><div \
-         class=\"card\">Covered bins: {}</div><div class=\"card\">Uncovered bins: {}</div><div \
-         class=\"card\">Included artifacts: {}</div><div class=\"card\">Excluded artifacts: \
-         {}</div><div class=\"card\">Group instances: {}</div></div><p>Merge policy: \
-         {}</p><p>Statuses: {} passed, {} failed, {} errored. Structure: {} coverpoints, {} \
-         crosses.</p></section>",
+        "<section aria-labelledby=\"overall\">\n  <h2 id=\"overall\">Overall</h2>\n  \
+         <div class=\"grid\">\n    <div class=\"card\"><strong>{percentage}</strong><br>\n      \
+         <progress max=\"10000\" value=\"{}\">{percentage}</progress><br>{coverage}</div>\n    \
+         <div class=\"card\">Covered bins: {}</div>\n    <div class=\"card\">Uncovered bins: \
+         {}</div>\n    <div class=\"card\">Included artifacts: {}</div>\n    <div \
+         class=\"card\">Excluded artifacts: {}</div>\n    <div class=\"card\">Group instances: \
+         {}</div>\n  </div>\n  <p>Merge policy: {policy}</p>\n  <p>Statuses: {} passed, \
+         {} failed, {} errored. Structure: {} coverpoints, {} crosses.</p>\n</section>",
         percentage.basis_points(),
-        ratio_text(summary.coverage()),
         summary.coverage().covered(),
         summary.coverage().uncovered(),
         summary.included_artifact_count(),
         summary.excluded_artifact_count(),
         summary.group_count(),
-        report.merge().policy(),
         summary.passed_artifact_count(),
         summary.failed_artifact_count(),
         summary.errored_artifact_count(),
@@ -70,10 +128,9 @@ fn render_summary(output: &mut String, report: CoverageReport<'_>) {
 /// Appends input provenance when it is enabled.
 fn render_inputs(output: &mut String, report: CoverageReport<'_>) {
     output.push_str(
-        "<section aria-labelledby=\"inputs\"><h2 \
-         id=\"inputs\">Inputs</h2><table><thead><tr><th>Contribution</th><th>Test</th><th>Status</\
-         th><th>Producer</th><th>Replay \
-         token</th><th>Coverage</th><th>Bins</th></tr></thead><tbody>",
+        "<section aria-labelledby=\"inputs\">\n  <h2 id=\"inputs\">Inputs</h2>\n  <table>\n    \
+         <thead>\n      <tr><th>Contribution</th><th>Test</th><th>Status</th><th>Producer</th>\
+         <th>Replay token</th><th>Coverage</th><th>Bins</th></tr>\n    </thead>\n    <tbody>",
     );
     for input in report.merge().inputs() {
         let class = if input.included() {
@@ -81,14 +138,15 @@ fn render_inputs(output: &mut String, report: CoverageReport<'_>) {
         } else {
             "excluded"
         };
+        let contribution = if input.included() {
+            "included"
+        } else {
+            "excluded"
+        };
+
         write!(
             output,
-            "<tr class=\"{class}\"><td>{}</td><td>",
-            if input.included() {
-                "included"
-            } else {
-                "excluded"
-            }
+            "\n      <tr class=\"{class}\"><td>{contribution}</td><td>"
         )
         .expect("writing to String cannot fail");
         push_html_escaped(output, input.test_name());
@@ -109,7 +167,7 @@ fn render_inputs(output: &mut String, report: CoverageReport<'_>) {
         push_html_escaped(output, &short_ratio_text(input.summary().coverage()));
         output.push_str("</td></tr>");
     }
-    output.push_str("</tbody></table></section>\n");
+    output.push_str("\n    </tbody>\n  </table>\n</section>\n");
 }
 
 /// Appends one group and its definition-ordered item sections.
@@ -119,12 +177,12 @@ fn render_group(
     group_index: usize,
     group: &crate::CoverageArtifactGroup,
 ) {
-    write!(output, "<section id=\"group-{group_index}\"><h2>")
+    write!(output, "<section id=\"group-{group_index}\">\n  <h2>")
         .expect("writing to String cannot fail");
     push_html_escaped(output, group.instance_path());
-    output.push_str("</h2><p>Definition: ");
+    output.push_str("</h2>\n  <p>Definition: ");
     push_html_escaped(output, group.definition_name());
-    write!(
+    writeln!(
         output,
         ", revision {}. Coverage: {}. Items: {}; coverpoints: {}; crosses: {}.</p>",
         group.definition_revision(),
@@ -137,7 +195,7 @@ fn render_group(
     if report.options().includes_fingerprints() {
         output.push_str("<p>Fingerprint: ");
         push_html_escaped(output, &group.definition_fingerprint().to_string());
-        output.push_str("</p>");
+        output.push_str("</p>\n");
     }
     for (item_index, item) in group.snapshot().items().iter().enumerate() {
         render_item(
@@ -165,13 +223,13 @@ fn render_item(
     )
     .expect("writing to String cannot fail");
     push_html_escaped(output, item.name());
-    output.push_str("</h3>");
+    output.push_str("</h3>\n");
     match *item {
         CoverageItemSnapshot::Coverpoint(ref point) => {
-            write!(
+            writeln!(
                 output,
-                "<p>Coverpoint. Coverage: {}. Samples: {}. Ignored: {}. Illegal: {}. Unmatched: \
-                 {}.</p>",
+                "  <p>Coverpoint. Coverage: {}. Samples: {}. Ignored: {}. Illegal: {}. \
+                 Unmatched: {}.</p>",
                 ratio_text(point.coverage()),
                 point.sample_count(),
                 point.ignored_sample_count(),
@@ -182,7 +240,7 @@ fn render_item(
             render_point_bins(output, detail, point);
         }
         CoverageItemSnapshot::Cross2(ref cross) => {
-            output.push_str("<p>Cross. Coverage: ");
+            output.push_str("  <p>Cross. Coverage: ");
             push_html_escaped(output, &ratio_text(cross.coverage()));
             write!(
                 output,
@@ -194,11 +252,11 @@ fn render_item(
             push_html_escaped(output, cross.left_coverpoint_name());
             output.push_str(" x ");
             push_html_escaped(output, cross.right_coverpoint_name());
-            output.push_str(".</p>");
+            output.push_str(".</p>\n");
             render_cross_bins(output, detail, cross);
         }
     }
-    output.push_str("</section>");
+    output.push_str("</section>\n");
 }
 
 /// Appends selected coverpoint bins in declaration order.
@@ -219,11 +277,12 @@ fn render_point_bins(
         return;
     }
     output.push_str(
-        "<details open><summary>Bins</summary><table><thead><tr><th>Bin</th><th>Role</\
-         th><th>Matcher</th><th>Hits</th><th>Required</th><th>Status</th></tr></thead><tbody>",
+        "  <details open>\n    <summary>Bins</summary>\n    <table>\n      <thead>\n        \
+         <tr><th>Bin</th><th>Role</th><th>Matcher</th><th>Hits</th><th>Required</th>\
+         <th>Status</th></tr>\n      </thead>\n      <tbody>",
     );
     for bin in bins {
-        output.push_str("<tr><td>");
+        output.push_str("\n        <tr><td>");
         push_html_escaped(output, bin.name());
         output.push_str("</td><td>");
         push_html_escaped(output, &bin.kind().to_string());
@@ -232,17 +291,19 @@ fn render_point_bins(
             output,
             &matcher_text(bin.matcher_kind(), bin.matcher_operand_count()),
         );
+        let status = point_status(bin);
+
         write!(
             output,
             "</td><td>{}</td><td>{}</td><td class=\"{}\">{}</td></tr>",
             bin.hits(),
             bin.required_hits(),
-            point_status(bin),
-            point_status(bin)
+            status,
+            status
         )
         .expect("writing to String cannot fail");
     }
-    output.push_str("</tbody></table></details>");
+    output.push_str("\n      </tbody>\n    </table>\n  </details>\n");
 }
 
 /// Appends selected cross bins in row-major order.
@@ -263,33 +324,32 @@ fn render_cross_bins(
         return;
     }
     output.push_str(
-        "<details open><summary>Cross bins</summary><table><thead><tr><th>Left bin</th><th>Right \
-         bin</th><th>Hits</th><th>Required</th><th>Status</th></tr></thead><tbody>",
+        "  <details open>\n    <summary>Cross bins</summary>\n    <table>\n      <thead>\n        \
+         <tr><th>Left bin</th><th>Right bin</th><th>Hits</th><th>Required</th><th>Status</th>\
+         </tr>\n      </thead>\n      <tbody>",
     );
     for bin in bins {
-        output.push_str("<tr><td>");
+        output.push_str("\n        <tr><td>");
         push_html_escaped(output, bin.left_bin_name());
         output.push_str("</td><td>");
         push_html_escaped(output, bin.right_bin_name());
+        let status = if bin.covered() {
+            "covered"
+        } else {
+            "uncovered"
+        };
+
         write!(
             output,
             "</td><td>{}</td><td>{}</td><td class=\"{}\">{}</td></tr>",
             bin.hits(),
             bin.required_hits(),
-            if bin.covered() {
-                "covered"
-            } else {
-                "uncovered"
-            },
-            if bin.covered() {
-                "covered"
-            } else {
-                "uncovered"
-            }
+            status,
+            status
         )
         .expect("writing to String cannot fail");
     }
-    output.push_str("</tbody></table></details>");
+    output.push_str("\n      </tbody>\n    </table>\n  </details>\n");
 }
 
 /// Returns the textual state for one coverpoint bin.

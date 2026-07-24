@@ -30,6 +30,19 @@ test-cov *FLAGS:
 doctest:
     cargo test --workspace --doc
 
+# Runs the complete counter functional-coverage example.
+functional-coverage-example OUTPUT='target/vvm-functional-coverage':
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    rm -rf "{{OUTPUT}}"
+    mkdir -p "{{OUTPUT}}/artifacts"
+    output_dir="$(realpath "{{OUTPUT}}")"
+
+    VVM_COVERAGE_DIR="${output_dir}/artifacts" cargo test -p vvm-example-counter counter_smoke
+    VVM_COVERAGE_DIR="${output_dir}/artifacts" cargo test -p vvm-example-counter counter_random
+    cargo run -p vvm-example-counter --example coverage_report -- "${output_dir}/artifacts" "${output_dir}"
+
 # Runs in-scope Rust coverage with threshold enforcement and generates a cobertura report for gitlab.
 test-cov-ci *FLAGS:
     mkdir -p coverage

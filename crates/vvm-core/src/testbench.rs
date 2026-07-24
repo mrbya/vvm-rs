@@ -8,6 +8,45 @@ use crate::{
 /// Result type produced by a synchronous testbench run.
 type RunResult<S, R, B, O, D> = TestResult<S, <B as Scoreboard<R, O>>::Error, <D as Dut>::Error>;
 
+/// Read-only data from one successfully sampled testbench cycle.
+#[derive(Debug, Clone, Copy)]
+pub struct ObservedCycle<'a, S, O> {
+    /// Zero-based transaction cycle.
+    cycle: u64,
+    /// Simulation time at which the observation was sampled.
+    time: SimulationTime,
+    /// Stimulus active during the sampled cycle.
+    stimulus: &'a S,
+    /// DUT observation sampled during the cycle.
+    observed: &'a O,
+}
+
+impl<'a, S, O> ObservedCycle<'a, S, O> {
+    /// Returns the zero-based transaction cycle.
+    #[must_use]
+    pub const fn cycle(self) -> u64 {
+        self.cycle
+    }
+
+    /// Returns the simulation sampling time.
+    #[must_use]
+    pub const fn time(self) -> SimulationTime {
+        self.time
+    }
+
+    /// Returns the active stimulus.
+    #[must_use]
+    pub const fn stimulus(self) -> &'a S {
+        self.stimulus
+    }
+
+    /// Returns the sampled DUT observation.
+    #[must_use]
+    pub const fn observed(self) -> &'a O {
+        self.observed
+    }
+}
+
 /// Stage-tagged DUT failure from one runner operation.
 struct StageError<E> {
     /// Failed operation.
@@ -379,6 +418,25 @@ where
         O: Sample<D>,
         B: Scoreboard<R::Expected, O>,
     {
+        self.run_with_observer::<O, _>(|_| {})
+    }
+
+    /// Runs the testbench while synchronously observing every successfully
+    /// sampled transaction.
+    ///
+    /// The observer is called after DUT observation sampling and before
+    /// reference-model prediction and scoreboard checking. It receives only
+    /// immutable transaction data and cannot alter runner scheduling.
+    #[must_use]
+    pub fn run_with_observer<O, F>(
+        self,
+        mut cycle_observer: F,
+    ) -> RunResult<S::Item, R::Expected, B, O, D>
+    where
+        O: Sample<D>,
+        B: Scoreboard<R::Expected, O>,
+        F: for<'sample> FnMut(ObservedCycle<'sample, S::Item, O>),
+    {
         let Self {
             mut dut,
             sequence,
@@ -430,8 +488,15 @@ where
                 break;
             };
 
-            let expected = reference_model.predict(active_stimulus);
             let check_time = dut.simulation_time();
+            cycle_observer(ObservedCycle {
+                cycle,
+                time: check_time,
+                stimulus: active_stimulus,
+                observed: &observed,
+            });
+
+            let expected = reference_model.predict(active_stimulus);
             let check_result = scoreboard.check(expected, observed);
 
             result.record_check();

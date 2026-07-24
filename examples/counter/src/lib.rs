@@ -3,6 +3,9 @@
 #[cfg(test)]
 vvm::include_dut!(counter);
 
+/// Counter-specific functional coverage.
+#[cfg(test)]
+mod coverage;
 /// Simulation test cases.
 #[cfg(test)]
 mod test_cases;

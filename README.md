@@ -281,6 +281,23 @@ println!("{}", report.gitlab_metric());
 See [`docs/coverage-reporting.md`](docs/coverage-reporting.md) for options,
 fixed-point percentages, HTML behavior, and GitLab integration.
 
+The counter example provides the complete executable workflow:
+
+```bash
+just functional-coverage-example
+```
+
+```text
+target/vvm-functional-coverage/
+├── artifacts/
+├── counter.vvmcov-merged.json
+├── counter.vvmcov.txt
+└── counter.vvmcov.html
+```
+
+See [`examples/counter/README.md`](examples/counter/README.md) for the typed
+coverage model, manual commands, and GitLab job.
+
 ## Running VVM Tests
 
 VVM tests are ordinary Rust tests.

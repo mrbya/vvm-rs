@@ -437,6 +437,38 @@ fn runner_executes_pure_rust_mock() {
     assert!(result.finalization_error().is_none());
 }
 
+#[test]
+fn testbench_observer_receives_successful_transactions_in_order() {
+    let mut observed_cycles = Vec::new();
+    let result = crate::Testbench::new(MockDut::default())
+        .with_sequence([
+            MockStimulus { value: 4 },
+            MockStimulus { value: 8 },
+            MockStimulus { value: 15 },
+        ])
+        .with_reference_model(MockReferenceModel)
+        .with_scoreboard(ExactScoreboard)
+        .with_clock(MockClock)
+        .run_with_observer::<MockObservation, _>(|cycle| {
+            observed_cycles.push((
+                cycle.cycle(),
+                cycle.time(),
+                cycle.stimulus().value,
+                cycle.observed().value,
+            ));
+        });
+
+    assert!(result.passed());
+    assert_eq!(
+        observed_cycles,
+        [
+            (0, SimulationTime::from_ticks(1), 4, 4),
+            (1, SimulationTime::from_ticks(3), 8, 8),
+            (2, SimulationTime::from_ticks(5), 15, 15),
+        ]
+    );
+}
+
 /// Reference model that intentionally predicts the wrong value.
 struct IncorrectReferenceModel;
 
@@ -487,6 +519,48 @@ fn runner_collects_only_configured_failure_count() -> Result<(), crate::InvalidF
     );
 
     Ok(())
+}
+
+#[test]
+fn testbench_observer_runs_before_failure_policy_stops() {
+    let mut cycles = Vec::new();
+    let result = crate::Testbench::new(MockDut::default())
+        .with_sequence([
+            MockStimulus { value: 1 },
+            MockStimulus { value: 2 },
+            MockStimulus { value: 3 },
+        ])
+        .with_reference_model(IncorrectReferenceModel)
+        .with_scoreboard(ExactScoreboard)
+        .with_clock(MockClock)
+        .run_with_observer::<MockObservation, _>(|cycle| cycles.push(cycle.cycle()));
+
+    assert!(!result.passed());
+    assert_eq!(result.failure_count(), 1);
+    assert_eq!(cycles, [0]);
+}
+
+#[test]
+fn testbench_run_delegates_to_observer_execution() {
+    let sequence = [MockStimulus { value: 4 }, MockStimulus { value: 8 }];
+    let ordinary = crate::Testbench::new(MockDut::default())
+        .with_sequence(sequence)
+        .with_reference_model(MockReferenceModel)
+        .with_scoreboard(ExactScoreboard)
+        .with_clock(MockClock)
+        .run::<MockObservation>();
+    let observed = crate::Testbench::new(MockDut::default())
+        .with_sequence(sequence)
+        .with_reference_model(MockReferenceModel)
+        .with_scoreboard(ExactScoreboard)
+        .with_clock(MockClock)
+        .run_with_observer::<MockObservation, _>(|_| {});
+
+    assert_eq!(ordinary.cycles(), observed.cycles());
+    assert_eq!(ordinary.checks(), observed.checks());
+    assert_eq!(ordinary.final_time(), observed.final_time());
+    assert_eq!(ordinary.failure_count(), observed.failure_count());
+    assert_eq!(ordinary.replay_token(), observed.replay_token());
 }
 
 #[test]

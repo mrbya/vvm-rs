@@ -19,7 +19,8 @@
 //!   and [`TimingScheduler`];
 //! - stateful reference models;
 //! - scoreboards and structured mismatches;
-//! - deterministic testbench execution.
+//! - deterministic testbench execution and synchronous [`ObservedCycle`]
+//!   observation through [`Testbench::run_with_observer`];
 //! - explicitly sampled Rust-native functional coverage through [`Coverpoint`], [`Bin`], and [`Cross2`];
 //!
 //! Native compilation and DUT generation are configured separately through
@@ -52,6 +53,8 @@
 //! the end of a test body. `capture_coverage()` freezes the group's state at
 //! that call; later sampling does not alter the captured data, and no files are
 //! written by this operation.
+//! The counter example (`examples/counter`) demonstrates observer-driven
+//! capture, isolated artifacts, explicit merging, and text/HTML reporting.
 //!
 //! ```ignore
 //! #[vvm::test]
@@ -157,13 +160,13 @@ pub use vvm_core::{
     CrossBin, CrossBinId, CrossBinSnapshot, CrossBuildError, CrossCounterKind, CrossSample,
     CrossSampleDisposition, CrossSampleError, CycleTiming, DetailedTestReport, Drive, Dut,
     ExactScoreboard, FailurePolicy, InoutState, IntoTestOutcome, InvalidBitVectorWordCount,
-    InvalidFailureLimit, InvalidTimeStep, Mismatch, PackedEnumLayout, PackedEnumVariantLayout,
-    PackedFieldLayout, PackedLayout, PackedLayoutError, PackedRange, PackedValue,
-    ParseReplayTokenError, RandomAlgorithm, RandomContext, Randomize, ReferenceModel, ReplayToken,
-    ReplayableSequence, Sample, Scoreboard, Seed, SignedBits, SimulationError, SimulationStage,
-    SimulationTime, TestCapabilities, TestContext, TestDescriptor, TestFunction, TestOutcome,
-    TestRegistry, TestRegistryError, TestResult, TestRun, TestRunConfig, TestStatistics,
-    TestStatus, TestSummary, Testbench, TimeStep, TimedDut, TimingEvent, TimingRun,
+    InvalidFailureLimit, InvalidTimeStep, Mismatch, ObservedCycle, PackedEnumLayout,
+    PackedEnumVariantLayout, PackedFieldLayout, PackedLayout, PackedLayoutError, PackedRange,
+    PackedValue, ParseReplayTokenError, RandomAlgorithm, RandomContext, Randomize, ReferenceModel,
+    ReplayToken, ReplayableSequence, Sample, Scoreboard, Seed, SignedBits, SimulationError,
+    SimulationStage, SimulationTime, TestCapabilities, TestContext, TestDescriptor, TestFunction,
+    TestOutcome, TestRegistry, TestRegistryError, TestResult, TestRun, TestRunConfig,
+    TestStatistics, TestStatus, TestSummary, Testbench, TimeStep, TimedDut, TimingEvent, TimingRun,
     TimingScheduler, TimingSchedulerError, TimingStage, TraceableDut, UnpackedArrayIndexError,
     extract_packed, extract_signed, extract_signed_packed, extract_unsigned, insert_packed,
     insert_signed, insert_signed_packed, insert_unsigned, unpacked_array_ordinal,

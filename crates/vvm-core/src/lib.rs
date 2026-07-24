@@ -144,7 +144,7 @@ pub use result::{CheckFailure, SimulationError, SimulationStage, TestResult};
 pub use sample::Sample;
 pub use scoreboard::{ExactScoreboard, Mismatch, Scoreboard};
 pub use test_context::TestContext;
-pub use testbench::{Testbench, Unconfigured};
+pub use testbench::{ObservedCycle, Testbench, Unconfigured};
 pub use time::{CycleTiming, InvalidTimeStep, SimulationTime, TimeStep};
 pub use timing::{TimingEvent, TimingRun, TimingScheduler, TimingSchedulerError, TimingStage};
 pub use unpacked::{UnpackedArrayIndexError, unpacked_array_ordinal};

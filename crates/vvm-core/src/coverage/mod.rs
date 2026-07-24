@@ -52,10 +52,12 @@
 //! overlapping normal bins in row-major order. Ignored or unmatched axes skip
 //! the cross; illegal coverpoint samples return before cross sampling. Crosses
 //! have a bounded generated-bin cardinality and use exact [`CoverageRatio`]s.
-//! Persistence, merging, and reporting are deliberately deferred.
 //! Coverage groups are user-owned structs implementing [`CoverageGroup`]. They
 //! expose typed coverpoints and crosses through deterministic read-only
-//! visitation; sampling remains a concrete method on the user type.
+//! visitation; sampling remains a concrete method on the user type. Per-test
+//! sessions persist versioned JSON artifacts, which can be merged
+//! deterministically and rendered as text or self-contained HTML reports.
+//! See the counter example for the complete testbench-to-report workflow.
 /// Persisted coverage artifacts.
 pub mod artifact;
 /// Coverage persistence errors.

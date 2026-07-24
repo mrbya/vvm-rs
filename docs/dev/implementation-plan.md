@@ -176,7 +176,7 @@ Removed. Shared ABI support should only return once concrete cross-DUT native fu
 | 8 | Derive macros | Complete |
 | 9 | Public facade | Complete |
 | 10 | Tracing, reporting, and standard test harness | Complete |
-| 11 | Wider HDL feature support and Rust-native coverage | In progress (11.7.7 complete) |
+| 11 | Wider HDL feature support and Rust-native coverage | In progress (11.7 complete) |
 
 ---
 
@@ -1527,7 +1527,6 @@ Implement only after the MVP is stable.
 - [x] Add `&mut TestContext` support to `#[vvm::test]`.
 - [x] Attach completed coverage snapshots to `TestRun`.
 - [x] Add versioned JSON persistence and definition fingerprints.
-- [ ] Add a vertical functional-coverage example.
 
 Functional coverage primitive semantics:
 
@@ -1577,7 +1576,7 @@ Per-test coverage-session semantics:
 - `TestContext` owns the effective configuration and coverage session.
 - Existing `&TestRunConfig` tests remain supported; context-aware tests use `&mut TestContext`.
 - `TestRun` owns the completed optional coverage snapshot.
-- Artifact persistence is implemented; merging and reporting remain deferred.
+- Artifact persistence, deterministic merging, and reporting are implemented explicitly offline.
 
 #### 11.7.5 — Versioned JSON coverage artifacts
 
@@ -1630,7 +1629,6 @@ Coverage merge semantics:
 - [x] Add stable GitLab-compatible metric output.
 - [x] Add a documented GitLab coverage regex.
 - [x] Document reporting and CI integration.
-- [ ] Add a vertical functional-coverage example.
 
 Coverage reporting semantics:
 
@@ -1647,7 +1645,36 @@ Coverage reporting semantics:
 
 #### 11.7.8 — Vertical functional-coverage example
 
-- [ ] Add one complete example from typed sampling through GitLab reporting.
+- [x] Add synchronous per-cycle testbench observation.
+- [x] Preserve existing `Testbench::run` behavior.
+- [x] Add typed counter coverpoints.
+- [x] Add counter two-way crosses.
+- [x] Sample only successfully executed DUT cycles.
+- [x] Capture coverage through `TestContext`.
+- [x] Preserve smoke, randomized, tracing, replay, and failure behavior.
+- [x] Emit isolated per-test JSON artifacts.
+- [x] Merge compatible smoke and randomized coverage.
+- [x] Generate deterministic merged JSON.
+- [x] Generate deterministic plain-text and HTML reports.
+- [x] Emit the GitLab-compatible metric.
+- [x] Add an example-specific offline postprocessor.
+- [x] Add a one-command local workflow.
+- [x] Add comprehensive observer, coverage, integration, post-processing, and workflow tests.
+- [x] Document the complete functional-coverage pipeline.
+
+Vertical counter coverage semantics:
+
+- Coverage observes successfully sampled testbench transactions synchronously.
+- Observation cannot drive, evaluate, independently sample, or advance the DUT.
+- Coverage does not alter reference-model or scoreboard behavior.
+- Counter coverage remains an ordinary user-owned Rust struct.
+- Reset is an ignored operation for operation-based crosses.
+- Valid test traffic never samples the explicit illegal operation.
+- Smoke and randomized tests capture the same definition at the same hierarchical instance path.
+- Standard test execution emits isolated per-test artifacts.
+- The counter postprocessor performs explicit offline merging.
+- Text and HTML reports consume only the validated merged model.
+- The GitLab metric is the final line of the text report.
 
 ### Future — DPI interoperability
 

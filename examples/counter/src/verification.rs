@@ -1,10 +1,11 @@
 use thiserror::Error;
 use vvm::{
-    Clock, Drive, InvalidFailureLimit, Mismatch, RandomContext, ReferenceModel, ReplayToken,
-    ReplayableSequence, Sample, TestResult,
+    Clock, CoverageSessionError, Drive, InvalidFailureLimit, Mismatch, RandomContext,
+    ReferenceModel, ReplayToken, ReplayableSequence, Sample, TestResult,
 };
 
 use crate::counter::CounterError;
+use crate::coverage::CounterCoverageError;
 
 /// Counter simulation error.
 #[derive(Debug, Error)]
@@ -20,6 +21,14 @@ pub enum Error {
     /// Invalid failure-policy configuration.
     #[error(transparent)]
     FailurePolicy(#[from] InvalidFailureLimit),
+
+    /// Counter functional-coverage failure.
+    #[error(transparent)]
+    Coverage(#[from] CounterCoverageError),
+
+    /// Per-test coverage capture failure.
+    #[error(transparent)]
+    CoverageSession(#[from] CoverageSessionError),
 }
 
 /// Counter simulation result.
@@ -61,6 +70,18 @@ impl CounterStimulus {
     pub const fn new(reset_n: bool, enable: bool) -> Self {
         Self { reset_n, enable }
     }
+
+    /// Returns whether reset is deasserted.
+    #[must_use]
+    pub const fn reset_n(self) -> bool {
+        self.reset_n
+    }
+
+    /// Returns whether counting is enabled.
+    #[must_use]
+    pub const fn enable(self) -> bool {
+        self.enable
+    }
 }
 
 /// Counter output sampled after an active edge.
@@ -70,6 +91,20 @@ pub struct CounterObservation {
     /// Sampled counter value.
     #[vvm(port)]
     count: u8,
+}
+
+impl CounterObservation {
+    /// Creates one counter observation.
+    #[must_use]
+    pub const fn new(count: u8) -> Self {
+        Self { count }
+    }
+
+    /// Returns the sampled counter output.
+    #[must_use]
+    pub const fn count(self) -> u8 {
+        self.count
+    }
 }
 
 /// Stateful behavioral model of the counter.
@@ -89,7 +124,7 @@ impl ReferenceModel<CounterStimulus> for CounterReferenceModel {
             self.count = self.count.wrapping_add(1);
         }
 
-        CounterObservation { count: self.count }
+        CounterObservation::new(self.count)
     }
 }
 
@@ -108,7 +143,7 @@ impl ReferenceModel<CounterStimulus> for FailingReferenceModel {
             self.count = self.count.wrapping_add(1);
         }
 
-        CounterObservation { count: self.count }
+        CounterObservation::new(self.count)
     }
 }
 
@@ -116,7 +151,6 @@ impl ReferenceModel<CounterStimulus> for FailingReferenceModel {
 ///
 /// The sequence covers reset assertion, reset release, enabled counting,
 /// disabled hold behavior, and reset reassertion.
-#[allow(dead_code)]
 pub fn counter_sequence() -> impl ExactSizeIterator<Item = CounterStimulus> {
     [
         CounterStimulus::new(false, false),
@@ -203,20 +237,6 @@ mod tests {
 
     use super::{CounterClock, CounterObservation, CounterReferenceModel, counter_sequence};
     use crate::counter::{Counter, Result};
-
-    impl CounterObservation {
-        /// Creates one counter observation.
-        #[must_use]
-        pub const fn new(count: u8) -> Self {
-            Self { count }
-        }
-
-        /// Returns the sampled counter value.
-        #[must_use]
-        pub const fn count(self) -> u8 {
-            self.count
-        }
-    }
 
     /// Deliberately incorrect counter model.
     #[derive(Debug, Default)]

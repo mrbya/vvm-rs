@@ -147,32 +147,34 @@ pub(crate) mod test;
 pub use vvm_core::{
     Bin, BinId, BinKind, BinMatcherKind, Bits, CheckFailure, Clock, ClockConfigurationError,
     ClockScheduler, ClockTiming, ContextTestFunction, CoverageArtifact, CoverageArtifactGroup,
-    CoverageBinDetail, CoverageBuildError, CoverageCounterKind, CoverageDefinitionFingerprint,
-    CoverageGroup, CoverageGroupCountKind, CoverageGroupError, CoverageGroupInstance,
-    CoverageGroupSnapshot, CoverageGroupSummary, CoverageGroupVisitor, CoverageIoOperation,
-    CoverageItemKind, CoverageItemRef, CoverageItemSnapshot, CoverageMerge, CoverageMergeCountKind,
-    CoverageMergeCounterKind, CoverageMergeError, CoverageMergeInput, CoverageMergePolicy,
-    CoverageMergeSummary, CoveragePercentage, CoveragePersistenceError, CoverageRatio,
-    CoverageReport, CoverageReportOptions, CoverageSampleDisposition, CoverageSampleError,
-    CoverageSession, CoverageSessionCountKind, CoverageSessionError, CoverageSessionSnapshot,
-    CoverageSessionSummary, Coverpoint, CoverpointBin, CoverpointBinSnapshot, CoverpointBuilder,
-    CoverpointSample, CoverpointSnapshot, Cross2, Cross2Builder, Cross2Snapshot, CrossAxis,
-    CrossBin, CrossBinId, CrossBinSnapshot, CrossBuildError, CrossCounterKind, CrossSample,
-    CrossSampleDisposition, CrossSampleError, CycleTiming, DetailedTestReport, Drive, Dut,
-    ExactScoreboard, FailurePolicy, InoutState, IntoTestOutcome, InvalidBitVectorWordCount,
-    InvalidFailureLimit, InvalidTimeStep, Mismatch, ObservedCycle, PackedEnumLayout,
-    PackedEnumVariantLayout, PackedFieldLayout, PackedLayout, PackedLayoutError, PackedRange,
-    PackedValue, ParseReplayTokenError, RandomAlgorithm, RandomContext, Randomize, ReferenceModel,
-    ReplayToken, ReplayableSequence, Sample, Scoreboard, Seed, SignedBits, SimulationError,
-    SimulationStage, SimulationTime, TestCapabilities, TestContext, TestDescriptor, TestFunction,
-    TestOutcome, TestRegistry, TestRegistryError, TestResult, TestRun, TestRunConfig,
+    CoverageBinDetail, CoverageBuildError, CoverageCounterKind, CoverageDefinitionError,
+    CoverageDefinitionFingerprint, CoverageGroup, CoverageGroupCountKind, CoverageGroupError,
+    CoverageGroupInstance, CoverageGroupSnapshot, CoverageGroupSummary, CoverageGroupVisitor,
+    CoverageInstance, CoverageIoOperation, CoverageItemKind, CoverageItemRef, CoverageItemSnapshot,
+    CoverageMerge, CoverageMergeCountKind, CoverageMergeCounterKind, CoverageMergeError,
+    CoverageMergeInput, CoverageMergePolicy, CoverageMergeSummary, CoverageModel,
+    CoveragePercentage, CoveragePersistenceError, CoverageRatio, CoverageReport,
+    CoverageReportOptions, CoverageRuntimeError, CoverageRuntimeItemKind,
+    CoverageSampleDisposition, CoverageSampleError, CoverageSession, CoverageSessionCountKind,
+    CoverageSessionError, CoverageSessionSnapshot, CoverageSessionSummary, Coverpoint,
+    CoverpointBin, CoverpointBinSnapshot, CoverpointBuilder, CoverpointSample, CoverpointSnapshot,
+    Cross2, Cross2Builder, Cross2Snapshot, CrossAxis, CrossBin, CrossBinId, CrossBinSnapshot,
+    CrossBuildError, CrossCounterKind, CrossSample, CrossSampleDisposition, CrossSampleError,
+    CycleTiming, DetailedTestReport, Drive, Dut, ExactScoreboard, FailurePolicy, InoutState,
+    IntoTestOutcome, InvalidBitVectorWordCount, InvalidFailureLimit, InvalidTimeStep, Mismatch,
+    NoCoverage, ObservedCycle, PackedEnumLayout, PackedEnumVariantLayout, PackedFieldLayout,
+    PackedLayout, PackedLayoutError, PackedRange, PackedValue, ParseReplayTokenError,
+    RandomAlgorithm, RandomContext, Randomize, ReferenceModel, ReplayToken, ReplayableSequence,
+    Sample, Scoreboard, Seed, SignedBits, SimulationError, SimulationStage, SimulationTime,
+    TestCapabilities, TestContext, TestDescriptor, TestDiagnostic, TestDiagnosticKind,
+    TestFunction, TestOutcome, TestRegistry, TestRegistryError, TestResult, TestRun, TestRunConfig,
     TestStatistics, TestStatus, TestSummary, Testbench, TimeStep, TimedDut, TimingEvent, TimingRun,
     TimingScheduler, TimingSchedulerError, TimingStage, TraceableDut, UnpackedArrayIndexError,
     extract_packed, extract_signed, extract_signed_packed, extract_unsigned, insert_packed,
     insert_signed, insert_signed_packed, insert_unsigned, unpacked_array_ordinal,
 };
 #[doc(inline)]
-pub use vvm_macros::{Clock, Drive, Sample, test};
+pub use vvm_macros::{Clock, Coverage, Drive, Sample, test};
 
 /// Commonly used VVM traits, derives, and testbench types.
 ///
@@ -262,6 +264,7 @@ macro_rules! include_dut {
 #[doc(hidden)]
 pub mod __private {
     pub use cxx;
+    pub use vvm_core::{CoverageSampleSpec, CoverageSpec};
 
     pub use crate::test::{TestFailure, run_test};
 }

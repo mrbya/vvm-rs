@@ -14,39 +14,37 @@ pub const RANDOM_CYCLES: u64 = 10_000;
 pub const DEFAULT_REPLAY: ReplayToken = ReplayToken::new(Seed::new(0x72d7_5a12_993e_8411));
 
 /// Deterministic reset, count and hold test
-#[vvm::test(trace)]
+#[vvm::test(trace, coverage)]
 fn counter_smoke(context: &mut TestContext) -> Result<CounterTestResult> {
     let mut dut = Counter::new()?;
 
     context.config().configure_trace(&mut dut)?;
 
-    run_with_coverage(
-        context,
-        Testbench::new(dut)
-            .with_sequence(counter_sequence())
-            .with_reference_model(CounterReferenceModel::default())
-            .with_scoreboard(ExactScoreboard)
-            .with_clock(CounterClock),
-    )
+    Ok(Testbench::new(dut)
+        .with_sequence(counter_sequence())
+        .with_reference_model(CounterReferenceModel::default())
+        .with_scoreboard(ExactScoreboard)
+        .with_clock(CounterClock)
+        .with_coverage(CounterCoverage::new("dut.counter")?)
+        .run_covered::<CounterObservation>(context))
 }
 
 /// Intentionally failing counter test.
 #[ignore = "intentional VVM failure-reporting example"]
-#[vvm::test(trace)]
+#[vvm::test(trace, coverage)]
 fn counter_fail(context: &mut TestContext) -> Result<CounterTestResult> {
     let mut dut = Counter::new()?;
 
     context.config().configure_trace(&mut dut)?;
 
-    run_with_coverage(
-        context,
-        Testbench::new(dut)
-            .with_sequence(counter_sequence())
-            .with_reference_model(FailingReferenceModel::default())
-            .with_scoreboard(ExactScoreboard)
-            .with_clock(CounterClock)
-            .with_failure_policy(FailurePolicy::collect_up_to(10)?),
-    )
+    Ok(Testbench::new(dut)
+        .with_sequence(counter_sequence())
+        .with_reference_model(FailingReferenceModel::default())
+        .with_scoreboard(ExactScoreboard)
+        .with_clock(CounterClock)
+        .with_failure_policy(FailurePolicy::collect_up_to(10)?)
+        .with_coverage(CounterCoverage::new("dut.counter")?)
+        .run_covered::<CounterObservation>(context))
 }
 
 /// 10 000 cycles randomized counter regression
@@ -54,6 +52,7 @@ fn counter_fail(context: &mut TestContext) -> Result<CounterTestResult> {
     trace,
     cycles,
     replay(default = DEFAULT_REPLAY),
+    coverage,
 )]
 fn counter_random(context: &mut TestContext) -> Result<CounterTestResult> {
     let mut dut = Counter::new()?;
@@ -65,45 +64,13 @@ fn counter_random(context: &mut TestContext) -> Result<CounterTestResult> {
 
     context.config().configure_trace(&mut dut)?;
 
-    run_with_coverage(
-        context,
-        Testbench::new(dut)
-            .with_replayable_sequence(sequence)
-            .with_reference_model(CounterReferenceModel::default())
-            .with_scoreboard(ExactScoreboard)
-            .with_clock(CounterClock),
-    )
-}
-
-/// Runs one configured counter testbench while capturing coverage.
-fn run_with_coverage<S, R>(
-    context: &mut TestContext,
-    testbench: Testbench<Counter, S, R, ExactScoreboard, vvm::ClockScheduler<'static, Counter>>,
-) -> Result<CounterTestResult>
-where
-    S: IntoIterator<Item = crate::verification::CounterStimulus>,
-    R: vvm::ReferenceModel<crate::verification::CounterStimulus, Expected = CounterObservation>,
-{
-    let mut coverage = CounterCoverage::new()?;
-    let mut coverage_error = None;
-
-    let result = testbench.run_with_observer::<CounterObservation, _>(|cycle| {
-        if coverage_error.is_some() {
-            return;
-        }
-
-        if let Err(error) = coverage.sample(*cycle.stimulus(), *cycle.observed()) {
-            coverage_error = Some(error);
-        }
-    });
-
-    context.capture_coverage(&coverage)?;
-
-    if let Some(error) = coverage_error {
-        return Err(error.into());
-    }
-
-    Ok(result)
+    Ok(Testbench::new(dut)
+        .with_replayable_sequence(sequence)
+        .with_reference_model(CounterReferenceModel::default())
+        .with_scoreboard(ExactScoreboard)
+        .with_clock(CounterClock)
+        .with_coverage(CounterCoverage::new("dut.counter")?)
+        .run_covered::<CounterObservation>(context))
 }
 
 #[cfg(test)]

@@ -7,6 +7,8 @@ use syn::{DeriveInput, ItemFn, parse_macro_input};
 mod attrs;
 /// Clock trait derives.
 mod clock;
+/// Coverage model derives.
+mod coverage;
 /// Drive trait derives.
 mod drive;
 /// Common derive-input diagnostics.
@@ -58,6 +60,15 @@ pub fn derive_clock(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
     clock::derive(input)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+/// Derives typed functional-coverage construction, visitation, and sampling.
+#[proc_macro_derive(Coverage, attributes(vvm))]
+pub fn derive_coverage(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    coverage::derive(input)
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }

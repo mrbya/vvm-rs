@@ -48,6 +48,8 @@ pub(super) struct TestAttributes {
 
     /// Replay capability configuration.
     pub replay: ReplayAttribute,
+    /// Functional coverage capture declaration.
+    pub coverage: bool,
 }
 
 impl TestAttributes {
@@ -59,13 +61,11 @@ impl TestAttributes {
     pub(super) fn parse(tokens: TokenStream) -> Result<Self> {
         let mut attributes = Self::default();
         let mut replay_seen = false;
-
         let parser = syn::meta::parser(|meta| {
             if meta.path.is_ident("name") {
                 if attributes.name.is_some() {
                     return Err(meta.error("duplicate `name` option"));
                 }
-
                 let value = meta.value()?;
                 let name: LitStr = value.parse()?;
 
@@ -165,9 +165,13 @@ impl TestAttributes {
                 return Ok(());
             }
 
+            if meta.path.is_ident("coverage") {
+                return parse_coverage_option(&meta, &mut attributes.coverage);
+            }
+
             Err(meta.error(
                 "unsupported `vvm::test` option: expected `name`, `description`, `trace`, \
-                 `cycles`, or `replay`",
+                 `cycles`, `replay`, or `coverage`",
             ))
         });
 
@@ -177,6 +181,20 @@ impl TestAttributes {
 
     /// Returns whether the test exposes any runtime-configurable capability.
     pub(super) const fn configurable(&self) -> bool {
-        self.trace || self.cycles || self.replay.enabled()
+        self.trace || self.cycles || self.replay.enabled() || self.coverage
     }
+}
+
+/// Parses the flag-only coverage test capability.
+fn parse_coverage_option(meta: &syn::meta::ParseNestedMeta<'_>, coverage: &mut bool) -> Result<()> {
+    if *coverage {
+        return Err(meta.error("duplicate `coverage` option"));
+    }
+
+    if meta.input.peek(Token![=]) || meta.input.peek(syn::token::Paren) {
+        return Err(meta.error("`coverage` does not accept a value"));
+    }
+
+    *coverage = true;
+    Ok(())
 }

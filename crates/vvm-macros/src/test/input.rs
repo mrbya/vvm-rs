@@ -38,6 +38,8 @@ pub(super) struct Input {
 
     /// Replay capability configuration.
     pub(super) replay: ReplayAttribute,
+    /// Whether coverage capture is declared.
+    pub(super) coverage: bool,
 
     /// Supported argument accepted by the original function.
     pub(super) argument: TestArgument,
@@ -67,6 +69,12 @@ impl Input {
         validates_function_shape(&item)?;
 
         let argument = validate_arguments(&item, attributes.configurable())?;
+        if attributes.coverage && !matches!(argument, TestArgument::Context) {
+            return Err(Error::new_spanned(
+                &item.sig.inputs,
+                "tests declaring `coverage` must accept `&mut TestContext`",
+            ));
+        }
         let name = resolve_name(&attributes, &item)?;
         let description = resolve_description(&attributes, &item)?;
         let (wrapper_attributes, implementation_attributes, helper_attributes) =
@@ -88,6 +96,7 @@ impl Input {
             trace: attributes.trace,
             cycles: attributes.cycles,
             replay: attributes.replay,
+            coverage: attributes.coverage,
             argument,
         })
     }

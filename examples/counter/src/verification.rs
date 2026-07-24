@@ -1,11 +1,10 @@
 use thiserror::Error;
 use vvm::{
-    Clock, CoverageSessionError, Drive, InvalidFailureLimit, Mismatch, RandomContext,
+    Clock, CoverageDefinitionError, Drive, InvalidFailureLimit, Mismatch, RandomContext,
     ReferenceModel, ReplayToken, ReplayableSequence, Sample, TestResult,
 };
 
 use crate::counter::CounterError;
-use crate::coverage::CounterCoverageError;
 
 /// Counter simulation error.
 #[derive(Debug, Error)]
@@ -22,13 +21,9 @@ pub enum Error {
     #[error(transparent)]
     FailurePolicy(#[from] InvalidFailureLimit),
 
-    /// Counter functional-coverage failure.
+    /// Coverage definition construction failure.
     #[error(transparent)]
-    Coverage(#[from] CounterCoverageError),
-
-    /// Per-test coverage capture failure.
-    #[error(transparent)]
-    CoverageSession(#[from] CoverageSessionError),
+    CoverageDefinition(#[from] CoverageDefinitionError),
 }
 
 /// Counter simulation result.

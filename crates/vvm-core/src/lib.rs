@@ -105,20 +105,23 @@ pub(crate) mod unpacked;
 // Re-exports
 pub use bits::{Bits, InvalidBitVectorWordCount, SignedBits};
 pub use clock::{Clock, ClockConfigurationError, ClockScheduler, ClockTiming};
+#[doc(hidden)]
+pub use coverage::model::{CoverageSampleSpec, CoverageSpec};
 pub use coverage::{
     Bin, BinId, BinKind, BinMatcherKind, CoverageArtifact, CoverageArtifactGroup,
-    CoverageBinDetail, CoverageBuildError, CoverageCounterKind, CoverageDefinitionFingerprint,
-    CoverageGroup, CoverageGroupCountKind, CoverageGroupError, CoverageGroupInstance,
-    CoverageGroupSnapshot, CoverageGroupSummary, CoverageGroupVisitor, CoverageIoOperation,
-    CoverageItemKind, CoverageItemRef, CoverageItemSnapshot, CoverageMerge, CoverageMergeCountKind,
-    CoverageMergeCounterKind, CoverageMergeError, CoverageMergeInput, CoverageMergePolicy,
-    CoverageMergeSummary, CoveragePercentage, CoveragePersistenceError, CoverageRatio,
-    CoverageReport, CoverageReportOptions, CoverageSampleDisposition, CoverageSampleError,
-    CoverageSession, CoverageSessionCountKind, CoverageSessionError, CoverageSessionSnapshot,
-    CoverageSessionSummary, Coverpoint, CoverpointBin, CoverpointBinSnapshot, CoverpointBuilder,
-    CoverpointSample, CoverpointSnapshot, Cross2, Cross2Builder, Cross2Snapshot, CrossAxis,
-    CrossBin, CrossBinId, CrossBinSnapshot, CrossBuildError, CrossCounterKind, CrossSample,
-    CrossSampleDisposition, CrossSampleError,
+    CoverageBinDetail, CoverageBuildError, CoverageCounterKind, CoverageDefinitionError,
+    CoverageDefinitionFingerprint, CoverageGroup, CoverageGroupCountKind, CoverageGroupError,
+    CoverageGroupInstance, CoverageGroupSnapshot, CoverageGroupSummary, CoverageGroupVisitor,
+    CoverageInstance, CoverageIoOperation, CoverageItemKind, CoverageItemRef, CoverageItemSnapshot,
+    CoverageMerge, CoverageMergeCountKind, CoverageMergeCounterKind, CoverageMergeError,
+    CoverageMergeInput, CoverageMergePolicy, CoverageMergeSummary, CoverageModel,
+    CoveragePercentage, CoveragePersistenceError, CoverageRatio, CoverageReport,
+    CoverageReportOptions, CoverageRuntimeError, CoverageRuntimeItemKind,
+    CoverageSampleDisposition, CoverageSampleError, CoverageSession, CoverageSessionCountKind,
+    CoverageSessionError, CoverageSessionSnapshot, CoverageSessionSummary, Coverpoint,
+    CoverpointBin, CoverpointBinSnapshot, CoverpointBuilder, CoverpointSample, CoverpointSnapshot,
+    Cross2, Cross2Builder, Cross2Snapshot, CrossAxis, CrossBin, CrossBinId, CrossBinSnapshot,
+    CrossBuildError, CrossCounterKind, CrossSample, CrossSampleDisposition, CrossSampleError,
 };
 pub use drive::Drive;
 pub use dut::{Dut, TimedDut, TraceableDut};
@@ -143,8 +146,8 @@ pub use report::{DetailedTestReport, TestSummary};
 pub use result::{CheckFailure, SimulationError, SimulationStage, TestResult};
 pub use sample::Sample;
 pub use scoreboard::{ExactScoreboard, Mismatch, Scoreboard};
-pub use test_context::TestContext;
-pub use testbench::{ObservedCycle, Testbench, Unconfigured};
+pub use test_context::{TestContext, TestDiagnostic, TestDiagnosticKind};
+pub use testbench::{NoCoverage, ObservedCycle, Testbench, Unconfigured};
 pub use time::{CycleTiming, InvalidTimeStep, SimulationTime, TimeStep};
 pub use timing::{TimingEvent, TimingRun, TimingScheduler, TimingSchedulerError, TimingStage};
 pub use unpacked::{UnpackedArrayIndexError, unpacked_array_ordinal};

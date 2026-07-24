@@ -679,6 +679,7 @@ dependencies = [
  "syn",
  "trybuild",
  "vvm-core",
+ "vvm-rs",
 ]
 
 [[package]]

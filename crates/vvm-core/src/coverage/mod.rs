@@ -88,6 +88,8 @@ pub mod matcher;
 pub mod merge;
 /// Structured coverage merge errors.
 pub mod merge_error;
+/// Typed coverage models and generated-code integration.
+pub mod model;
 /// Fixed-point coverage percentage presentation.
 pub mod percentage;
 /// Exact coverage ratio.
@@ -122,6 +124,10 @@ pub use matcher::BinMatcherKind;
 use matcher::MatcherValidationError;
 pub use merge::{CoverageMerge, CoverageMergeInput, CoverageMergePolicy, CoverageMergeSummary};
 pub use merge_error::{CoverageMergeCountKind, CoverageMergeCounterKind, CoverageMergeError};
+pub use model::{
+    CoverageDefinitionError, CoverageInstance, CoverageModel, CoverageRuntimeError,
+    CoverageRuntimeItemKind,
+};
 pub use percentage::CoveragePercentage;
 pub use ratio::CoverageRatio;
 pub use report::{CoverageBinDetail, CoverageReport, CoverageReportOptions};

@@ -241,9 +241,24 @@ integer ratio. Tests that capture coverage through a `TestContext` persist one
 schema-v1 JSON artifact after the test runs; see
 [`docs/coverage-json-v1.md`](docs/coverage-json-v1.md) for the file contract.
 
-Coverage groups are ordinary user-defined structs. They retain typed sampling
-while implementing `CoverageGroup` for read-only validation and aggregate
-inspection of coverpoints and crosses.
+For normal transaction-oriented coverage, derive a model, attach its validated
+instance, and run it through the testbench:
+
+```rust
+#[derive(vvm::Coverage)]
+#[vvm(definition = "decoder", revision = 1, stimulus = Stimulus, observation = Observation)]
+struct DecoderCoverage { /* annotated Coverpoint and Cross2 fields */ }
+
+// #[vvm::test(coverage)] fn covered(context: &mut vvm::TestContext) { ... }
+// Testbench::new(dut).with_coverage(DecoderCoverage::new("dut.decoder")?).run_covered(context);
+```
+
+`run_covered` samples successful observations at the normal observer point and
+captures complete or partial coverage without hiding simulation or scoreboard
+results. Manual `CoverageGroup`, `capture_coverage`, and `run_with_observer`
+remain available for advanced models. See
+[`docs/coverage-ergonomics.md`](docs/coverage-ergonomics.md) and the
+[`counter example`](examples/counter/README.md) for the full ergonomic flow.
 
 Per-test artifacts can be merged explicitly after tests complete:
 

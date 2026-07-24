@@ -2,7 +2,10 @@ use std::fmt;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
-use crate::{ReplayToken, SimulationTime, TestContext, TestResult, TraceableDut};
+use crate::{
+    ReplayToken, SimulationTime, TestContext, TestDiagnostic, TestDiagnosticKind, TestResult,
+    TraceableDut,
+};
 
 /// Function implementing one registered test.
 pub type TestFunction = fn(&TestRunConfig) -> TestOutcome;
@@ -339,6 +342,28 @@ impl TestOutcome {
     pub fn report(&self) -> &str {
         &self.report
     }
+
+    /// Appends framework diagnostics without discarding the verification result.
+    pub(crate) fn with_diagnostics(mut self, diagnostics: &[TestDiagnostic]) -> Self {
+        if diagnostics.is_empty() {
+            return self;
+        }
+
+        self.status = TestStatus::Error;
+        self.summary = format!(
+            "{}; {} framework diagnostic(s)",
+            self.summary,
+            diagnostics.len()
+        );
+        self.report.push_str("\n\nFramework diagnostics:\n");
+
+        for diagnostic in diagnostics {
+            self.report.push_str("\n  - ");
+            self.report.push_str(&diagnostic.to_string());
+        }
+
+        self
+    }
 }
 
 impl fmt::Display for TestOutcome {
@@ -381,6 +406,9 @@ pub struct TestCapabilities {
 
     /// Whether the test supports randomized replay.
     replay: ReplayCapability,
+
+    /// Whether the test is expected to capture functional coverage.
+    coverage: bool,
 }
 
 impl TestCapabilities {
@@ -391,6 +419,7 @@ impl TestCapabilities {
             trace: false,
             cycles: false,
             replay: ReplayCapability::None,
+            coverage: false,
         }
     }
 
@@ -424,6 +453,13 @@ impl TestCapabilities {
         self
     }
 
+    /// Declares that this test captures functional coverage.
+    #[must_use]
+    pub const fn with_coverage(mut self) -> Self {
+        self.coverage = true;
+        self
+    }
+
     /// Returns whether trace capability supported.
     #[must_use]
     pub const fn trace(&self) -> bool {
@@ -441,20 +477,31 @@ impl TestCapabilities {
     pub const fn replay(&self) -> bool {
         matches!(&self.replay, &ReplayCapability::Supported { .. })
     }
+
+    /// Returns whether this test is expected to capture functional coverage.
+    #[must_use]
+    pub const fn coverage(&self) -> bool {
+        self.coverage
+    }
 }
 
 impl fmt::Display for TestCapabilities {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{}, {}, {},",
+            "{}, {}, {}, {}",
             if self.replay() {
                 "replayable   "
             } else {
                 "deterministic"
             },
             if self.trace() { "trace" } else { "    " },
-            if self.cycles() { "cycles" } else { "      " }
+            if self.cycles() { "cycles" } else { "      " },
+            if self.coverage() {
+                "coverage"
+            } else {
+                "        "
+            }
         )
     }
 }
@@ -589,12 +636,32 @@ impl TestDescriptor {
             TestEntryPoint::Config(function) => function(context.config()),
             TestEntryPoint::Context(function) => function(&mut context),
         };
-        let coverage = context.finish();
+        let mut finished = context.finish();
+
+        let capture_failed = finished
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.kind() == TestDiagnosticKind::CoverageCapture);
+        if self.capabilities().coverage()
+            && outcome.statistics().is_some()
+            && finished.coverage.is_none()
+            && !capture_failed
+        {
+            finished.diagnostics = {
+                let mut diagnostics = finished.diagnostics.into_vec();
+                diagnostics.push(TestDiagnostic::new(
+                    TestDiagnosticKind::MissingCoverage,
+                    "test declared coverage but captured no coverage groups".to_owned(),
+                ));
+                diagnostics.into_boxed_slice()
+            };
+        }
+        let outcome = outcome.with_diagnostics(&finished.diagnostics);
 
         Ok(TestRun {
             test: self,
             outcome,
-            coverage,
+            coverage: finished.coverage,
         })
     }
 
@@ -890,7 +957,7 @@ mod tests {
         TestCapabilities, TestDescriptor, TestOutcome, TestRegistry, TestRegistryError,
         TestRunConfig,
     };
-    use crate::{ReplayToken, Seed};
+    use crate::{ReplayToken, Seed, TestDiagnostic, TestDiagnosticKind};
 
     static CAPTURED_CONFIGS: OnceLock<Mutex<Vec<TestRunConfig>>> = OnceLock::new();
 
@@ -1014,5 +1081,27 @@ mod tests {
         ));
 
         Ok(())
+    }
+
+    #[test]
+    fn coverage_capability_is_explicit() {
+        let capabilities = TestCapabilities::new().with_coverage();
+
+        assert!(capabilities.coverage());
+        assert!(!TestCapabilities::new().coverage());
+    }
+
+    #[test]
+    fn diagnostics_preserve_original_outcome_details() {
+        let outcome =
+            TestOutcome::error("simulation failed").with_diagnostics(&[TestDiagnostic::new(
+                TestDiagnosticKind::CoverageSampling,
+                "coverage coverpoint `opcode` failed".to_owned(),
+            )]);
+
+        assert_eq!(outcome.status(), super::TestStatus::Error);
+        assert!(outcome.summary().contains("simulation failed"));
+        assert!(outcome.report().contains("Framework diagnostics"));
+        assert!(outcome.report().contains("coverage sampling"));
     }
 }

@@ -176,7 +176,7 @@ Removed. Shared ABI support should only return once concrete cross-DUT native fu
 | 8 | Derive macros | Complete |
 | 9 | Public facade | Complete |
 | 10 | Tracing, reporting, and standard test harness | Complete |
-| 11 | Wider HDL feature support and Rust-native coverage | In progress (11.7 complete) |
+| 11 | Wider HDL feature support and Rust-native coverage | In progress (11.7.9 complete) |
 
 ---
 
@@ -1675,6 +1675,28 @@ Vertical counter coverage semantics:
 - The counter postprocessor performs explicit offline merging.
 - Text and HTML reports consume only the validated merged model.
 - The GitLab metric is the final line of the text report.
+
+#### 11.7.9 — Ergonomic coverage integration
+
+- [x] Add typed coverage models, validated instances, and framework errors.
+- [x] Add coverage testbench typestate and covered execution.
+- [x] Generate construction, visitation, sampling, and cross routing with `Coverage`.
+- [x] Add declared coverage capability and missing-capture diagnostics.
+- [x] Migrate the counter example to the ergonomic workflow.
+- [x] Preserve per-test persistence and explicit offline merge/reporting.
+
+Ergonomic coverage semantics:
+
+- Coverage intent remains in ordinary Rust builder and extractor functions.
+- Derived models are wrapped in `CoverageInstance<M>` and validate before use.
+- Covered testbenches sample at the deterministic low-level observer point.
+- Coverage failures are deferred through `TestContext`; partial coverage survives.
+- Declared coverage detects completed testbench runs that capture nothing.
+- Suite-wide merging and reporting remain explicit offline orchestration.
+
+#### 11.7.10 — Coverage execution orchestration
+
+- [ ] Add a one-command suite coverage workflow.
 
 ### Future — DPI interoperability
 

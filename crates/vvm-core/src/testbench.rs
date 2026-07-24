@@ -1,8 +1,8 @@
 use crate::clock::scheduler::{ClockDriveFailure, ClockEventBatch, ClockPhase};
 use crate::{
-    CheckFailure, Clock, ClockScheduler, ClockTiming, CycleTiming, Drive, Dut, FailurePolicy,
-    ReferenceModel, ReplayToken, ReplayableSequence, Sample, Scoreboard, SimulationError,
-    SimulationStage, SimulationTime, TestResult,
+    CheckFailure, Clock, ClockScheduler, ClockTiming, CoverageModel, CycleTiming, Drive, Dut,
+    FailurePolicy, ReferenceModel, ReplayToken, ReplayableSequence, Sample, Scoreboard,
+    SimulationError, SimulationStage, SimulationTime, TestContext, TestResult,
 };
 
 /// Result type produced by a synchronous testbench run.
@@ -238,8 +238,19 @@ where
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Unconfigured;
 
+/// Marker indicating no coverage model is configured.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct NoCoverage;
+
 /// Synchronous testbench with concrete component types.
-pub struct Testbench<D, S = Unconfigured, R = Unconfigured, B = Unconfigured, C = Unconfigured> {
+pub struct Testbench<
+    D,
+    S = Unconfigured,
+    R = Unconfigured,
+    B = Unconfigured,
+    C = Unconfigured,
+    V = NoCoverage,
+> {
     /// Testbench DUT.
     dut: D,
     /// Stimulus sequence.
@@ -250,6 +261,8 @@ pub struct Testbench<D, S = Unconfigured, R = Unconfigured, B = Unconfigured, C 
     scoreboard: B,
     /// Configured clock scheduler.
     clocks: C,
+    /// Typed functional coverage model.
+    coverage: V,
     /// Check-failure retention and stopping policy.
     failure_policy: FailurePolicy,
     /// Optional compatibility override for primary timing.
@@ -268,6 +281,7 @@ impl<D> Testbench<D> {
             reference_model: Unconfigured,
             scoreboard: Unconfigured,
             clocks: Unconfigured,
+            coverage: NoCoverage,
             failure_policy: FailurePolicy::STOP_ON_FIRST,
             primary_cycle_timing: None,
             replay_token: None,
@@ -275,16 +289,17 @@ impl<D> Testbench<D> {
     }
 }
 
-impl<D, S, R, B, C> Testbench<D, S, R, B, C> {
+impl<D, S, R, B, C, V> Testbench<D, S, R, B, C, V> {
     /// Configures the stimulus sequence.
     #[must_use]
-    pub fn with_sequence<NS>(self, sequence: NS) -> Testbench<D, NS, R, B, C> {
+    pub fn with_sequence<NS>(self, sequence: NS) -> Testbench<D, NS, R, B, C, V> {
         Testbench {
             dut: self.dut,
             sequence,
             reference_model: self.reference_model,
             scoreboard: self.scoreboard,
             clocks: self.clocks,
+            coverage: self.coverage,
             failure_policy: self.failure_policy,
             primary_cycle_timing: self.primary_cycle_timing,
             replay_token: None,
@@ -293,7 +308,7 @@ impl<D, S, R, B, C> Testbench<D, S, R, B, C> {
 
     /// Configures a random or otherwise replayable sequence.
     #[must_use]
-    pub fn with_replayable_sequence<NS>(self, sequence: NS) -> Testbench<D, NS, R, B, C>
+    pub fn with_replayable_sequence<NS>(self, sequence: NS) -> Testbench<D, NS, R, B, C, V>
     where
         NS: ReplayableSequence,
     {
@@ -304,6 +319,7 @@ impl<D, S, R, B, C> Testbench<D, S, R, B, C> {
             reference_model: self.reference_model,
             scoreboard: self.scoreboard,
             clocks: self.clocks,
+            coverage: self.coverage,
             failure_policy: self.failure_policy,
             primary_cycle_timing: self.primary_cycle_timing,
             replay_token,
@@ -312,13 +328,14 @@ impl<D, S, R, B, C> Testbench<D, S, R, B, C> {
 
     /// Configures the reference model.
     #[must_use]
-    pub fn with_reference_model<NR>(self, reference_model: NR) -> Testbench<D, S, NR, B, C> {
+    pub fn with_reference_model<NR>(self, reference_model: NR) -> Testbench<D, S, NR, B, C, V> {
         Testbench {
             dut: self.dut,
             sequence: self.sequence,
             reference_model,
             scoreboard: self.scoreboard,
             clocks: self.clocks,
+            coverage: self.coverage,
             failure_policy: self.failure_policy,
             primary_cycle_timing: self.primary_cycle_timing,
             replay_token: self.replay_token,
@@ -327,13 +344,14 @@ impl<D, S, R, B, C> Testbench<D, S, R, B, C> {
 
     /// Configures the scoreboard.
     #[must_use]
-    pub fn with_scoreboard<NB>(self, scoreboard: NB) -> Testbench<D, S, R, NB, C> {
+    pub fn with_scoreboard<NB>(self, scoreboard: NB) -> Testbench<D, S, R, NB, C, V> {
         Testbench {
             dut: self.dut,
             sequence: self.sequence,
             reference_model: self.reference_model,
             scoreboard,
             clocks: self.clocks,
+            coverage: self.coverage,
             failure_policy: self.failure_policy,
             primary_cycle_timing: self.primary_cycle_timing,
             replay_token: self.replay_token,
@@ -345,7 +363,7 @@ impl<D, S, R, B, C> Testbench<D, S, R, B, C> {
     pub fn with_clock<'clock, NC>(
         self,
         clock: NC,
-    ) -> Testbench<D, S, R, B, ClockScheduler<'clock, D>>
+    ) -> Testbench<D, S, R, B, ClockScheduler<'clock, D>, V>
     where
         D: Dut,
         NC: Clock<D> + 'clock,
@@ -356,6 +374,7 @@ impl<D, S, R, B, C> Testbench<D, S, R, B, C> {
             reference_model: self.reference_model,
             scoreboard: self.scoreboard,
             clocks: ClockScheduler::single(clock, ClockTiming::UNIT),
+            coverage: self.coverage,
             failure_policy: self.failure_policy,
             primary_cycle_timing: self.primary_cycle_timing,
             replay_token: self.replay_token,
@@ -367,7 +386,7 @@ impl<D, S, R, B, C> Testbench<D, S, R, B, C> {
     pub fn with_clocks(
         self,
         clocks: ClockScheduler<'_, D>,
-    ) -> Testbench<D, S, R, B, ClockScheduler<'_, D>>
+    ) -> Testbench<D, S, R, B, ClockScheduler<'_, D>, V>
     where
         D: Dut,
     {
@@ -377,6 +396,7 @@ impl<D, S, R, B, C> Testbench<D, S, R, B, C> {
             reference_model: self.reference_model,
             scoreboard: self.scoreboard,
             clocks,
+            coverage: self.coverage,
             failure_policy: self.failure_policy,
             primary_cycle_timing: self.primary_cycle_timing,
             replay_token: self.replay_token,
@@ -404,7 +424,28 @@ impl<D, S, R, B, C> Testbench<D, S, R, B, C> {
     }
 }
 
-impl<D, S, R, B> Testbench<D, S, R, B, ClockScheduler<'_, D>>
+impl<D, S, R, B, C> Testbench<D, S, R, B, C, NoCoverage> {
+    /// Configures one typed functional-coverage model.
+    ///
+    /// A testbench owns one coverage model. Use [`Self::run_covered`] to sample
+    /// it at the normal observer point and capture its final or partial state.
+    #[must_use]
+    pub fn with_coverage<V>(self, coverage: V) -> Testbench<D, S, R, B, C, V> {
+        Testbench {
+            dut: self.dut,
+            sequence: self.sequence,
+            reference_model: self.reference_model,
+            scoreboard: self.scoreboard,
+            clocks: self.clocks,
+            coverage,
+            failure_policy: self.failure_policy,
+            primary_cycle_timing: self.primary_cycle_timing,
+            replay_token: self.replay_token,
+        }
+    }
+}
+
+impl<D, S, R, B, V> Testbench<D, S, R, B, ClockScheduler<'_, D>, V>
 where
     D: Dut,
     S: IntoIterator,
@@ -418,7 +459,7 @@ where
         O: Sample<D>,
         B: Scoreboard<R::Expected, O>,
     {
-        self.run_with_observer::<O, _>(|_| {})
+        self.execute_with_observer::<O, _>(|_| {})
     }
 
     /// Runs the testbench while synchronously observing every successfully
@@ -429,6 +470,19 @@ where
     /// immutable transaction data and cannot alter runner scheduling.
     #[must_use]
     pub fn run_with_observer<O, F>(
+        self,
+        cycle_observer: F,
+    ) -> RunResult<S::Item, R::Expected, B, O, D>
+    where
+        O: Sample<D>,
+        B: Scoreboard<R::Expected, O>,
+        F: for<'sample> FnMut(ObservedCycle<'sample, S::Item, O>),
+    {
+        self.execute_with_observer::<O, F>(cycle_observer)
+    }
+
+    /// Runs the shared simulation kernel with an observation callback.
+    fn execute_with_observer<O, F>(
         self,
         mut cycle_observer: F,
     ) -> RunResult<S::Item, R::Expected, B, O, D>
@@ -446,6 +500,7 @@ where
             failure_policy,
             primary_cycle_timing,
             replay_token,
+            ..
         } = self;
 
         if let Some(cycle_timing) = primary_cycle_timing {
@@ -534,6 +589,66 @@ where
         }
 
         finalize_and_record(&mut dut, &mut result);
+        result
+    }
+    /// Runs the testbench, samples coverage, and captures the resulting group.
+    ///
+    /// Sampling occurs after successful DUT observation and before scoreboard
+    /// checking, matching [`Self::run_with_observer`]. The first coverage error
+    /// is deferred through `context`; simulation continues and partial coverage
+    /// is captured. This does not merge or report coverage across tests.
+    #[must_use]
+    pub fn run_covered<O>(
+        self,
+        context: &mut TestContext,
+    ) -> RunResult<S::Item, R::Expected, B, O, D>
+    where
+        O: Sample<D>,
+        B: Scoreboard<R::Expected, O>,
+        V: CoverageModel<S::Item, O>,
+    {
+        let Self {
+            dut,
+            sequence,
+            reference_model,
+            scoreboard,
+            clocks,
+            mut coverage,
+            failure_policy,
+            primary_cycle_timing,
+            replay_token,
+        } = self;
+        let uncovered = Testbench {
+            dut,
+            sequence,
+            reference_model,
+            scoreboard,
+            clocks,
+            coverage: NoCoverage,
+            failure_policy,
+            primary_cycle_timing,
+            replay_token,
+        };
+        let mut sampling_error = None;
+
+        let result = uncovered.execute_with_observer::<O, _>(|cycle| {
+            if sampling_error.is_some() {
+                return;
+            }
+
+            if let Err(error) = coverage.sample(cycle) {
+                sampling_error = Some(error);
+            }
+        });
+
+        if let Some(error) = sampling_error.as_ref() {
+            context.record_coverage_sampling_error(error);
+        }
+
+        if let Err(error) = context.capture_coverage(&coverage) {
+            context.record_coverage_capture_error(&error);
+        }
+
         result
     }
 }

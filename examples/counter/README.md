@@ -10,9 +10,9 @@ holds its value.
 
 The example uses generated Verilator integration, a typed stimulus sequence,
 a reference model, an exact scoreboard, and VVM's scheduler-driven
-`Testbench`. Functional coverage is an ordinary counter-owned Rust struct. A
-synchronous `run_with_observer` callback sees only successfully sampled DUT
-transactions before reference-model prediction and scoreboard checking.
+`Testbench`. Functional coverage is a derived typed model attached with
+`.with_coverage(...)` and sampled by `.run_covered(context)` before
+reference-model prediction and scoreboard checking.
 
 ## Functional Coverage Model
 
@@ -32,13 +32,14 @@ bin and causes both operation-based crosses to skip. Less than 100% coverage
 is valid and informative: the random sequence is not changed solely to force
 all output regions.
 
-## Context-Aware Capture
+## Covered Execution
 
-Smoke, randomized, and intentionally failing registered tests accept
-`&mut TestContext`. They retain a first coverage sampling error, stop further
-coverage mutation, capture the partial group, then return that error. The
-randomized sequence remains replayable, while trace and cycle overrides remain
-standard VVM configuration.
+Smoke, randomized, and intentionally failing tests declare
+`#[vvm::test(coverage)]` and accept `&mut TestContext`. The derived model builds
+coverpoints and crosses, visits items in declaration order, and captures partial
+coverage after a sampling diagnostic. `run_with_observer` remains available for
+unrelated custom observation. The randomized sequence remains replayable, while
+trace and cycle overrides remain standard VVM configuration.
 
 ## Per-Test Artifacts And Reports
 

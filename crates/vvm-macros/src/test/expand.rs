@@ -17,6 +17,7 @@ pub(super) fn expand(input: Input) -> TokenStream {
         trace,
         cycles,
         replay,
+        coverage,
         argument,
     } = input;
 
@@ -60,6 +61,9 @@ pub(super) fn expand(input: Input) -> TokenStream {
         capabilities = quote!((#capabilities).with_default_replay(#default));
     } else if replay.enabled() {
         capabilities = quote!((#capabilities).with_replay());
+    }
+    if coverage {
+        capabilities = quote!((#capabilities).with_coverage());
     }
 
     quote! {

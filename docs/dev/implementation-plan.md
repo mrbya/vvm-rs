@@ -176,7 +176,7 @@ Removed. Shared ABI support should only return once concrete cross-DUT native fu
 | 8 | Derive macros | Complete |
 | 9 | Public facade | Complete |
 | 10 | Tracing, reporting, and standard test harness | Complete |
-| 11 | Wider HDL feature support and Rust-native coverage | In progress (11.7.5 complete) |
+| 11 | Wider HDL feature support and Rust-native coverage | In progress (11.7.7 complete) |
 
 ---
 
@@ -1527,7 +1527,6 @@ Implement only after the MVP is stable.
 - [x] Add `&mut TestContext` support to `#[vvm::test]`.
 - [x] Attach completed coverage snapshots to `TestRun`.
 - [x] Add versioned JSON persistence and definition fingerprints.
-- [ ] Add text and HTML reporting.
 - [ ] Add a vertical functional-coverage example.
 
 Functional coverage primitive semantics:
@@ -1588,7 +1587,6 @@ Per-test coverage-session semantics:
 - [x] Persist captured test-session coverage through the standard facade bridge.
 - [x] Add `VVM_COVERAGE_DIR` output-root configuration.
 - [x] Document schema-v1 and fingerprint limitations.
-- [ ] Add text and HTML reporting.
 
 #### 11.7.6 — Deterministic coverage merging
 
@@ -1605,9 +1603,6 @@ Per-test coverage-session semantics:
 - [x] Add atomic merged-document persistence and explicit file merge APIs.
 - [x] Preserve per-test schema-v1 behavior.
 - [x] Document merge semantics and status policy.
-- [ ] Add text and HTML reporting.
-- [ ] Add GitLab-compatible CI metric output.
-- [ ] Add a vertical functional-coverage example.
 
 Coverage merge semantics:
 
@@ -1619,6 +1614,40 @@ Coverage merge semantics:
 - Input order cannot affect merged results; groups use lexicographic instance-path order.
 - Excluded artifacts remain provenance metadata.
 - Merging is explicit offline post-processing; test execution has no shared merged database.
+
+#### 11.7.7 — Coverage reporting and CI metrics
+
+- [x] Add deterministic fixed-point coverage percentages.
+- [x] Prevent incomplete coverage from displaying as 100%.
+- [x] Add configurable bin-detail reporting.
+- [x] Add deterministic plain-text reports.
+- [x] Add self-contained HTML reports.
+- [x] Preserve exact counts alongside percentages.
+- [x] Report input-artifact provenance and inclusion state.
+- [x] Report group, coverpoint, and cross summaries.
+- [x] Surface uncovered normal and cross bins.
+- [x] Surface hit illegal bins.
+- [x] Add stable GitLab-compatible metric output.
+- [x] Add a documented GitLab coverage regex.
+- [x] Document reporting and CI integration.
+- [ ] Add a vertical functional-coverage example.
+
+Coverage reporting semantics:
+
+- Reports consume one validated deterministic `CoverageMerge`.
+- Exact integer ratios remain authoritative.
+- Percentages use deterministic fixed-point formatting.
+- Only complete ratios display `100.00%`.
+- Plain-text and HTML reports share percentage and bin-selection logic.
+- Uncovered reports also surface hit illegal bins.
+- Text output ends with one stable GitLab-compatible metric line.
+- HTML output is self-contained and contains no JavaScript or external network resources.
+- Reporting is explicit offline post-processing.
+- Test execution does not generate reports automatically.
+
+#### 11.7.8 — Vertical functional-coverage example
+
+- [ ] Add one complete example from typed sampling through GitLab reporting.
 
 ### Future — DPI interoperability
 

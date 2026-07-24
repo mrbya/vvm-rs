@@ -86,8 +86,16 @@ pub mod matcher;
 pub mod merge;
 /// Structured coverage merge errors.
 pub mod merge_error;
+/// Fixed-point coverage percentage presentation.
+pub mod percentage;
 /// Exact coverage ratio.
 pub mod ratio;
+/// Read-only coverage reporting configuration and facade.
+pub mod report;
+/// Deterministic self-contained HTML coverage rendering.
+mod report_html;
+/// Deterministic plain-text coverage rendering.
+mod report_text;
 /// Mutable per-test coverage-session collection.
 pub mod session;
 /// Structured coverage-session errors.
@@ -112,7 +120,9 @@ pub use matcher::BinMatcherKind;
 use matcher::MatcherValidationError;
 pub use merge::{CoverageMerge, CoverageMergeInput, CoverageMergePolicy, CoverageMergeSummary};
 pub use merge_error::{CoverageMergeCountKind, CoverageMergeCounterKind, CoverageMergeError};
+pub use percentage::CoveragePercentage;
 pub use ratio::CoverageRatio;
+pub use report::{CoverageBinDetail, CoverageReport, CoverageReportOptions};
 pub use session::{CoverageSession, CoverageSessionSnapshot, CoverageSessionSummary};
 pub use session_error::{CoverageSessionCountKind, CoverageSessionError};
 pub use snapshot::{

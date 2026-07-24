@@ -258,6 +258,29 @@ merged.write_to("target/coverage/combined.vvmcov-merged.json")?;
 Merging is offline, deterministic, and never updates shared test-runtime
 state. See [`docs/coverage-merging.md`](docs/coverage-merging.md).
 
+Reporting consumes the resulting merge explicitly:
+
+```text
+per-test *.vvmcov.json
+    ↓
+CoverageMerge
+    ↓
+*.vvmcov-merged.json
+    ├── *.vvmcov.txt
+    ├── *.vvmcov.html
+    └── GitLab metric line
+```
+
+```rust
+let report = vvm::CoverageReport::new(&merged);
+std::fs::write("coverage.vvmcov.txt", report.to_text())?;
+std::fs::write("coverage.vvmcov.html", report.to_html())?;
+println!("{}", report.gitlab_metric());
+```
+
+See [`docs/coverage-reporting.md`](docs/coverage-reporting.md) for options,
+fixed-point percentages, HTML behavior, and GitLab integration.
+
 ## Running VVM Tests
 
 VVM tests are ordinary Rust tests.

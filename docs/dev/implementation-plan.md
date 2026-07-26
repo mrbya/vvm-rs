@@ -176,7 +176,7 @@ Removed. Shared ABI support should only return once concrete cross-DUT native fu
 | 8 | Derive macros | Complete |
 | 9 | Public facade | Complete |
 | 10 | Tracing, reporting, and standard test harness | Complete |
-| 11 | Wider HDL feature support and Rust-native coverage | In progress (11.7.9 complete) |
+| 11 | Wider HDL feature support and Rust-native coverage | In progress (11.7 complete) |
 
 ---
 
@@ -1696,7 +1696,20 @@ Ergonomic coverage semantics:
 
 #### 11.7.10 — Coverage execution orchestration
 
-- [ ] Add a one-command suite coverage workflow.
+- [x] Add the `cargo-vvm` Cargo subcommand and `cargo vvm coverage` workflow.
+- [x] Support Cargo test, nextest run, optional toolchains, and manifest paths.
+- [x] Isolate artifacts, merge through core coverage models, and render reports atomically.
+- [x] Preserve live child output and original failed-test status after post-processing.
+- [x] Replace the counter postprocessor and document local and GitLab workflows.
+
+Coverage orchestration semantics:
+
+- `cargo-vvm` owns one isolated suite coverage-run directory.
+- Test processes remain ordinary Cargo test processes and emit isolated artifacts.
+- Child output remains live; post-processing runs after successful and failed tests.
+- Nextest retries are disabled until artifacts identify retry attempts.
+- Discovery is non-recursive and merging/reporting reuse strict core models.
+- Text output ends with the existing GitLab-compatible metric.
 
 ### Future — DPI interoperability
 

@@ -77,7 +77,12 @@ The CI Docker image also installs tools such as `clang`, `llvm`, `cmake`, `ninja
 
 ## Installation
 
-VVM is a library, not a command-line application. Add it to your project with Cargo dependencies instead of `cargo install`.
+VVM is primarily a library. Install `cargo-vvm` for suite-level functional coverage orchestration:
+
+```console
+cargo install cargo-vvm
+cargo vvm coverage
+```
 
 For a test-focused layout, use `vvm` as a development dependency and `vvm-build` in `build.rs`:
 
@@ -258,6 +263,8 @@ captures complete or partial coverage without hiding simulation or scoreboard
 results. Manual `CoverageGroup`, `capture_coverage`, and `run_with_observer`
 remain available for advanced models. See
 [`docs/coverage-ergonomics.md`](docs/coverage-ergonomics.md) and the
+[`docs/coverage-orchestration.md`](docs/coverage-orchestration.md) for the
+suite-level workflow.
 [`counter example`](examples/counter/README.md) for the full ergonomic flow.
 
 Per-test artifacts can be merged explicitly after tests complete:

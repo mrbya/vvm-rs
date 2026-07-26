@@ -49,3 +49,8 @@ functional-coverage:
 
 The expression extracts the overall metric from job logs. The HTML report is a
 normal job artifact and works directly from the local filesystem.
+# Suite orchestration
+
+`CoverageReport` remains the library renderer for custom tools. For normal
+suite execution, use [`cargo vvm coverage`](coverage-orchestration.md), which
+discovers artifacts, uses `CoverageMerge`, and renders this unchanged format.

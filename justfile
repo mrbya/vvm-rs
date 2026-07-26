@@ -36,12 +36,7 @@ functional-coverage-example OUTPUT='target/vvm-functional-coverage':
     set -euo pipefail
 
     rm -rf "{{OUTPUT}}"
-    mkdir -p "{{OUTPUT}}/artifacts"
-    output_dir="$(realpath "{{OUTPUT}}")"
-
-    VVM_COVERAGE_DIR="${output_dir}/artifacts" cargo test -p vvm-example-counter counter_smoke
-    VVM_COVERAGE_DIR="${output_dir}/artifacts" cargo test -p vvm-example-counter counter_random
-    cargo run -p vvm-example-counter --example coverage_report -- "${output_dir}/artifacts" "${output_dir}"
+    cargo run -p cargo-vvm -- coverage --output "{{OUTPUT}}" --name counter -- test -p vvm-example-counter counter_
 
 # Runs in-scope Rust coverage with threshold enforcement and generates a cobertura report for gitlab.
 test-cov-ci *FLAGS:
@@ -117,9 +112,9 @@ ci:
 install-hooks:
     pre-commit install
 
-# Builds and installs vvm binary.
+# Installs the cargo-vvm Cargo subcommand.
 install:
-    cargo install --path .
+    cargo install --path crates/cargo-vvm --locked
 
 # Install pre-commit hooks.
 pre-commit-install:

@@ -30,3 +30,7 @@ TestContext`; a completed testbench run that captures no group receives a
 missing-coverage diagnostic. Manual `CoverageGroup`, `capture_coverage`, and
 `run_with_observer` remain available for advanced workflows. Persistence,
 offline merging, and reporting remain explicit per-test/offline operations.
+# Suite workflow
+
+Inside each test use derive, `with_coverage`, and `run_covered`. Outside the
+suite, run `cargo vvm coverage`; see [coverage orchestration](coverage-orchestration.md).

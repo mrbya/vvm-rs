@@ -1,0 +1,33 @@
+[package]
+name = "cargo-vvm"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+description = "Cargo subcommand for VVM functional coverage orchestration"
+publish = false
+
+[[bin]]
+name = "cargo-vvm"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+vvm-core.workspace = true
+
+[dev-dependencies]
+assert_cmd.workspace = true
+predicates.workspace = true
+tempfile.workspace = true
+
+[package.metadata.cargo-udeps.ignore]
+development = ["assert_cmd", "predicates"]

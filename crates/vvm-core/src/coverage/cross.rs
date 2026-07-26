@@ -565,6 +565,7 @@ fn cross_cardinality(
                 left_bins,
                 right_bins,
             })?;
+
     if total_bins > limit {
         return Err(CrossBuildError::BinLimitExceeded {
             cross: name.to_owned(),
@@ -574,6 +575,7 @@ fn cross_cardinality(
             limit,
         });
     }
+
     let maximum_bin_count =
         usize::try_from(u32::MAX).map_or(usize::MAX, |maximum| maximum.saturating_add(1));
 
@@ -583,6 +585,7 @@ fn cross_cardinality(
             total_bins,
         });
     }
+
     Ok(total_bins)
 }
 
@@ -595,15 +598,19 @@ fn build_cross(builder: Cross2Builder) -> Result<Cross2, CrossBuildError> {
         required_hits,
         max_bins,
     } = builder;
+
     if !is_valid_coverage_identifier(&name) {
         return Err(CrossBuildError::InvalidName { name });
     }
+
     let Some(required_hits) = NonZeroU64::new(required_hits) else {
         return Err(CrossBuildError::ZeroRequiredHits { cross: name });
     };
+
     if max_bins == 0 {
         return Err(CrossBuildError::ZeroBinLimit { cross: name });
     }
+
     let total_bins = cross_cardinality(&name, left.bins.len(), right.bins.len(), max_bins)?;
     let mut bins = Vec::with_capacity(total_bins);
     let mut bin_lookup = BTreeMap::new();
@@ -627,6 +634,7 @@ fn build_cross(builder: Cross2Builder) -> Result<Cross2, CrossBuildError> {
             });
         }
     }
+
     Ok(Cross2 {
         name,
         left,

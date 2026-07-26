@@ -8,77 +8,77 @@ use crate::{BinKind, CoverageItemSnapshot};
 /// Renders the complete deterministic self-contained HTML document.
 pub(super) fn render(report: CoverageReport<'_>) -> String {
     let mut output = String::from(
-        "<!doctype html>\n
-        <html lang=\"en\">\n
-        <head>\n
-          <meta charset=\"utf-8\">\n
-          <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n
-          <title>VVM Functional Coverage</title>\n
-          <style>\n
-            :root {\n
-              color-scheme: light dark;\n
-              --bg: #fff; \n
-              --fg: #18212b;\n
-              --muted: #667;\n
-              --border: #bcc;\n
-              --bad: #9b1c1c;\n
-              --good: #176b3a;\n
-            }\n
-            @media (prefers-color-scheme: dark) {\n
-              :root {\n
-                --bg: #18212b;\n
-                --fg: #f5f7fa;\n
-                --muted: #b5bec8;\n
-                --border: #52606d;\n
-                --bad: #ff9999;\n
-                --good: #89db9f;\n
-              }\n
-            }\n
-            body {\n
-              max-width: 1100px;\n
-              margin: 2rem auto;\n
-              padding: 0 1rem;\n
-              background: var(--bg);\n
-              color: var(--fg);\n
-              font: 16px system-ui, sans-serif;\n
-            }\n
-            table {\n
-              width: 100%;\n
-              border-collapse: collapse;\n
-              margin: 1rem 0;\n
-            }\n
-            th, td {\n
-              border: 1px solid var(--border);\n
-              padding: .45rem; text-align: left;\n
-            }\n
-            .grid {\n
-              display: grid;\n
-              grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));\n
-              gap: .75rem;\n
-            }\n
-            .card {\n
-              border: 1px solid var(--border);\n
-              padding: .75rem;\n
-            }\n
-            .excluded {\n
-              opacity: .72;\n
-            }\n
-            .covered {\n
-              color: var(--good);\n
-            }\n
-            .uncovered, .illegal {\n
-              color: var(--bad);\n
-            }\n
-            progress {\n
-              width: 12rem;\n
-            }\n
-          </style>\n
-        </head>\n
-        <body>\n
+        "<!doctype html>
+        <html lang=\"en\">
+        <head>
+          <meta charset=\"utf-8\">
+          <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+          <title>VVM Functional Coverage</title>
+          <style>
+            :root {
+              color-scheme: light dark;
+              --bg: #fff;
+              --fg: #18212b;
+              --muted: #667;
+              --border: #bcc;
+              --bad: #9b1c1c;
+              --good: #176b3a;
+            }
+            @media (prefers-color-scheme: dark) {
+              :root {
+                --bg: #18212b;
+                --fg: #f5f7fa;
+                --muted: #b5bec8;
+                --border: #52606d;
+                --bad: #ff9999;
+                --good: #89db9f;
+              }
+            }
+            body {
+              max-width: 1100px;
+              margin: 2rem auto;
+              padding: 0 1rem;
+              background: var(--bg);
+              color: var(--fg);
+              font: 16px system-ui, sans-serif;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin: 1rem 0;
+            }
+            th, td {
+              border: 1px solid var(--border);
+              padding: .45rem; text-align: left;
+            }
+            .grid {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+              gap: .75rem;
+            }
+            .card {
+              border: 1px solid var(--border);
+              padding: .75rem;
+            }
+            .excluded {
+              opacity: .72;
+            }
+            .covered {
+              color: var(--good);
+            }
+            .uncovered, .illegal {
+              color: var(--bad);
+            }
+            progress {
+              width: 12rem;
+            }
+          </style>
+        </head>
+        <body>
         <header>
-            <h1>VVM Functional Coverage</h1>\n
-        </header>\n
-        <main>\n",
+            <h1>VVM Functional Coverage</h1>
+        </header>
+        <main>",
     );
     render_summary(&mut output, report);
     if report.options().includes_inputs() {
@@ -102,14 +102,14 @@ fn render_summary(output: &mut String, report: CoverageReport<'_>) {
 
     writeln!(
         output,
-        "<section aria-labelledby=\"overall\">\n  <h2 id=\"overall\">Overall</h2>\n  \
-         <div class=\"grid\">\n    <div class=\"card\"><strong>{percentage}</strong><br>\n      \
+        "<section aria-labelledby=\"overall\">\n  <h2 id=\"overall\">Overall</h2>\n  <div \
+         class=\"grid\">\n    <div class=\"card\"><strong>{percentage}</strong><br>\n      \
          <progress max=\"10000\" value=\"{}\">{percentage}</progress><br>{coverage}</div>\n    \
          <div class=\"card\">Covered bins: {}</div>\n    <div class=\"card\">Uncovered bins: \
          {}</div>\n    <div class=\"card\">Included artifacts: {}</div>\n    <div \
          class=\"card\">Excluded artifacts: {}</div>\n    <div class=\"card\">Group instances: \
-         {}</div>\n  </div>\n  <p>Merge policy: {policy}</p>\n  <p>Statuses: {} passed, \
-         {} failed, {} errored. Structure: {} coverpoints, {} crosses.</p>\n</section>",
+         {}</div>\n  </div>\n  <p>Merge policy: {policy}</p>\n  <p>Statuses: {} passed, {} \
+         failed, {} errored. Structure: {} coverpoints, {} crosses.</p>\n</section>",
         percentage.basis_points(),
         summary.coverage().covered(),
         summary.coverage().uncovered(),
@@ -129,8 +129,9 @@ fn render_summary(output: &mut String, report: CoverageReport<'_>) {
 fn render_inputs(output: &mut String, report: CoverageReport<'_>) {
     output.push_str(
         "<section aria-labelledby=\"inputs\">\n  <h2 id=\"inputs\">Inputs</h2>\n  <table>\n    \
-         <thead>\n      <tr><th>Contribution</th><th>Test</th><th>Status</th><th>Producer</th>\
-         <th>Replay token</th><th>Coverage</th><th>Bins</th></tr>\n    </thead>\n    <tbody>",
+         <thead>\n      \
+         <tr><th>Contribution</th><th>Test</th><th>Status</th><th>Producer</th><th>Replay \
+         token</th><th>Coverage</th><th>Bins</th></tr>\n    </thead>\n    <tbody>",
     );
     for input in report.merge().inputs() {
         let class = if input.included() {
@@ -228,8 +229,8 @@ fn render_item(
         CoverageItemSnapshot::Coverpoint(ref point) => {
             writeln!(
                 output,
-                "  <p>Coverpoint. Coverage: {}. Samples: {}. Ignored: {}. Illegal: {}. \
-                 Unmatched: {}.</p>",
+                "  <p>Coverpoint. Coverage: {}. Samples: {}. Ignored: {}. Illegal: {}. Unmatched: \
+                 {}.</p>",
                 ratio_text(point.coverage()),
                 point.sample_count(),
                 point.ignored_sample_count(),
@@ -278,8 +279,8 @@ fn render_point_bins(
     }
     output.push_str(
         "  <details open>\n    <summary>Bins</summary>\n    <table>\n      <thead>\n        \
-         <tr><th>Bin</th><th>Role</th><th>Matcher</th><th>Hits</th><th>Required</th>\
-         <th>Status</th></tr>\n      </thead>\n      <tbody>",
+         <tr><th>Bin</th><th>Role</th><th>Matcher</th><th>Hits</th><th>Required</th><th>Status</\
+         th></tr>\n      </thead>\n      <tbody>",
     );
     for bin in bins {
         output.push_str("\n        <tr><td>");
@@ -325,8 +326,8 @@ fn render_cross_bins(
     }
     output.push_str(
         "  <details open>\n    <summary>Cross bins</summary>\n    <table>\n      <thead>\n        \
-         <tr><th>Left bin</th><th>Right bin</th><th>Hits</th><th>Required</th><th>Status</th>\
-         </tr>\n      </thead>\n      <tbody>",
+         <tr><th>Left bin</th><th>Right \
+         bin</th><th>Hits</th><th>Required</th><th>Status</th></tr>\n      </thead>\n      <tbody>",
     );
     for bin in bins {
         output.push_str("\n        <tr><td>");

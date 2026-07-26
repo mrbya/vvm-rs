@@ -45,16 +45,19 @@ impl CoverageGroupInstance {
     ) -> Result<Self, CoverageGroupError> {
         let definition_name = definition_name.into();
         let instance_path = instance_path.into();
+
         if !is_valid_coverage_identifier(&definition_name) {
             return Err(CoverageGroupError::InvalidDefinitionName {
                 name: definition_name,
             });
         }
+
         if !is_valid_coverage_path(&instance_path) {
             return Err(CoverageGroupError::InvalidInstancePath {
                 path: instance_path,
             });
         }
+
         Ok(Self {
             definition_name: Arc::from(definition_name),
             definition_revision,
@@ -250,16 +253,20 @@ where
         definition: definition.clone(),
         instance: path.clone(),
     };
+
     group.visit_items(&mut collector);
+
     if let Some(error) = collector.error {
         return Err(error);
     }
+
     if collector.items == 0 {
         return Err(CoverageGroupError::EmptyGroup {
             definition,
             instance: path,
         });
     }
+
     for (cross, left, right) in collector.crosses {
         if !collector
             .coverpoints
@@ -288,6 +295,7 @@ where
             });
         }
     }
+
     Ok(())
 }
 
@@ -297,6 +305,7 @@ where
     G: CoverageGroup + ?Sized,
 {
     validate_group(group)?;
+
     let instance = group.instance();
     let mut collector = SummaryCollector {
         items: 0,
@@ -308,10 +317,13 @@ where
         error: None,
         instance,
     };
+
     group.visit_items(&mut collector);
+
     if let Some(error) = collector.error {
         return Err(error);
     }
+
     Ok(CoverageGroupSummary {
         items: collector.items,
         coverpoints: collector.coverpoints,

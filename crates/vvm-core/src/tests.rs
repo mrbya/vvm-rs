@@ -388,6 +388,7 @@ fn finalized_dut_retains_time_but_rejects_advancement() -> Result<(), MockError>
     let mut dut = MockDut::at_time(SimulationTime::ZERO);
 
     Dut::advance_time(&mut dut, TimeStep::ONE)?;
+
     Dut::finalize(&mut dut)?;
 
     assert_eq!(Dut::simulation_time(&dut), SimulationTime::from_ticks(1));

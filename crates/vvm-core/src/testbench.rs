@@ -115,6 +115,7 @@ fn record_stage_failure<S, F, E>(
         Some(clock_name) => SimulationError::new_for_clock(cycle, time, stage, clock_name, source),
         None => SimulationError::new(cycle, time, stage, source),
     };
+
     result.record_simulation_error(simulation_error);
 }
 
@@ -126,6 +127,7 @@ where
     if let Err(error) = Dut::finalize(dut) {
         result.record_finalization_error(error);
     }
+
     result.record_final_time(dut.simulation_time());
 }
 
@@ -139,8 +141,10 @@ where
 {
     let phase = clocks.primary_phase();
     let elapsed = clocks.next_transition_after();
+
     Dut::advance_time(dut, elapsed)
         .map_err(|source| StageError::dut(advance_stage(phase), source))?;
+
     clocks.drive_next_batch(dut).map_err(StageError::clock)
 }
 
@@ -169,9 +173,11 @@ where
     clocks
         .drive_initial_inactive(dut)
         .map_err(StageError::clock)?;
+
     stimulus
         .drive(dut)
         .map_err(|source| StageError::dut(SimulationStage::DriveStimulus, source))?;
+
     evaluate_current_phase(dut, clocks)
 }
 
@@ -225,12 +231,15 @@ where
     T: Drive<D>,
 {
     let batch = clocks.drive_next_batch(dut).map_err(StageError::clock)?;
+
     if !batch.primary_became_inactive() {
         return evaluate_current_phase(dut, clocks);
     }
+
     stimulus
         .drive(dut)
         .map_err(|source| StageError::dut(SimulationStage::DriveStimulus, source))?;
+
     evaluate_current_phase(dut, clocks)
 }
 
@@ -589,6 +598,7 @@ where
         }
 
         finalize_and_record(&mut dut, &mut result);
+
         result
     }
     /// Runs the testbench, samples coverage, and captures the resulting group.
@@ -618,6 +628,7 @@ where
             primary_cycle_timing,
             replay_token,
         } = self;
+
         let uncovered = Testbench {
             dut,
             sequence,
@@ -629,6 +640,7 @@ where
             primary_cycle_timing,
             replay_token,
         };
+
         let mut sampling_error = None;
 
         let result = uncovered.execute_with_observer::<O, _>(|cycle| {

@@ -89,9 +89,11 @@ impl CoverageSession {
     /// Returns [`CoverageSessionError::InvalidTestName`] for an invalid name.
     pub fn new(test_name: impl Into<String>) -> Result<Self, CoverageSessionError> {
         let test_name = test_name.into();
+
         if !is_valid_test_name(&test_name) {
             return Err(CoverageSessionError::InvalidTestName { name: test_name });
         }
+
         Ok(Self::new_validated(test_name))
     }
     /// Constructs a session after registry-name validation.
@@ -139,6 +141,7 @@ impl CoverageSession {
         G: CoverageGroup + ?Sized,
     {
         let instance_path = group.instance().instance_path().to_owned();
+
         if self.instance_paths.contains(&instance_path) {
             return Err(CoverageSessionError::DuplicateInstancePath {
                 test: self.test_name.to_string(),
@@ -156,6 +159,7 @@ impl CoverageSession {
         self.instance_paths.insert(instance_path);
         self.groups.push(snapshot);
         self.summary = Some(summary);
+
         Ok(())
     }
     /// Completes the session, returning no snapshot when no groups were captured.

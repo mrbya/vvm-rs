@@ -264,6 +264,7 @@ impl CoverageMerge {
                 Ok((key, artifact))
             })
             .collect::<Result<Vec<_>, CoverageMergeError>>()?;
+
         if artifacts.is_empty() {
             return Err(CoverageMergeError::NoInputArtifacts);
         }
@@ -317,6 +318,7 @@ impl CoverageMerge {
             .map(|(_test, group)| group)
             .collect::<Vec<_>>();
         let summary = merge_summary(&groups, counts)?;
+
         Ok(Self {
             producer_version: Arc::from(env!("CARGO_PKG_VERSION")),
             policy,

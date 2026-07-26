@@ -66,17 +66,21 @@ pub fn unpacked_array_ordinal(
     } else {
         index <= left && index >= right
     };
+
     if !in_range {
         return Err(error);
     }
+
     let ordinal = if left <= right {
         index.checked_sub(left)
     } else {
         left.checked_sub(index)
     };
+
     let Some(ordinal) = ordinal else {
         return Err(error);
     };
+
     usize::try_from(ordinal).map_err(|_conversion_error| error)
 }
 

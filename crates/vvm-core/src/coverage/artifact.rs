@@ -240,16 +240,19 @@ impl CoverageArtifact {
                 path: path.display().to_string(),
                 reason: "artifact path has no parent directory".to_owned(),
             })?;
+
         fs::create_dir_all(parent).map_err(|source| CoveragePersistenceError::Io {
             operation: crate::CoverageIoOperation::CreateDirectory,
             path: parent.to_owned(),
             source,
         })?;
+
         if path.exists() {
             return Err(CoveragePersistenceError::DestinationExists {
                 path: path.to_owned(),
             });
         }
+
         let filename = path
             .file_name()
             .and_then(|name| name.to_str())
@@ -257,12 +260,14 @@ impl CoverageArtifact {
                 path: path.display().to_string(),
                 reason: "artifact filename is not valid UTF-8".to_owned(),
             })?;
+
         let sequence = TEMPORARY_SEQUENCE.fetch_add(1, Ordering::Relaxed);
         let temporary = parent.join(format!(
             ".{filename}.{}.{}.tmp",
             std::process::id(),
             sequence
         ));
+
         let mut file = OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -272,6 +277,7 @@ impl CoverageArtifact {
                 path: temporary.clone(),
                 source,
             })?;
+
         let result = file
             .write_all(&bytes)
             .map_err(|source| CoveragePersistenceError::Io {
@@ -294,9 +300,11 @@ impl CoverageArtifact {
                     source,
                 })
             });
+
         if result.is_err() {
             drop(fs::remove_file(&temporary));
         }
+
         result
     }
     /// Builds the schema-v1 JSON value.
@@ -310,18 +318,21 @@ impl CoverageArtifact {
                 found: document.format,
             });
         }
+
         if document.schema_version != Self::SCHEMA_VERSION {
             return Err(CoveragePersistenceError::UnsupportedSchemaVersion {
                 found: document.schema_version,
                 supported: Self::SCHEMA_VERSION,
             });
         }
+
         if document.producer.name != "vvm-rs" || document.producer.version.is_empty() {
             return Err(invalid(
                 "producer",
                 "expected producer name `vvm-rs` and a non-empty version",
             ));
         }
+
         if !crate::registry::is_valid_test_name(&document.test.name) {
             return Err(invalid("test.name", "invalid test name"));
         }
@@ -336,6 +347,7 @@ impl CoverageArtifact {
                     .map_err(|_error| invalid("test.replay_token", "invalid replay token"))
             })
             .transpose()?;
+
         let groups = document
             .groups
             .into_iter()
@@ -349,9 +361,11 @@ impl CoverageArtifact {
                 "an artifact must contain at least one group",
             ));
         }
+
         let summary = session_summary(&groups)?;
         validate_session_summary(&document.summary, summary)?;
 
+        // Construct only after all persisted fields and aggregate state validate.
         Ok(Self {
             producer_version: Arc::from(document.producer.version),
             test_name: Arc::from(document.test.name),

@@ -201,6 +201,7 @@ mod tests {
         let mut dut = TriStateBus::new()?;
 
         dut.open_trace(&trace_path)?;
+
         settle_and_sample(
             &mut dut,
             DutDriverControl::released(),
@@ -209,6 +210,7 @@ mod tests {
         )?;
 
         Dut::advance_time(&mut dut, TimeStep::ONE)?;
+
         settle_and_sample(
             &mut dut,
             DutDriverControl::released(),
@@ -217,6 +219,7 @@ mod tests {
         )?;
 
         Dut::advance_time(&mut dut, TimeStep::ONE)?;
+
         settle_and_sample(
             &mut dut,
             DutDriverControl::new(0xFF, 0x3C),
@@ -225,6 +228,7 @@ mod tests {
         )?;
 
         Dut::advance_time(&mut dut, TimeStep::ONE)?;
+
         settle_and_sample(
             &mut dut,
             DutDriverControl::new(0xF0, 0xA0),
@@ -255,6 +259,7 @@ mod tests {
             .filter_map(|line| line.strip_prefix('#'))
             .map(str::parse::<u64>)
             .collect::<Result<Vec<_>, _>>()?;
+
         let unique_timestamps = timestamps
             .into_iter()
             .fold(Vec::new(), |mut unique, timestamp| {

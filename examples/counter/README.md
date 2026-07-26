@@ -43,10 +43,9 @@ trace and cycle overrides remain standard VVM configuration.
 
 ## Per-Test Artifacts And Reports
 
-When `VVM_COVERAGE_DIR` is set, each captured test writes an isolated
-`*.vvmcov.json` artifact. The counter-specific `coverage_report` example
-non-recursively discovers those files, merges passed artifacts deterministically,
-writes `counter.vvmcov-merged.json`, and renders text and self-contained HTML.
+When run through `cargo vvm coverage`, each captured test writes an isolated
+`*.vvmcov.json` artifact. The command non-recursively discovers those files,
+merges passed artifacts deterministically, writes `counter.vvmcov-merged.json`, and renders text and self-contained HTML.
 The text report finishes with `VVM functional coverage: <percentage>`, which is
 the GitLab metric.
 
@@ -56,21 +55,14 @@ the GitLab metric.
 just functional-coverage-example
 ```
 
-## Manual Workflow
+## Direct Workflow
 
 ```bash
-rm -rf target/vvm-functional-coverage
-mkdir -p target/vvm-functional-coverage/artifacts
-
-VVM_COVERAGE_DIR=target/vvm-functional-coverage/artifacts \
-    cargo test -p vvm-example-counter counter_smoke
-
-VVM_COVERAGE_DIR=target/vvm-functional-coverage/artifacts \
-    cargo test -p vvm-example-counter counter_random
-
-cargo run -p vvm-example-counter --example coverage_report -- \
-    target/vvm-functional-coverage/artifacts \
-    target/vvm-functional-coverage
+cargo vvm coverage \
+    --output target/vvm-functional-coverage \
+    --name counter \
+    -- \
+    test -p vvm-example-counter counter_
 ```
 
 The generated directory is:
@@ -89,7 +81,7 @@ target/vvm-functional-coverage/
 functional-coverage:
   stage: test
   script:
-    - just functional-coverage-example
+    - cargo vvm coverage --output target/vvm-functional-coverage --name counter -- nextest run -p vvm-example-counter
   coverage: '/^VVM functional coverage: \d+\.\d{2}%$/'
   artifacts:
     when: always

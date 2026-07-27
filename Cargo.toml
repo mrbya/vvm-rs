@@ -47,7 +47,7 @@ thiserror               = { version = "2" }
 clap                    = { version = "4", features = ["derive"] }
 serde_json              = { version = "1" }
 serde                   = { version = "1", features = ["derive"] }
-sha2                    = { version = "0.10" }
+sha2                    = { version = "0.11" }
 rand_chacha             = { version = "~0.10.0", default-features = false }
 rand_core               = { version = "~0.10.0", default-features = false }
 

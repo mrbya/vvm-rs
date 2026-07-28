@@ -105,7 +105,7 @@ impl PortType {
     /// Returns the safe composite inout state type for this port.
     pub fn inout_state_type(self, enable: Self) -> String {
         format!(
-            "::vvm::InoutState<{}, {}>",
+            "::vvm::__private::InoutState<{}, {}>",
             self.rust_value_type(),
             enable.rust_value_type()
         )
@@ -189,18 +189,18 @@ impl<'a> PackedArrayType<'a> {
     /// Returns the scalar extraction helper path.
     pub const fn extraction_function(self) -> &'static str {
         if self.element.signed {
-            "::vvm::extract_signed"
+            "::vvm::__private::extract_signed"
         } else {
-            "::vvm::extract_unsigned"
+            "::vvm::__private::extract_unsigned"
         }
     }
 
     /// Returns the scalar insertion helper path.
     pub const fn insertion_function(self) -> &'static str {
         if self.element.signed {
-            "::vvm::insert_signed"
+            "::vvm::__private::insert_signed"
         } else {
-            "::vvm::insert_unsigned"
+            "::vvm::__private::insert_unsigned"
         }
     }
 
@@ -537,9 +537,9 @@ impl WideType {
         let width = self.width().get();
 
         if self.signed() {
-            format!("::vvm::SignedBits<{width}>")
+            format!("::vvm::__private::SignedBits<{width}>")
         } else {
-            format!("::vvm::Bits<{width}>")
+            format!("::vvm::__private::Bits<{width}>")
         }
     }
 
@@ -548,9 +548,9 @@ impl WideType {
         let width = self.width().get();
 
         if self.signed() {
-            format!("::vvm::SignedBits::<{width}>")
+            format!("::vvm::__private::SignedBits::<{width}>")
         } else {
-            format!("::vvm::Bits::<{width}>")
+            format!("::vvm::__private::Bits::<{width}>")
         }
     }
 
@@ -1036,8 +1036,8 @@ mod tests {
     fn unsigned_wide_maps_to_bits() -> Result<(), Box<dyn std::error::Error>> {
         let wide = wide_type(65, false)?;
 
-        assert_eq!(wide.rust_value_type(), "::vvm::Bits<65>");
-        assert_eq!(wide.rust_constructor_type(), "::vvm::Bits::<65>");
+        assert_eq!(wide.rust_value_type(), "::vvm::__private::Bits<65>");
+        assert_eq!(wide.rust_constructor_type(), "::vvm::__private::Bits::<65>");
 
         Ok(())
     }
@@ -1046,8 +1046,11 @@ mod tests {
     fn signed_wide_maps_to_signed_bits() -> Result<(), Box<dyn std::error::Error>> {
         let wide = wide_type(129, true)?;
 
-        assert_eq!(wide.rust_value_type(), "::vvm::SignedBits<129>");
-        assert_eq!(wide.rust_constructor_type(), "::vvm::SignedBits::<129>");
+        assert_eq!(wide.rust_value_type(), "::vvm::__private::SignedBits<129>");
+        assert_eq!(
+            wide.rust_constructor_type(),
+            "::vvm::__private::SignedBits::<129>"
+        );
 
         Ok(())
     }
@@ -1168,7 +1171,7 @@ mod tests {
         let wide = unpacked_array_port(258, 129, false)?;
         let wide_type =
             UnpackedArrayType::from_port(&wide).ok_or_else(|| io::Error::other("array"))?;
-        assert_eq!(wide_type.rust_element_type(), "::vvm::Bits<129>");
+        assert_eq!(wide_type.rust_element_type(), "::vvm::__private::Bits<129>");
         assert_eq!(wide_type.ffi_cpp_element_type(), "std::uint32_t");
         assert_eq!(wide_type.transfer_units_per_element(), 5);
         assert_eq!(wide_type.transfer_length(), Some(10));
@@ -1230,11 +1233,20 @@ mod tests {
             )
         })?;
 
-        assert_eq!(array_type.storage_rust_type(), "::vvm::Bits<32>");
-        assert_eq!(array_type.storage_constructor_type(), "::vvm::Bits::<32>");
+        assert_eq!(array_type.storage_rust_type(), "::vvm::__private::Bits<32>");
+        assert_eq!(
+            array_type.storage_constructor_type(),
+            "::vvm::__private::Bits::<32>"
+        );
         assert_eq!(array_type.element_rust_type(), "u8");
-        assert_eq!(array_type.extraction_function(), "::vvm::extract_unsigned");
-        assert_eq!(array_type.insertion_function(), "::vvm::insert_unsigned");
+        assert_eq!(
+            array_type.extraction_function(),
+            "::vvm::__private::extract_unsigned"
+        );
+        assert_eq!(
+            array_type.insertion_function(),
+            "::vvm::__private::insert_unsigned"
+        );
         assert_eq!(array_type.element_width(), 8);
         assert_eq!(array_type.total_width(), 32);
         assert_eq!(array_type.left(), 3);
@@ -1325,8 +1337,14 @@ mod tests {
 
         assert_eq!(struct_type.total_width(), 136);
         assert!(!struct_type.storage_signed());
-        assert_eq!(struct_type.storage_rust_type(), "::vvm::Bits<136>");
-        assert_eq!(struct_type.storage_constructor_type(), "::vvm::Bits::<136>");
+        assert_eq!(
+            struct_type.storage_rust_type(),
+            "::vvm::__private::Bits<136>"
+        );
+        assert_eq!(
+            struct_type.storage_constructor_type(),
+            "::vvm::__private::Bits::<136>"
+        );
         assert_eq!(
             struct_type.storage_port_type(),
             PortType::Wide(WideType::new(width(136)?, false))
@@ -1451,8 +1469,11 @@ mod tests {
         assert_eq!(enum_type.total_width(), 3);
         assert!(!enum_type.storage_signed());
         assert_eq!(enum_type.shape().width.get(), 3);
-        assert_eq!(enum_type.storage_rust_type(), "::vvm::Bits<3>");
-        assert_eq!(enum_type.storage_constructor_type(), "::vvm::Bits::<3>");
+        assert_eq!(enum_type.storage_rust_type(), "::vvm::__private::Bits<3>");
+        assert_eq!(
+            enum_type.storage_constructor_type(),
+            "::vvm::__private::Bits::<3>"
+        );
         assert_eq!(
             enum_type.storage_port_type(),
             PortType::Scalar(SignalType::U8)
@@ -1496,10 +1517,13 @@ mod tests {
         assert_eq!(enum_type.total_width(), 4);
         assert!(enum_type.storage_signed());
         assert!(enum_type.shape().signed);
-        assert_eq!(enum_type.storage_rust_type(), "::vvm::SignedBits<4>");
+        assert_eq!(
+            enum_type.storage_rust_type(),
+            "::vvm::__private::SignedBits<4>"
+        );
         assert_eq!(
             enum_type.storage_constructor_type(),
-            "::vvm::SignedBits::<4>"
+            "::vvm::__private::SignedBits::<4>"
         );
         assert_eq!(
             enum_type.storage_port_type(),

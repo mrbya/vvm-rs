@@ -1,4 +1,5 @@
-use vvm::{Clock, Drive, Mismatch, ReferenceModel, Sample, TestResult};
+use vvm::testbench::{Mismatch, ReferenceModel, TestResult};
+use vvm::{Clock, Drive, Sample};
 
 use crate::signed_adder::SignedAdderError;
 
@@ -100,7 +101,7 @@ pub fn exhaustive_signed_adder_sequence() -> impl Iterator<Item = SignedAdderSti
 
 #[cfg(test)]
 mod tests {
-    use vvm::ReferenceModel;
+    use vvm::testbench::ReferenceModel;
 
     use super::{SignedAdderReferenceModel, SignedAdderStimulus, exhaustive_signed_adder_sequence};
 

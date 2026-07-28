@@ -31,23 +31,23 @@ pub(super) fn expand(input: Input) -> TokenStream {
 
             match __vvm_context.config().replay_token() {
                 ::core::option::Option::Some(__vvm_replay) => {
-                    ::vvm::IntoTestOutcome::into_test_outcome_with_replay(
+                    ::vvm::__private::IntoTestOutcome::into_test_outcome_with_replay(
                         __vvm_result,
                         __vvm_replay,
                     )
                 }
                 ::core::option::Option::None => {
-                    ::vvm::IntoTestOutcome::into_test_outcome(__vvm_result)
+                    ::vvm::__private::IntoTestOutcome::into_test_outcome(__vvm_result)
                 }
             }
         }
     } else {
         quote! {
-            ::vvm::IntoTestOutcome::into_test_outcome(#implementation_call)
+            ::vvm::__private::IntoTestOutcome::into_test_outcome(#implementation_call)
         }
     };
 
-    let mut capabilities = quote!(::vvm::TestCapabilities::new());
+    let mut capabilities = quote!(::vvm::__private::TestCapabilities::new());
 
     if trace {
         capabilities = quote!((#capabilities).with_trace());
@@ -72,14 +72,14 @@ pub(super) fn expand(input: Input) -> TokenStream {
         #(#helper_attributes)*
         #[doc(hidden)]
         #[allow(dead_code)]
-        fn #adapter(__vvm_context: &mut ::vvm::TestContext) -> ::vvm::TestOutcome {
+        fn #adapter(__vvm_context: &mut ::vvm::__private::TestContext) -> ::vvm::__private::TestOutcome {
             #adapter_body
         }
 
         #(#helper_attributes)*
         #[doc(hidden)]
         #[allow(dead_code, non_upper_case_globals)]
-        const #descriptor: ::vvm::TestDescriptor = ::vvm::TestDescriptor::new_with_context(
+        const #descriptor: ::vvm::__private::TestDescriptor = ::vvm::__private::TestDescriptor::new_with_context(
             #name,
             #description,
             #adapter,

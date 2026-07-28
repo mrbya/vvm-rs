@@ -36,7 +36,7 @@ impl DutDriverControl {
 pub struct BusObservation {
     /// Complete generated inout state.
     #[vvm(port)]
-    data: vvm::InoutState<u8>,
+    data: vvm::dut::InoutState<u8>,
 
     /// Value sampled inside the HDL DUT.
     #[vvm(port)]
@@ -46,7 +46,7 @@ pub struct BusObservation {
 impl BusObservation {
     /// Returns the complete raw inout snapshot.
     #[must_use]
-    pub const fn data(&self) -> &vvm::InoutState<u8> {
+    pub const fn data(&self) -> &vvm::dut::InoutState<u8> {
         &self.data
     }
 

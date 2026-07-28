@@ -1,6 +1,6 @@
-extern crate vvm_core as vvm;
+extern crate vvm;
 
-use vvm::{Clock, Dut, SimulationTime, TimeStep};
+use vvm::{dut::Dut, timing::{Clock, SimulationTime, TimeStep}};
 
 struct MockDut {
     core_clk: bool,

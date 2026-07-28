@@ -1,8 +1,9 @@
 use thiserror::Error;
-use vvm::{
-    Clock, ClockConfigurationError, ClockScheduler, ClockTiming, CycleTiming, Drive,
-    InvalidTimeStep, Mismatch, ReferenceModel, Sample, TestResult, TimeStep,
+use vvm::testbench::{Mismatch, ReferenceModel, TestResult};
+use vvm::timing::{
+    ClockConfigurationError, ClockScheduler, ClockTiming, CycleTiming, InvalidTimeStep, TimeStep,
 };
+use vvm::{Clock, Drive, Sample};
 
 use crate::multi_clock_counter::{MultiClockCounter, MultiClockCounterError};
 

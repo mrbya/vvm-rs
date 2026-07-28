@@ -43,7 +43,7 @@ impl StateVariant {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct State {
     /// Canonical flattened packed storage.
-    bits: ::vvm::Bits<3>,
+    bits: ::vvm::__private::Bits<3>,
 }
 
 #[allow(clippy::same_name_method)]
@@ -52,31 +52,31 @@ impl State {
     pub const WIDTH: usize = 3;
 
     /// Number of canonical transfer words.
-    pub const WORDS: usize = ::vvm::Bits::<3>::WORDS;
+    pub const WORDS: usize = ::vvm::__private::Bits::<3>::WORDS;
 
     /// Declared enum variants in HDL declaration order.
-    pub const VARIANTS: &'static [::vvm::PackedEnumVariantLayout] = &[
-        ::vvm::PackedEnumVariantLayout::new("STATE_IDLE", 0),
-        ::vvm::PackedEnumVariantLayout::new("STATE_BUSY", 2),
-        ::vvm::PackedEnumVariantLayout::new("STATE_DONE", 5),
-        ::vvm::PackedEnumVariantLayout::new("STATE_ERROR", 7),
+    pub const VARIANTS: &'static [::vvm::__private::PackedEnumVariantLayout] = &[
+        ::vvm::__private::PackedEnumVariantLayout::new("STATE_IDLE", 0),
+        ::vvm::__private::PackedEnumVariantLayout::new("STATE_BUSY", 2),
+        ::vvm::__private::PackedEnumVariantLayout::new("STATE_DONE", 5),
+        ::vvm::__private::PackedEnumVariantLayout::new("STATE_ERROR", 7),
     ];
 
     /// Complete packed-enum layout.
-    pub const LAYOUT: ::vvm::PackedEnumLayout =
-        ::vvm::PackedEnumLayout::new("State", Self::WIDTH, false, Self::VARIANTS);
+    pub const LAYOUT: ::vvm::__private::PackedEnumLayout =
+        ::vvm::__private::PackedEnumLayout::new("State", Self::WIDTH, false, Self::VARIANTS);
 
     /// Constructs an all-zero packed-enum value.
     #[must_use]
     pub fn zero() -> Self {
         Self {
-            bits: ::vvm::Bits::<3>::zero(),
+            bits: ::vvm::__private::Bits::<3>::zero(),
         }
     }
 
     /// Wraps canonical packed bits.
     #[must_use]
-    pub const fn from_bits(bits: ::vvm::Bits<3>) -> Self {
+    pub const fn from_bits(bits: ::vvm::__private::Bits<3>) -> Self {
         Self {
             bits,
         }
@@ -84,7 +84,7 @@ impl State {
 
     /// Returns the underlying packed bits.
     #[must_use]
-    pub const fn bits(&self) -> &::vvm::Bits<3> {
+    pub const fn bits(&self) -> &::vvm::__private::Bits<3> {
         &self.bits
     }
 
@@ -96,19 +96,19 @@ impl State {
 
     /// Returns the packed-enum layout.
     #[must_use]
-    pub const fn layout() -> ::vvm::PackedEnumLayout {
+    pub const fn layout() -> ::vvm::__private::PackedEnumLayout {
         Self::LAYOUT
     }
 
     /// Returns declared HDL variants in declaration order.
     #[must_use]
-    pub const fn variants() -> &'static [::vvm::PackedEnumVariantLayout] {
+    pub const fn variants() -> &'static [::vvm::__private::PackedEnumVariantLayout] {
         Self::VARIANTS
     }
 
     /// Consumes the value and returns its packed bits.
     #[must_use]
-    pub fn into_bits(self) -> ::vvm::Bits<3> {
+    pub fn into_bits(self) -> ::vvm::__private::Bits<3> {
         self.bits
     }
 
@@ -119,8 +119,8 @@ impl State {
     /// Returns an error when the word count does not match the packed width.
     pub fn from_words_le(
         words: impl AsRef<[u32]>,
-    ) -> std::result::Result<Self, ::vvm::InvalidBitVectorWordCount> {
-        ::vvm::Bits::<3>::from_words_le(words)
+    ) -> std::result::Result<Self, ::vvm::__private::InvalidBitVectorWordCount> {
+        ::vvm::__private::Bits::<3>::from_words_le(words)
             .map(Self::from_bits)
     }
 
@@ -135,7 +135,7 @@ impl State {
     /// Only the low [`Self::WIDTH`] bits are retained.
     #[must_use]
     pub fn from_raw(value: u64) -> Self {
-        Self::from_bits(::vvm::Bits::<3>::from(value))
+        Self::from_bits(::vvm::__private::Bits::<3>::from(value))
     }
 
     /// Returns the canonical raw enum bit pattern.
@@ -143,8 +143,8 @@ impl State {
     /// # Errors
     ///
     /// Returns an error if the internal packed storage cannot be extracted.
-    pub fn raw(&self) -> std::result::Result<u64, ::vvm::PackedLayoutError> {
-        ::vvm::extract_unsigned(
+    pub fn raw(&self) -> std::result::Result<u64, ::vvm::__private::PackedLayoutError> {
+        ::vvm::__private::extract_unsigned(
             self.words_le(),
             Self::WIDTH,
             0,
@@ -165,7 +165,7 @@ impl State {
     /// # Errors
     ///
     /// Returns an error if packed storage extraction fails.
-    pub fn variant(&self) -> std::result::Result<Option<StateVariant>, ::vvm::PackedLayoutError> {
+    pub fn variant(&self) -> std::result::Result<Option<StateVariant>, ::vvm::__private::PackedLayoutError> {
         let variant = match self.raw()? {
             0 => Some(StateVariant::STATE_IDLE),
             2 => Some(StateVariant::STATE_BUSY),
@@ -184,7 +184,7 @@ impl State {
     /// # Errors
     ///
     /// Returns an error if packed storage extraction fails.
-    pub fn name(&self) -> std::result::Result<Option<&'static str>, ::vvm::PackedLayoutError> {
+    pub fn name(&self) -> std::result::Result<Option<&'static str>, ::vvm::__private::PackedLayoutError> {
         Ok(self.variant()?.map(StateVariant::name))
     }
 
@@ -193,7 +193,7 @@ impl State {
     /// # Errors
     ///
     /// Returns an error if packed storage extraction fails.
-    pub fn is_known(&self) -> std::result::Result<bool, ::vvm::PackedLayoutError> {
+    pub fn is_known(&self) -> std::result::Result<bool, ::vvm::__private::PackedLayoutError> {
         Ok(self.variant()?.is_some())
     }
 }
@@ -211,13 +211,13 @@ impl From<StateVariant> for State {
 }
 
 #[allow(clippy::same_name_method)]
-impl ::vvm::PackedValue for State {
+impl ::vvm::__private::PackedValue for State {
     const WIDTH: usize = Self::WIDTH;
     const WORDS: usize = Self::WORDS;
 
     fn from_words_le(
         words: impl AsRef<[u32]>,
-    ) -> std::result::Result<Self, ::vvm::InvalidBitVectorWordCount> {
+    ) -> std::result::Result<Self, ::vvm::__private::InvalidBitVectorWordCount> {
         Self::from_words_le(words)
     }
 
@@ -226,13 +226,13 @@ impl ::vvm::PackedValue for State {
     }
 }
 
-impl From<::vvm::Bits<3>> for State {
-    fn from(bits: ::vvm::Bits<3>) -> Self {
+impl From<::vvm::__private::Bits<3>> for State {
+    fn from(bits: ::vvm::__private::Bits<3>) -> Self {
         Self::from_bits(bits)
     }
 }
 
-impl From<State> for ::vvm::Bits<3> {
+impl From<State> for ::vvm::__private::Bits<3> {
     fn from(value: State) -> Self {
         value.into_bits()
     }
@@ -276,7 +276,7 @@ impl StateOutVariant {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct StateOut {
     /// Canonical flattened packed storage.
-    bits: ::vvm::Bits<3>,
+    bits: ::vvm::__private::Bits<3>,
 }
 
 #[allow(clippy::same_name_method)]
@@ -285,31 +285,31 @@ impl StateOut {
     pub const WIDTH: usize = 3;
 
     /// Number of canonical transfer words.
-    pub const WORDS: usize = ::vvm::Bits::<3>::WORDS;
+    pub const WORDS: usize = ::vvm::__private::Bits::<3>::WORDS;
 
     /// Declared enum variants in HDL declaration order.
-    pub const VARIANTS: &'static [::vvm::PackedEnumVariantLayout] = &[
-        ::vvm::PackedEnumVariantLayout::new("STATE_IDLE", 0),
-        ::vvm::PackedEnumVariantLayout::new("STATE_BUSY", 2),
-        ::vvm::PackedEnumVariantLayout::new("STATE_DONE", 5),
-        ::vvm::PackedEnumVariantLayout::new("STATE_ERROR", 7),
+    pub const VARIANTS: &'static [::vvm::__private::PackedEnumVariantLayout] = &[
+        ::vvm::__private::PackedEnumVariantLayout::new("STATE_IDLE", 0),
+        ::vvm::__private::PackedEnumVariantLayout::new("STATE_BUSY", 2),
+        ::vvm::__private::PackedEnumVariantLayout::new("STATE_DONE", 5),
+        ::vvm::__private::PackedEnumVariantLayout::new("STATE_ERROR", 7),
     ];
 
     /// Complete packed-enum layout.
-    pub const LAYOUT: ::vvm::PackedEnumLayout =
-        ::vvm::PackedEnumLayout::new("StateOut", Self::WIDTH, false, Self::VARIANTS);
+    pub const LAYOUT: ::vvm::__private::PackedEnumLayout =
+        ::vvm::__private::PackedEnumLayout::new("StateOut", Self::WIDTH, false, Self::VARIANTS);
 
     /// Constructs an all-zero packed-enum value.
     #[must_use]
     pub fn zero() -> Self {
         Self {
-            bits: ::vvm::Bits::<3>::zero(),
+            bits: ::vvm::__private::Bits::<3>::zero(),
         }
     }
 
     /// Wraps canonical packed bits.
     #[must_use]
-    pub const fn from_bits(bits: ::vvm::Bits<3>) -> Self {
+    pub const fn from_bits(bits: ::vvm::__private::Bits<3>) -> Self {
         Self {
             bits,
         }
@@ -317,7 +317,7 @@ impl StateOut {
 
     /// Returns the underlying packed bits.
     #[must_use]
-    pub const fn bits(&self) -> &::vvm::Bits<3> {
+    pub const fn bits(&self) -> &::vvm::__private::Bits<3> {
         &self.bits
     }
 
@@ -329,19 +329,19 @@ impl StateOut {
 
     /// Returns the packed-enum layout.
     #[must_use]
-    pub const fn layout() -> ::vvm::PackedEnumLayout {
+    pub const fn layout() -> ::vvm::__private::PackedEnumLayout {
         Self::LAYOUT
     }
 
     /// Returns declared HDL variants in declaration order.
     #[must_use]
-    pub const fn variants() -> &'static [::vvm::PackedEnumVariantLayout] {
+    pub const fn variants() -> &'static [::vvm::__private::PackedEnumVariantLayout] {
         Self::VARIANTS
     }
 
     /// Consumes the value and returns its packed bits.
     #[must_use]
-    pub fn into_bits(self) -> ::vvm::Bits<3> {
+    pub fn into_bits(self) -> ::vvm::__private::Bits<3> {
         self.bits
     }
 
@@ -352,8 +352,8 @@ impl StateOut {
     /// Returns an error when the word count does not match the packed width.
     pub fn from_words_le(
         words: impl AsRef<[u32]>,
-    ) -> std::result::Result<Self, ::vvm::InvalidBitVectorWordCount> {
-        ::vvm::Bits::<3>::from_words_le(words)
+    ) -> std::result::Result<Self, ::vvm::__private::InvalidBitVectorWordCount> {
+        ::vvm::__private::Bits::<3>::from_words_le(words)
             .map(Self::from_bits)
     }
 
@@ -368,7 +368,7 @@ impl StateOut {
     /// Only the low [`Self::WIDTH`] bits are retained.
     #[must_use]
     pub fn from_raw(value: u64) -> Self {
-        Self::from_bits(::vvm::Bits::<3>::from(value))
+        Self::from_bits(::vvm::__private::Bits::<3>::from(value))
     }
 
     /// Returns the canonical raw enum bit pattern.
@@ -376,8 +376,8 @@ impl StateOut {
     /// # Errors
     ///
     /// Returns an error if the internal packed storage cannot be extracted.
-    pub fn raw(&self) -> std::result::Result<u64, ::vvm::PackedLayoutError> {
-        ::vvm::extract_unsigned(
+    pub fn raw(&self) -> std::result::Result<u64, ::vvm::__private::PackedLayoutError> {
+        ::vvm::__private::extract_unsigned(
             self.words_le(),
             Self::WIDTH,
             0,
@@ -398,7 +398,7 @@ impl StateOut {
     /// # Errors
     ///
     /// Returns an error if packed storage extraction fails.
-    pub fn variant(&self) -> std::result::Result<Option<StateOutVariant>, ::vvm::PackedLayoutError> {
+    pub fn variant(&self) -> std::result::Result<Option<StateOutVariant>, ::vvm::__private::PackedLayoutError> {
         let variant = match self.raw()? {
             0 => Some(StateOutVariant::STATE_IDLE),
             2 => Some(StateOutVariant::STATE_BUSY),
@@ -417,7 +417,7 @@ impl StateOut {
     /// # Errors
     ///
     /// Returns an error if packed storage extraction fails.
-    pub fn name(&self) -> std::result::Result<Option<&'static str>, ::vvm::PackedLayoutError> {
+    pub fn name(&self) -> std::result::Result<Option<&'static str>, ::vvm::__private::PackedLayoutError> {
         Ok(self.variant()?.map(StateOutVariant::name))
     }
 
@@ -426,7 +426,7 @@ impl StateOut {
     /// # Errors
     ///
     /// Returns an error if packed storage extraction fails.
-    pub fn is_known(&self) -> std::result::Result<bool, ::vvm::PackedLayoutError> {
+    pub fn is_known(&self) -> std::result::Result<bool, ::vvm::__private::PackedLayoutError> {
         Ok(self.variant()?.is_some())
     }
 }
@@ -444,13 +444,13 @@ impl From<StateOutVariant> for StateOut {
 }
 
 #[allow(clippy::same_name_method)]
-impl ::vvm::PackedValue for StateOut {
+impl ::vvm::__private::PackedValue for StateOut {
     const WIDTH: usize = Self::WIDTH;
     const WORDS: usize = Self::WORDS;
 
     fn from_words_le(
         words: impl AsRef<[u32]>,
-    ) -> std::result::Result<Self, ::vvm::InvalidBitVectorWordCount> {
+    ) -> std::result::Result<Self, ::vvm::__private::InvalidBitVectorWordCount> {
         Self::from_words_le(words)
     }
 
@@ -459,13 +459,13 @@ impl ::vvm::PackedValue for StateOut {
     }
 }
 
-impl From<::vvm::Bits<3>> for StateOut {
-    fn from(bits: ::vvm::Bits<3>) -> Self {
+impl From<::vvm::__private::Bits<3>> for StateOut {
+    fn from(bits: ::vvm::__private::Bits<3>) -> Self {
         Self::from_bits(bits)
     }
 }
 
-impl From<StateOut> for ::vvm::Bits<3> {
+impl From<StateOut> for ::vvm::__private::Bits<3> {
     fn from(value: StateOut) -> Self {
         value.into_bits()
     }
@@ -506,7 +506,7 @@ impl SignedStateVariant {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SignedState {
     /// Canonical flattened packed storage.
-    bits: ::vvm::SignedBits<4>,
+    bits: ::vvm::__private::SignedBits<4>,
 }
 
 #[allow(clippy::same_name_method)]
@@ -515,30 +515,30 @@ impl SignedState {
     pub const WIDTH: usize = 4;
 
     /// Number of canonical transfer words.
-    pub const WORDS: usize = ::vvm::SignedBits::<4>::WORDS;
+    pub const WORDS: usize = ::vvm::__private::SignedBits::<4>::WORDS;
 
     /// Declared enum variants in HDL declaration order.
-    pub const VARIANTS: &'static [::vvm::PackedEnumVariantLayout] = &[
-        ::vvm::PackedEnumVariantLayout::new("SIGNED_NEG", 13),
-        ::vvm::PackedEnumVariantLayout::new("SIGNED_ZERO", 0),
-        ::vvm::PackedEnumVariantLayout::new("SIGNED_POS", 5),
+    pub const VARIANTS: &'static [::vvm::__private::PackedEnumVariantLayout] = &[
+        ::vvm::__private::PackedEnumVariantLayout::new("SIGNED_NEG", 13),
+        ::vvm::__private::PackedEnumVariantLayout::new("SIGNED_ZERO", 0),
+        ::vvm::__private::PackedEnumVariantLayout::new("SIGNED_POS", 5),
     ];
 
     /// Complete packed-enum layout.
-    pub const LAYOUT: ::vvm::PackedEnumLayout =
-        ::vvm::PackedEnumLayout::new("SignedState", Self::WIDTH, true, Self::VARIANTS);
+    pub const LAYOUT: ::vvm::__private::PackedEnumLayout =
+        ::vvm::__private::PackedEnumLayout::new("SignedState", Self::WIDTH, true, Self::VARIANTS);
 
     /// Constructs an all-zero packed-enum value.
     #[must_use]
     pub fn zero() -> Self {
         Self {
-            bits: ::vvm::SignedBits::<4>::zero(),
+            bits: ::vvm::__private::SignedBits::<4>::zero(),
         }
     }
 
     /// Wraps canonical packed bits.
     #[must_use]
-    pub const fn from_bits(bits: ::vvm::SignedBits<4>) -> Self {
+    pub const fn from_bits(bits: ::vvm::__private::SignedBits<4>) -> Self {
         Self {
             bits,
         }
@@ -546,7 +546,7 @@ impl SignedState {
 
     /// Returns the underlying packed bits.
     #[must_use]
-    pub const fn bits(&self) -> &::vvm::SignedBits<4> {
+    pub const fn bits(&self) -> &::vvm::__private::SignedBits<4> {
         &self.bits
     }
 
@@ -558,19 +558,19 @@ impl SignedState {
 
     /// Returns the packed-enum layout.
     #[must_use]
-    pub const fn layout() -> ::vvm::PackedEnumLayout {
+    pub const fn layout() -> ::vvm::__private::PackedEnumLayout {
         Self::LAYOUT
     }
 
     /// Returns declared HDL variants in declaration order.
     #[must_use]
-    pub const fn variants() -> &'static [::vvm::PackedEnumVariantLayout] {
+    pub const fn variants() -> &'static [::vvm::__private::PackedEnumVariantLayout] {
         Self::VARIANTS
     }
 
     /// Consumes the value and returns its packed bits.
     #[must_use]
-    pub fn into_bits(self) -> ::vvm::SignedBits<4> {
+    pub fn into_bits(self) -> ::vvm::__private::SignedBits<4> {
         self.bits
     }
 
@@ -581,8 +581,8 @@ impl SignedState {
     /// Returns an error when the word count does not match the packed width.
     pub fn from_words_le(
         words: impl AsRef<[u32]>,
-    ) -> std::result::Result<Self, ::vvm::InvalidBitVectorWordCount> {
-        ::vvm::SignedBits::<4>::from_words_le(words)
+    ) -> std::result::Result<Self, ::vvm::__private::InvalidBitVectorWordCount> {
+        ::vvm::__private::SignedBits::<4>::from_words_le(words)
             .map(Self::from_bits)
     }
 
@@ -598,7 +598,7 @@ impl SignedState {
     #[must_use]
     pub fn from_raw(value: u64) -> Self {
         let signed = i64::from_ne_bytes(value.to_ne_bytes());
-        Self::from_bits(::vvm::SignedBits::<4>::from(signed))
+        Self::from_bits(::vvm::__private::SignedBits::<4>::from(signed))
     }
 
     /// Returns the canonical raw enum bit pattern.
@@ -606,8 +606,8 @@ impl SignedState {
     /// # Errors
     ///
     /// Returns an error if the internal packed storage cannot be extracted.
-    pub fn raw(&self) -> std::result::Result<u64, ::vvm::PackedLayoutError> {
-        ::vvm::extract_unsigned(
+    pub fn raw(&self) -> std::result::Result<u64, ::vvm::__private::PackedLayoutError> {
+        ::vvm::__private::extract_unsigned(
             self.words_le(),
             Self::WIDTH,
             0,
@@ -628,7 +628,7 @@ impl SignedState {
     /// # Errors
     ///
     /// Returns an error if packed storage extraction fails.
-    pub fn variant(&self) -> std::result::Result<Option<SignedStateVariant>, ::vvm::PackedLayoutError> {
+    pub fn variant(&self) -> std::result::Result<Option<SignedStateVariant>, ::vvm::__private::PackedLayoutError> {
         let variant = match self.raw()? {
             13 => Some(SignedStateVariant::SIGNED_NEG),
             0 => Some(SignedStateVariant::SIGNED_ZERO),
@@ -646,7 +646,7 @@ impl SignedState {
     /// # Errors
     ///
     /// Returns an error if packed storage extraction fails.
-    pub fn name(&self) -> std::result::Result<Option<&'static str>, ::vvm::PackedLayoutError> {
+    pub fn name(&self) -> std::result::Result<Option<&'static str>, ::vvm::__private::PackedLayoutError> {
         Ok(self.variant()?.map(SignedStateVariant::name))
     }
 
@@ -655,7 +655,7 @@ impl SignedState {
     /// # Errors
     ///
     /// Returns an error if packed storage extraction fails.
-    pub fn is_known(&self) -> std::result::Result<bool, ::vvm::PackedLayoutError> {
+    pub fn is_known(&self) -> std::result::Result<bool, ::vvm::__private::PackedLayoutError> {
         Ok(self.variant()?.is_some())
     }
 }
@@ -673,13 +673,13 @@ impl From<SignedStateVariant> for SignedState {
 }
 
 #[allow(clippy::same_name_method)]
-impl ::vvm::PackedValue for SignedState {
+impl ::vvm::__private::PackedValue for SignedState {
     const WIDTH: usize = Self::WIDTH;
     const WORDS: usize = Self::WORDS;
 
     fn from_words_le(
         words: impl AsRef<[u32]>,
-    ) -> std::result::Result<Self, ::vvm::InvalidBitVectorWordCount> {
+    ) -> std::result::Result<Self, ::vvm::__private::InvalidBitVectorWordCount> {
         Self::from_words_le(words)
     }
 
@@ -688,13 +688,13 @@ impl ::vvm::PackedValue for SignedState {
     }
 }
 
-impl From<::vvm::SignedBits<4>> for SignedState {
-    fn from(bits: ::vvm::SignedBits<4>) -> Self {
+impl From<::vvm::__private::SignedBits<4>> for SignedState {
+    fn from(bits: ::vvm::__private::SignedBits<4>) -> Self {
         Self::from_bits(bits)
     }
 }
 
-impl From<SignedState> for ::vvm::SignedBits<4> {
+impl From<SignedState> for ::vvm::__private::SignedBits<4> {
     fn from(value: SignedState) -> Self {
         value.into_bits()
     }
@@ -735,7 +735,7 @@ impl SignedStateOutVariant {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SignedStateOut {
     /// Canonical flattened packed storage.
-    bits: ::vvm::SignedBits<4>,
+    bits: ::vvm::__private::SignedBits<4>,
 }
 
 #[allow(clippy::same_name_method)]
@@ -744,30 +744,30 @@ impl SignedStateOut {
     pub const WIDTH: usize = 4;
 
     /// Number of canonical transfer words.
-    pub const WORDS: usize = ::vvm::SignedBits::<4>::WORDS;
+    pub const WORDS: usize = ::vvm::__private::SignedBits::<4>::WORDS;
 
     /// Declared enum variants in HDL declaration order.
-    pub const VARIANTS: &'static [::vvm::PackedEnumVariantLayout] = &[
-        ::vvm::PackedEnumVariantLayout::new("SIGNED_NEG", 13),
-        ::vvm::PackedEnumVariantLayout::new("SIGNED_ZERO", 0),
-        ::vvm::PackedEnumVariantLayout::new("SIGNED_POS", 5),
+    pub const VARIANTS: &'static [::vvm::__private::PackedEnumVariantLayout] = &[
+        ::vvm::__private::PackedEnumVariantLayout::new("SIGNED_NEG", 13),
+        ::vvm::__private::PackedEnumVariantLayout::new("SIGNED_ZERO", 0),
+        ::vvm::__private::PackedEnumVariantLayout::new("SIGNED_POS", 5),
     ];
 
     /// Complete packed-enum layout.
-    pub const LAYOUT: ::vvm::PackedEnumLayout =
-        ::vvm::PackedEnumLayout::new("SignedStateOut", Self::WIDTH, true, Self::VARIANTS);
+    pub const LAYOUT: ::vvm::__private::PackedEnumLayout =
+        ::vvm::__private::PackedEnumLayout::new("SignedStateOut", Self::WIDTH, true, Self::VARIANTS);
 
     /// Constructs an all-zero packed-enum value.
     #[must_use]
     pub fn zero() -> Self {
         Self {
-            bits: ::vvm::SignedBits::<4>::zero(),
+            bits: ::vvm::__private::SignedBits::<4>::zero(),
         }
     }
 
     /// Wraps canonical packed bits.
     #[must_use]
-    pub const fn from_bits(bits: ::vvm::SignedBits<4>) -> Self {
+    pub const fn from_bits(bits: ::vvm::__private::SignedBits<4>) -> Self {
         Self {
             bits,
         }
@@ -775,7 +775,7 @@ impl SignedStateOut {
 
     /// Returns the underlying packed bits.
     #[must_use]
-    pub const fn bits(&self) -> &::vvm::SignedBits<4> {
+    pub const fn bits(&self) -> &::vvm::__private::SignedBits<4> {
         &self.bits
     }
 
@@ -787,19 +787,19 @@ impl SignedStateOut {
 
     /// Returns the packed-enum layout.
     #[must_use]
-    pub const fn layout() -> ::vvm::PackedEnumLayout {
+    pub const fn layout() -> ::vvm::__private::PackedEnumLayout {
         Self::LAYOUT
     }
 
     /// Returns declared HDL variants in declaration order.
     #[must_use]
-    pub const fn variants() -> &'static [::vvm::PackedEnumVariantLayout] {
+    pub const fn variants() -> &'static [::vvm::__private::PackedEnumVariantLayout] {
         Self::VARIANTS
     }
 
     /// Consumes the value and returns its packed bits.
     #[must_use]
-    pub fn into_bits(self) -> ::vvm::SignedBits<4> {
+    pub fn into_bits(self) -> ::vvm::__private::SignedBits<4> {
         self.bits
     }
 
@@ -810,8 +810,8 @@ impl SignedStateOut {
     /// Returns an error when the word count does not match the packed width.
     pub fn from_words_le(
         words: impl AsRef<[u32]>,
-    ) -> std::result::Result<Self, ::vvm::InvalidBitVectorWordCount> {
-        ::vvm::SignedBits::<4>::from_words_le(words)
+    ) -> std::result::Result<Self, ::vvm::__private::InvalidBitVectorWordCount> {
+        ::vvm::__private::SignedBits::<4>::from_words_le(words)
             .map(Self::from_bits)
     }
 
@@ -827,7 +827,7 @@ impl SignedStateOut {
     #[must_use]
     pub fn from_raw(value: u64) -> Self {
         let signed = i64::from_ne_bytes(value.to_ne_bytes());
-        Self::from_bits(::vvm::SignedBits::<4>::from(signed))
+        Self::from_bits(::vvm::__private::SignedBits::<4>::from(signed))
     }
 
     /// Returns the canonical raw enum bit pattern.
@@ -835,8 +835,8 @@ impl SignedStateOut {
     /// # Errors
     ///
     /// Returns an error if the internal packed storage cannot be extracted.
-    pub fn raw(&self) -> std::result::Result<u64, ::vvm::PackedLayoutError> {
-        ::vvm::extract_unsigned(
+    pub fn raw(&self) -> std::result::Result<u64, ::vvm::__private::PackedLayoutError> {
+        ::vvm::__private::extract_unsigned(
             self.words_le(),
             Self::WIDTH,
             0,
@@ -857,7 +857,7 @@ impl SignedStateOut {
     /// # Errors
     ///
     /// Returns an error if packed storage extraction fails.
-    pub fn variant(&self) -> std::result::Result<Option<SignedStateOutVariant>, ::vvm::PackedLayoutError> {
+    pub fn variant(&self) -> std::result::Result<Option<SignedStateOutVariant>, ::vvm::__private::PackedLayoutError> {
         let variant = match self.raw()? {
             13 => Some(SignedStateOutVariant::SIGNED_NEG),
             0 => Some(SignedStateOutVariant::SIGNED_ZERO),
@@ -875,7 +875,7 @@ impl SignedStateOut {
     /// # Errors
     ///
     /// Returns an error if packed storage extraction fails.
-    pub fn name(&self) -> std::result::Result<Option<&'static str>, ::vvm::PackedLayoutError> {
+    pub fn name(&self) -> std::result::Result<Option<&'static str>, ::vvm::__private::PackedLayoutError> {
         Ok(self.variant()?.map(SignedStateOutVariant::name))
     }
 
@@ -884,7 +884,7 @@ impl SignedStateOut {
     /// # Errors
     ///
     /// Returns an error if packed storage extraction fails.
-    pub fn is_known(&self) -> std::result::Result<bool, ::vvm::PackedLayoutError> {
+    pub fn is_known(&self) -> std::result::Result<bool, ::vvm::__private::PackedLayoutError> {
         Ok(self.variant()?.is_some())
     }
 }
@@ -902,13 +902,13 @@ impl From<SignedStateOutVariant> for SignedStateOut {
 }
 
 #[allow(clippy::same_name_method)]
-impl ::vvm::PackedValue for SignedStateOut {
+impl ::vvm::__private::PackedValue for SignedStateOut {
     const WIDTH: usize = Self::WIDTH;
     const WORDS: usize = Self::WORDS;
 
     fn from_words_le(
         words: impl AsRef<[u32]>,
-    ) -> std::result::Result<Self, ::vvm::InvalidBitVectorWordCount> {
+    ) -> std::result::Result<Self, ::vvm::__private::InvalidBitVectorWordCount> {
         Self::from_words_le(words)
     }
 
@@ -917,13 +917,13 @@ impl ::vvm::PackedValue for SignedStateOut {
     }
 }
 
-impl From<::vvm::SignedBits<4>> for SignedStateOut {
-    fn from(bits: ::vvm::SignedBits<4>) -> Self {
+impl From<::vvm::__private::SignedBits<4>> for SignedStateOut {
+    fn from(bits: ::vvm::__private::SignedBits<4>) -> Self {
         Self::from_bits(bits)
     }
 }
 
-impl From<SignedStateOut> for ::vvm::SignedBits<4> {
+impl From<SignedStateOut> for ::vvm::__private::SignedBits<4> {
     fn from(value: SignedStateOut) -> Self {
         value.into_bits()
     }
@@ -980,7 +980,7 @@ pub struct PackedEnumPorts {
     finished: bool,
 
     /// Current logical simulation time.
-    time: ::vvm::SimulationTime,
+    time: ::vvm::__private::SimulationTime,
 }
 
 #[allow(dead_code)]
@@ -1005,7 +1005,7 @@ impl PackedEnumPorts {
         Ok(Self {
             inner,
             finished: false,
-            time: ::vvm::SimulationTime::ZERO,
+            time: ::vvm::__private::SimulationTime::ZERO,
         })
     }
 
@@ -1048,7 +1048,7 @@ impl PackedEnumPorts {
     #[must_use]
     const fn simulation_time_value(
         &self,
-    ) -> ::vvm::SimulationTime {
+    ) -> ::vvm::__private::SimulationTime {
         self.time
     }
     /// Advances the simulation time without evaluating the DUT.
@@ -1059,7 +1059,7 @@ impl PackedEnumPorts {
     /// the resulting time would overflow.
     fn advance_time_inner(
         &mut self,
-        delta: ::vvm::TimeStep,
+        delta: ::vvm::__private::TimeStep,
     ) -> Result<()> {
         self.ensure_running()?;
         let Some(next_time) =
@@ -1117,7 +1117,7 @@ impl PackedEnumPorts {
         let value =
             ::core::borrow::Borrow::borrow(&value);
 
-        let raw = ::vvm::extract_unsigned(
+        let raw = ::vvm::__private::extract_unsigned(
             value.words_le(),
             State::WIDTH,
             0,
@@ -1144,7 +1144,7 @@ impl PackedEnumPorts {
 
         let raw = self.inner_ref()?.state_out();
 
-        let bits = ::vvm::Bits::<3>::from(
+        let bits = ::vvm::__private::Bits::<3>::from(
             u64::from(raw),
         );
 
@@ -1180,7 +1180,7 @@ impl PackedEnumPorts {
         let value =
             ::core::borrow::Borrow::borrow(&value);
 
-        let raw = ::vvm::extract_signed(
+        let raw = ::vvm::__private::extract_signed(
             value.words_le(),
             SignedState::WIDTH,
             0,
@@ -1207,7 +1207,7 @@ impl PackedEnumPorts {
 
         let raw = self.inner_ref()?.signed_state_out();
 
-        let bits = ::vvm::SignedBits::<4>::from(
+        let bits = ::vvm::__private::SignedBits::<4>::from(
             i64::from(raw),
         );
 
@@ -1261,7 +1261,7 @@ impl std::fmt::Debug for PackedEnumPorts {
     }
 }
 
-impl ::vvm::Dut for PackedEnumPorts {
+impl ::vvm::__private::Dut for PackedEnumPorts {
     type Error = PackedEnumPortsError;
 
     fn evaluate(&mut self) -> Result<()> {
@@ -1273,12 +1273,12 @@ impl ::vvm::Dut for PackedEnumPorts {
     }
     fn simulation_time(
         &self,
-    ) -> ::vvm::SimulationTime {
+    ) -> ::vvm::__private::SimulationTime {
         Self::simulation_time_value(self)
     }
     fn advance_time(
         &mut self,
-        delta: ::vvm::TimeStep,
+        delta: ::vvm::__private::TimeStep,
     ) -> Result<()> {
         Self::advance_time_inner(self, delta)
     }

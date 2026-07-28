@@ -18,7 +18,7 @@ pub(super) fn expand(input: Input) -> TokenStream {
     } = input;
 
     generics.make_where_clause().predicates.push(parse_quote!(
-        #dut: ::vvm::Dut
+        #dut: ::vvm::__private::Dut
     ));
 
     let (impl_generics, type_generics, where_clause) = generics.split_for_impl();
@@ -37,7 +37,7 @@ pub(super) fn expand(input: Input) -> TokenStream {
         #[allow(clippy::needless_pass_by_value)]
         #[allow(clippy::needless_borrows_for_generic_args)]
         impl #impl_generics
-            ::vvm::Drive<#dut>
+            ::vvm::__private::Drive<#dut>
             for #ident #type_generics
             #where_clause
         {
@@ -46,7 +46,7 @@ pub(super) fn expand(input: Input) -> TokenStream {
                 __vvm_dut: &mut #dut,
             ) -> ::core::result::Result<
                 (),
-                <#dut as ::vvm::Dut>::Error,
+                <#dut as ::vvm::__private::Dut>::Error,
             > {
                 #(#drive_statements)*
 
@@ -81,7 +81,10 @@ mod tests {
 
         assert!(tokens.contains("set_enable"));
         assert!(tokens.contains("set_reset_n"));
-        assert!(tokens.contains("vvm :: Drive"));
+        assert!(tokens.contains("vvm :: __private :: Drive"));
+        assert!(tokens.contains("vvm :: __private :: Dut"));
+        assert!(!tokens.contains("vvm :: Drive <"));
+        assert!(!tokens.contains("vvm :: Dut >"));
 
         assert!(tokens.contains("set_enable (& self . enable)",),);
 

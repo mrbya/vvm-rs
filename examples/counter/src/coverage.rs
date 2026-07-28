@@ -1,4 +1,5 @@
-use vvm::{Bin, CoverageBuildError, Coverpoint, Cross2, ObservedCycle};
+use vvm::coverage::{Bin, CoverageBuildError, Coverpoint, Cross2};
+use vvm::testbench::ObservedCycle;
 
 use crate::verification::{CounterObservation, CounterStimulus};
 
@@ -92,7 +93,7 @@ const fn parity_for(cycle: ObservedCycle<'_, CounterStimulus, CounterObservation
 
 #[cfg(test)]
 mod tests {
-    use vvm::{CoverageGroup, CoverageGroupVisitor, CoverageItemRef};
+    use vvm::coverage::{CoverageGroup, CoverageGroupVisitor, CoverageItemRef};
 
     use super::CounterCoverage;
 

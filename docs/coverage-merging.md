@@ -4,7 +4,7 @@
 explicit offline operation. Test execution never updates a shared merge.
 
 ```rust
-use vvm::{CoverageMerge, CoverageMergePolicy};
+use vvm::coverage::merge::{CoverageMerge, CoverageMergePolicy};
 
 let merged = CoverageMerge::from_files(
     CoverageMergePolicy::passed_only(),

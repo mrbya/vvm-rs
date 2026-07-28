@@ -4,7 +4,7 @@
 `CoverageMerge`. It neither reads artifacts nor changes test execution.
 
 ```rust
-use vvm::{CoverageMerge, CoverageReport};
+use vvm::coverage::{merge::CoverageMerge, report::CoverageReport};
 
 let merged = CoverageMerge::read_from("coverage.vvmcov-merged.json")?;
 let report = CoverageReport::new(&merged);

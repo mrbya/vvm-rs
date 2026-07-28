@@ -1726,7 +1726,7 @@ justifies the additional FFI, scope, callback, and lifecycle surface.
 
 Prepare VVM for its first real public release by stabilizing its architecture, public API, tests, examples, documentation, performance baselines, packaging, compatibility policy, and release process.
 
-Milestone 12 is primarily a stabilization milestone.
+Milestone 12 is in progress (12.1 complete) and is primarily a stabilization milestone.
 
 It should not introduce another broad feature wave. Work that is not required for a credible `v0.1.0` release should be explicitly deferred rather than allowed to expand the release scope indefinitely.
 
@@ -1793,6 +1793,26 @@ Tests, examples, documentation, and benchmarks must target the stabilized API ra
 ### Objective
 
 Replace the flat facade with a coherent domain-oriented public API and establish the public compatibility surface for `v0.1.0`.
+
+### Completion status
+
+* [x] Inventory all current facade exports.
+* [x] Establish canonical facade modules.
+* [x] Define the root-level macro policy.
+* [x] Define the prelude inclusion policy.
+* [x] Rename the private harness module.
+* [x] Establish `vvm::__private` as generated-code ABI.
+* [x] Migrate all procedural macro generated paths.
+* [x] Migrate all `vvm-build` generated paths.
+* [x] Add domain-oriented facade modules.
+* [x] Remove the flat root type re-export surface.
+* [x] Remove accidental facade exports.
+* [x] Migrate all examples and fixtures.
+* [x] Migrate all documentation and doctests.
+* [x] Add focused facade integration tests.
+* [x] Add generated-code path tests.
+* [x] Produce and review the provisional public API inventory.
+* [x] Document the public API architecture.
 
 ### Release-scope freeze
 

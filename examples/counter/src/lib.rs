@@ -17,7 +17,8 @@ mod verification;
 mod tests {
     use std::path::Path;
 
-    use vvm::{ExactScoreboard, ReplayToken, Seed, Testbench};
+    use vvm::random::{ReplayToken, Seed};
+    use vvm::testbench::{ExactScoreboard, Testbench};
 
     use crate::counter::Counter;
     use crate::verification::{
@@ -53,7 +54,10 @@ mod tests {
         assert!(result.passed());
         assert_eq!(result.cycles(), 10000);
         assert_eq!(result.checks(), 10000);
-        assert_eq!(result.final_time(), vvm::SimulationTime::from_ticks(20000));
+        assert_eq!(
+            result.final_time(),
+            vvm::timing::SimulationTime::from_ticks(20000)
+        );
         assert_eq!(result.failure_count(), 0);
         assert!(result.simulation_error().is_none());
         assert!(result.finalization_error().is_none());

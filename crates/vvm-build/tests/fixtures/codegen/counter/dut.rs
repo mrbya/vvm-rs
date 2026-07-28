@@ -52,7 +52,7 @@ pub struct Counter {
     finished: bool,
 
     /// Current logical simulation time.
-    time: ::vvm::SimulationTime,
+    time: ::vvm::__private::SimulationTime,
 }
 
 #[allow(dead_code)]
@@ -77,7 +77,7 @@ impl Counter {
         Ok(Self {
             inner,
             finished: false,
-            time: ::vvm::SimulationTime::ZERO,
+            time: ::vvm::__private::SimulationTime::ZERO,
         })
     }
 
@@ -120,7 +120,7 @@ impl Counter {
     #[must_use]
     const fn simulation_time_value(
         &self,
-    ) -> ::vvm::SimulationTime {
+    ) -> ::vvm::__private::SimulationTime {
         self.time
     }
     /// Advances the simulation time without evaluating the DUT.
@@ -131,7 +131,7 @@ impl Counter {
     /// the resulting time would overflow.
     fn advance_time_inner(
         &mut self,
-        delta: ::vvm::TimeStep,
+        delta: ::vvm::__private::TimeStep,
     ) -> Result<()> {
         self.ensure_running()?;
         let Some(next_time) =
@@ -262,7 +262,7 @@ impl std::fmt::Debug for Counter {
     }
 }
 
-impl ::vvm::Dut for Counter {
+impl ::vvm::__private::Dut for Counter {
     type Error = CounterError;
 
     fn evaluate(&mut self) -> Result<()> {
@@ -274,12 +274,12 @@ impl ::vvm::Dut for Counter {
     }
     fn simulation_time(
         &self,
-    ) -> ::vvm::SimulationTime {
+    ) -> ::vvm::__private::SimulationTime {
         Self::simulation_time_value(self)
     }
     fn advance_time(
         &mut self,
-        delta: ::vvm::TimeStep,
+        delta: ::vvm::__private::TimeStep,
     ) -> Result<()> {
         Self::advance_time_inner(self, delta)
     }

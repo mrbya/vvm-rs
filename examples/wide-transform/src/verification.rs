@@ -1,4 +1,6 @@
-use vvm::{Bits, Clock, Drive, Mismatch, ReferenceModel, Sample, SignedBits, TestResult};
+use vvm::packed::{Bits, SignedBits};
+use vvm::testbench::{Mismatch, ReferenceModel, TestResult};
+use vvm::{Clock, Drive, Sample};
 
 use crate::wide_transform::WideTransformError;
 
@@ -236,7 +238,7 @@ fn shift_left_one(value: &WideValue) -> WideValue {
 
 #[cfg(test)]
 mod tests {
-    use vvm::ReferenceModel;
+    use vvm::testbench::ReferenceModel;
 
     use super::{WideTransformReferenceModel, WideTransformStimulus, signed_value, wide_value};
 

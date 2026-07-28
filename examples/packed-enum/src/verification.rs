@@ -1,4 +1,5 @@
-use vvm::{Clock, Drive, Mismatch, ReferenceModel, Sample, TestResult};
+use vvm::testbench::{Mismatch, ReferenceModel, TestResult};
+use vvm::{Clock, Drive, Sample};
 
 use crate::packed_enum_ports::{
     PackedEnumPortsError, SignedState, SignedStateOut, SignedStateVariant, State, StateOut,
@@ -203,7 +204,7 @@ pub fn packed_enum_smoke_sequence() -> Result<impl ExactSizeIterator<Item = Pack
 
 #[cfg(test)]
 mod tests {
-    use vvm::ReferenceModel;
+    use vvm::testbench::ReferenceModel;
 
     use super::{PackedEnumReferenceModel, packed_enum_smoke_sequence};
     use crate::packed_enum_ports::{SignedState, SignedStateVariant, State, StateVariant};

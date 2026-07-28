@@ -6,8 +6,8 @@ fn unpacked_array_smoke() -> Result<(), Box<dyn std::error::Error>> {
     let flags = Flags::from_array([false, true, false, true]);
     let bytes = Bytes::from_array([0x33, 0x22, 0x11, 0x00]);
     let signed = SignedValues::from_array([-1, 0, 123]);
-    let first = vvm::Bits::<129>::from_words_le([0xfeed_beef, 0, 0, 0, 0])?;
-    let second = vvm::Bits::<129>::from_words_le([0, 0, 0, 0, 1])?;
+    let first = vvm::packed::Bits::<129>::from_words_le([0xfeed_beef, 0, 0, 0, 0])?;
+    let second = vvm::packed::Bits::<129>::from_words_le([0, 0, 0, 0, 1])?;
     let wide = WideValues::from_array([first, second]);
 
     dut.set_flags(&flags)?;

@@ -8,7 +8,8 @@ mod verification;
 
 #[cfg(test)]
 mod tests {
-    use vvm::{Dut, SimulationTime, TimedDut, TimingScheduler};
+    use vvm::dut::{Dut, TimedDut};
+    use vvm::timing::{SimulationTime, TimingScheduler};
 
     use crate::delayed_sequence::DelayedSequence;
     use crate::verification::{

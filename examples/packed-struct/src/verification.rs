@@ -1,4 +1,5 @@
-use vvm::{Clock, Drive, Mismatch, ReferenceModel, Sample, TestResult};
+use vvm::testbench::{Mismatch, ReferenceModel, TestResult};
+use vvm::{Clock, Drive, Sample};
 
 use crate::packed_struct_ports::{
     PackedStructPortsError, Packet, PacketOut, WidePacket, WidePacketOut,
@@ -22,7 +23,7 @@ pub struct PackedStructStimulus {
     expected_flags: u8,
     expected_payload: u16,
     expected_wide_tag: u8,
-    expected_wide_payload: ::vvm::SignedBits<129>,
+    expected_wide_payload: ::vvm::packed::SignedBits<129>,
 }
 
 impl PackedStructStimulus {
@@ -38,7 +39,7 @@ impl PackedStructStimulus {
         expected_flags: u8,
         expected_payload: u16,
         expected_wide_tag: u8,
-        expected_wide_payload: ::vvm::SignedBits<129>,
+        expected_wide_payload: ::vvm::packed::SignedBits<129>,
     ) -> Self {
         Self {
             packet,
@@ -83,7 +84,7 @@ pub struct PackedStructObservation {
     #[vvm(port)]
     wide_tag_out: u8,
     #[vvm(port)]
-    wide_payload_out: ::vvm::SignedBits<129>,
+    wide_payload_out: ::vvm::packed::SignedBits<129>,
 }
 
 impl PackedStructObservation {
@@ -99,7 +100,7 @@ impl PackedStructObservation {
         flags_out: u8,
         payload_out: u16,
         wide_tag_out: u8,
-        wide_payload_out: ::vvm::SignedBits<129>,
+        wide_payload_out: ::vvm::packed::SignedBits<129>,
     ) -> Self {
         Self {
             packet_out,
@@ -210,7 +211,7 @@ fn packet(opcode: u8, valid: bool, delta: i8, flags: u8, payload: u16) -> Result
 }
 
 /// Builds one wide packed packet value.
-fn wide_packet(tag: u8, payload: &::vvm::SignedBits<129>) -> Result<WidePacket> {
+fn wide_packet(tag: u8, payload: &::vvm::packed::SignedBits<129>) -> Result<WidePacket> {
     let mut packet = WidePacket::zero();
     packet
         .set_tag(tag)
@@ -222,14 +223,14 @@ fn wide_packet(tag: u8, payload: &::vvm::SignedBits<129>) -> Result<WidePacket> 
 }
 
 /// Creates a canonical signed payload from words.
-fn signed_payload(words: [u32; 5]) -> Result<::vvm::SignedBits<129>> {
-    ::vvm::SignedBits::<129>::from_words_le(words)
+fn signed_payload(words: [u32; 5]) -> Result<::vvm::packed::SignedBits<129>> {
+    ::vvm::packed::SignedBits::<129>::from_words_le(words)
         .map_err(|_error| PackedStructPortsError::PackedLayoutFailed)
 }
 
 #[cfg(test)]
 mod tests {
-    use vvm::ReferenceModel;
+    use vvm::testbench::ReferenceModel;
 
     use super::{
         PackedStructReferenceModel, PackedStructStimulus, packet, signed_payload, wide_packet,

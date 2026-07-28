@@ -1,4 +1,5 @@
-use vvm::{ExactScoreboard, TestRunConfig, Testbench};
+use vvm::test::TestRunConfig;
+use vvm::testbench::{ExactScoreboard, Testbench};
 
 use crate::signed_adder::SignedAdder;
 use crate::verification::{

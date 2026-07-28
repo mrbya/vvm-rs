@@ -1,4 +1,5 @@
-use vvm::{ExactScoreboard, TestRunConfig, Testbench};
+use vvm::test::TestRunConfig;
+use vvm::testbench::{ExactScoreboard, Testbench};
 
 use crate::verification::{
     Result, WideTransformClock, WideTransformObservation, WideTransformReferenceModel,

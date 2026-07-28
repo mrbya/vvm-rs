@@ -1,4 +1,6 @@
-use vvm::{ExactScoreboard, FailurePolicy, ReplayToken, Seed, TestContext, Testbench};
+use vvm::random::{ReplayToken, Seed};
+use vvm::test::TestContext;
+use vvm::testbench::{ExactScoreboard, FailurePolicy, Testbench};
 
 use crate::counter::Counter;
 use crate::coverage::CounterCoverage;
@@ -79,7 +81,7 @@ mod tests {
 
     #[test]
     fn descriptor_captures_counter_coverage() -> Result<(), Box<dyn std::error::Error>> {
-        let run = __vvm_test_descriptor_counter_smoke.run(&vvm::TestRunConfig::new())?;
+        let run = __vvm_test_descriptor_counter_smoke.run(&vvm::test::TestRunConfig::new())?;
         let coverage = run.coverage().ok_or("missing coverage snapshot")?;
 
         assert_eq!(coverage.groups().len(), 1);

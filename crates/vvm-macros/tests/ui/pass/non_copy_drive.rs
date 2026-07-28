@@ -1,4 +1,4 @@
-extern crate vvm_core as vvm;
+extern crate vvm;
 
 use std::borrow::Borrow;
 use std::convert::Infallible;
@@ -16,21 +16,21 @@ struct Stimulus {
 }
 
 struct MockDut {
-    time: vvm::SimulationTime,
+    time: vvm::timing::SimulationTime,
 }
 
-impl vvm::Dut for MockDut {
+impl vvm::dut::Dut for MockDut {
     type Error = Infallible;
 
     fn evaluate(&mut self) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn simulation_time(&self) -> vvm::SimulationTime {
+    fn simulation_time(&self) -> vvm::timing::SimulationTime {
         self.time
     }
 
-    fn advance_time(&mut self, delta: vvm::TimeStep) -> Result<(), Self::Error> {
+    fn advance_time(&mut self, delta: vvm::timing::TimeStep) -> Result<(), Self::Error> {
         if let Some(time) = self.time.checked_add(delta) {
             self.time = time;
         }
@@ -57,10 +57,10 @@ fn main() -> Result<(), Infallible> {
     };
 
     let mut dut = MockDut {
-        time: vvm::SimulationTime::ZERO,
+        time: vvm::timing::SimulationTime::ZERO,
     };
 
-    vvm::Drive::drive(&stimulus, &mut dut)?;
+    vvm::dut::Drive::drive(&stimulus, &mut dut)?;
 
     Ok(())
 }

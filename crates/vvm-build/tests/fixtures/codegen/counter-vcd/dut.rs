@@ -93,7 +93,7 @@ pub struct Counter {
     finished: bool,
 
     /// Current logical simulation time.
-    time: ::vvm::SimulationTime,
+    time: ::vvm::__private::SimulationTime,
 
     /// Whether the DUT has been evaluated.
     evaluated: TraceFlag,
@@ -128,7 +128,7 @@ impl Counter {
         Ok(Self {
             inner,
             finished: false,
-            time: ::vvm::SimulationTime::ZERO,
+            time: ::vvm::__private::SimulationTime::ZERO,
             evaluated: TraceFlag::new(false),
             trace_configured: TraceFlag::new(false),
             trace_open: TraceFlag::new(false),
@@ -242,7 +242,7 @@ impl Counter {
     #[must_use]
     const fn simulation_time_value(
         &self,
-    ) -> ::vvm::SimulationTime {
+    ) -> ::vvm::__private::SimulationTime {
         self.time
     }
     /// Advances the simulation time without evaluating the DUT.
@@ -253,7 +253,7 @@ impl Counter {
     /// the resulting time would overflow.
     fn advance_time_inner(
         &mut self,
-        delta: ::vvm::TimeStep,
+        delta: ::vvm::__private::TimeStep,
     ) -> Result<()> {
         self.ensure_running()?;
         let Some(next_time) =
@@ -387,7 +387,7 @@ impl std::fmt::Debug for Counter {
     }
 }
 
-impl ::vvm::Dut for Counter {
+impl ::vvm::__private::Dut for Counter {
     type Error = CounterError;
 
     fn evaluate(&mut self) -> Result<()> {
@@ -399,19 +399,19 @@ impl ::vvm::Dut for Counter {
     }
     fn simulation_time(
         &self,
-    ) -> ::vvm::SimulationTime {
+    ) -> ::vvm::__private::SimulationTime {
         Self::simulation_time_value(self)
     }
     fn advance_time(
         &mut self,
-        delta: ::vvm::TimeStep,
+        delta: ::vvm::__private::TimeStep,
     ) -> Result<()> {
         Self::advance_time_inner(self, delta)
     }
 }
 
 #[allow(clippy::same_name_method)]
-impl ::vvm::TraceableDut for Counter {
+impl ::vvm::__private::TraceableDut for Counter {
     fn open_trace(
         &mut self,
         path: &std::path::Path,

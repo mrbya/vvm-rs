@@ -1,4 +1,4 @@
-use vvm::{Bin, CoverageBuildError, Coverpoint, Cross2, ObservedCycle};
+use vvm::{coverage::{Bin, CoverageBuildError, Coverpoint, Cross2}, testbench::ObservedCycle};
 
 #[derive(vvm::Coverage)]
 #[vvm(definition = "model", revision = 1, stimulus = Stimulus, observation = Observation)]

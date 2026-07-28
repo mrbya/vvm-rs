@@ -209,11 +209,11 @@ impl DutBuilder {
     /// Enables Verilator timing support.
     ///
     /// Timing-enabled models expose Verilator's internally scheduled delayed-event
-    /// queue through the generated [`vvm::TimedDut`] implementation. This passes
+    /// queue through the generated `vvm::dut::TimedDut` implementation. This passes
     /// `--timing` to Verilator, uses coroutine-capable native compilation, and
-    /// links Verilator's timing runtime. Use [`vvm::TimingScheduler`] to process
+    /// links Verilator's timing runtime. Use `vvm::timing::TimingScheduler` to process
     /// positive delayed events explicitly; it is compatible with VCD tracing.
-    /// Ordinary [`vvm::Testbench`] execution does not drain internal delayed
+    /// Ordinary `vvm::testbench::Testbench` execution does not drain internal delayed
     /// events automatically. Zero-delay (`#0`) scheduling remains unsupported.
     /// See `examples/timing-delay` for the complete vertical reference.
     ///

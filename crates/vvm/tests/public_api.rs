@@ -2,10 +2,11 @@
 
 use std::borrow::Borrow;
 
+use vvm::dut::{TimedDut, TraceableDut};
 use vvm::prelude::*;
-use vvm::{
-    TimedDut, TimingEvent, TimingRun, TimingScheduler, TimingSchedulerError, TimingStage,
-    TraceableDut,
+use vvm::timing::{
+    SimulationTime, TimeStep, TimingEvent, TimingRun, TimingScheduler, TimingSchedulerError,
+    TimingStage,
 };
 
 const fn uses_types(
@@ -214,14 +215,14 @@ impl ReferenceModel<Stimulus> for MockReferenceModel {
 fn facade_exports_traits_derives_and_runner() {
     fn drive_once<D, S>(stimulus: &S, dut: &mut D)
     where
-        D: vvm::Dut,
-        S: vvm::Drive<D>,
+        D: vvm::dut::Dut,
+        S: vvm::dut::Drive<D>,
     {
         let result = stimulus.drive(dut);
         assert!(matches!(result, Ok(())));
     }
 
-    fn assert_traceable<D: vvm::TraceableDut>(_dut: &D) {}
+    fn assert_traceable<D: vvm::dut::TraceableDut>(_dut: &D) {}
     fn accepts_timed_dut<D: TimedDut>(dut: &D) {
         let _ = dut.simulation_time();
     }

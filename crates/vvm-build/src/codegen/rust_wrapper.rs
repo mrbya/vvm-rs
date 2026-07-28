@@ -279,8 +279,8 @@ macro_rules! render_unpacked_array_type_body {
         push_line(
             output,
             "    fn ordinal(index: i64) -> std::result::Result<usize, \
-             ::vvm::UnpackedArrayIndexError> { ::vvm::unpacked_array_ordinal(Self::LEFT, \
-             Self::RIGHT, index) }",
+             ::vvm::__private::UnpackedArrayIndexError> { \
+             ::vvm::__private::unpacked_array_ordinal(Self::LEFT, Self::RIGHT, index) }",
         );
         push_line(output, "    /// Returns one element using its HDL index.");
         push_line(
@@ -292,9 +292,10 @@ macro_rules! render_unpacked_array_type_body {
             output,
             &format!(
                 "    pub fn element(&self, index: i64) -> std::result::Result<&{element}, \
-                 ::vvm::UnpackedArrayIndexError> {{ let ordinal = Self::ordinal(index)?; \
-                 self.elements.get(ordinal).ok_or_else(|| \
-                 ::vvm::UnpackedArrayIndexError::new(index, Self::LEFT, Self::RIGHT)) }}"
+                 ::vvm::__private::UnpackedArrayIndexError> {{ let ordinal = \
+                 Self::ordinal(index)?; self.elements.get(ordinal).ok_or_else(|| \
+                 ::vvm::__private::UnpackedArrayIndexError::new(index, Self::LEFT, Self::RIGHT)) \
+                 }}"
             ),
         );
         push_line(output, "    /// Updates one element using its HDL index.");
@@ -304,9 +305,9 @@ macro_rules! render_unpacked_array_type_body {
             &format!(
                 "    pub fn set_element(&mut self, index: i64, value: impl \
                  ::core::borrow::Borrow<{element}>) -> std::result::Result<(), \
-                 ::vvm::UnpackedArrayIndexError> {{ let ordinal = Self::ordinal(index)?; let slot \
-                 = self.elements.get_mut(ordinal).ok_or_else(|| \
-                 ::vvm::UnpackedArrayIndexError::new(index, Self::LEFT, Self::RIGHT))?;"
+                 ::vvm::__private::UnpackedArrayIndexError> {{ let ordinal = \
+                 Self::ordinal(index)?; let slot = self.elements.get_mut(ordinal).ok_or_else(|| \
+                 ::vvm::__private::UnpackedArrayIndexError::new(index, Self::LEFT, Self::RIGHT))?;"
             ),
         );
         if matches!(array.element_type(), UnpackedArrayElementType::Wide(_)) {
@@ -479,7 +480,7 @@ macro_rules! render_packed_array_type_body {
         push_line(output, "        words: impl AsRef<[u32]>,");
         push_line(
             output,
-            "    ) -> std::result::Result<Self, ::vvm::InvalidBitVectorWordCount> {",
+            "    ) -> std::result::Result<Self, ::vvm::__private::InvalidBitVectorWordCount> {",
         );
         push_line(
             output,
@@ -505,7 +506,7 @@ macro_rules! render_packed_array_type_body {
         push_line(output, "        index: i64,");
         push_line(
             output,
-            "    ) -> std::result::Result<usize, ::vvm::PackedLayoutError> {",
+            "    ) -> std::result::Result<usize, ::vvm::__private::PackedLayoutError> {",
         );
         push_line(
             output,
@@ -524,7 +525,7 @@ macro_rules! render_packed_array_type_body {
         push_line(output, "        if !in_range {");
         push_line(
             output,
-            "            return Err(::vvm::PackedLayoutError::range_out_of_bounds(",
+            "            return Err(::vvm::__private::PackedLayoutError::range_out_of_bounds(",
         );
         push_line(output, "                Self::WIDTH,");
         push_line(output, "                Self::WIDTH,");
@@ -544,7 +545,7 @@ macro_rules! render_packed_array_type_body {
         push_line(output, "        let Some(ordinal) = ordinal else {");
         push_line(
             output,
-            "            return Err(::vvm::PackedLayoutError::range_out_of_bounds(",
+            "            return Err(::vvm::__private::PackedLayoutError::range_out_of_bounds(",
         );
         push_line(output, "                Self::WIDTH,");
         push_line(output, "                Self::WIDTH,");
@@ -558,7 +559,7 @@ macro_rules! render_packed_array_type_body {
         );
         push_line(
             output,
-            "            ::vvm::PackedLayoutError::range_out_of_bounds(",
+            "            ::vvm::__private::PackedLayoutError::range_out_of_bounds(",
         );
         push_line(output, "                Self::WIDTH,");
         push_line(output, "                Self::WIDTH,");
@@ -572,7 +573,7 @@ macro_rules! render_packed_array_type_body {
         );
         push_line(
             output,
-            "            ::vvm::PackedLayoutError::range_out_of_bounds(",
+            "            ::vvm::__private::PackedLayoutError::range_out_of_bounds(",
         );
         push_line(output, "                Self::WIDTH,");
         push_line(output, "                Self::WIDTH,");
@@ -597,7 +598,7 @@ macro_rules! render_packed_array_type_body {
             output,
             &format!(
                 "    pub fn element(&self, index: i64) -> \
-                 std::result::Result<{element_rust_type}, ::vvm::PackedLayoutError> {{"
+                 std::result::Result<{element_rust_type}, ::vvm::__private::PackedLayoutError> {{"
             ),
         );
         push_line(output, "        let offset = Self::element_offset(index)?;");
@@ -625,7 +626,7 @@ macro_rules! render_packed_array_type_body {
             );
             push_line(
                 output,
-                "            ::vvm::PackedLayoutError::range_out_of_bounds(",
+                "            ::vvm::__private::PackedLayoutError::range_out_of_bounds(",
             );
             push_line(output, "                Self::WIDTH,");
             push_line(output, "                offset,");
@@ -656,7 +657,7 @@ macro_rules! render_packed_array_type_body {
             output,
             &format!(
                 "    pub fn set_element(&mut self, index: i64, value: {element_rust_type}) -> \
-                 std::result::Result<(), ::vvm::PackedLayoutError> {{"
+                 std::result::Result<(), ::vvm::__private::PackedLayoutError> {{"
             ),
         );
         push_line(output, "        let offset = Self::element_offset(index)?;");
@@ -682,7 +683,7 @@ macro_rules! render_packed_array_type_body {
         );
         push_line(
             output,
-            "            .map_err(::vvm::PackedLayoutError::invalid_packed_value)?;",
+            "            .map_err(::vvm::__private::PackedLayoutError::invalid_packed_value)?;",
         );
         push_line(output, "");
         push_line(output, "        Ok(())");
@@ -698,7 +699,7 @@ macro_rules! render_packed_array_type_body {
         push_line(output, "#[allow(clippy::same_name_method)]");
         push_line(
             output,
-            &format!("impl ::vvm::PackedValue for {rust_type} {{"),
+            &format!("impl ::vvm::__private::PackedValue for {rust_type} {{"),
         );
         push_line(output, "    const WIDTH: usize = Self::WIDTH;");
         push_line(output, "    const WORDS: usize = Self::WORDS;");
@@ -707,7 +708,7 @@ macro_rules! render_packed_array_type_body {
         push_line(output, "        words: impl AsRef<[u32]>,");
         push_line(
             output,
-            "    ) -> std::result::Result<Self, ::vvm::InvalidBitVectorWordCount> {",
+            "    ) -> std::result::Result<Self, ::vvm::__private::InvalidBitVectorWordCount> {",
         );
         push_line(output, "        Self::from_words_le(words)");
         push_line(output, "    }");
@@ -797,14 +798,14 @@ macro_rules! render_packed_struct_type_body {
         push_line(output, "    /// Packed fields in HDL declaration order.");
         push_line(
             output,
-            "    pub const FIELDS: &'static [::vvm::PackedFieldLayout] = &[",
+            "    pub const FIELDS: &'static [::vvm::__private::PackedFieldLayout] = &[",
         );
 
         for field in &struct_type.shape().fields {
             push_line(
                 output,
                 &format!(
-                    "        ::vvm::PackedFieldLayout::new(\"{}\", {}, {}, {}),",
+                    "        ::vvm::__private::PackedFieldLayout::new(\"{}\", {}, {}, {}),",
                     field.name,
                     field.lsb_offset,
                     field.width.get(),
@@ -816,11 +817,15 @@ macro_rules! render_packed_struct_type_body {
         push_line(output, "    ];");
         push_line(output, "");
         push_line(output, "    /// Complete packed-struct layout.");
-        push_line(output, "    pub const LAYOUT: ::vvm::PackedLayout =");
+        push_line(
+            output,
+            "    pub const LAYOUT: ::vvm::__private::PackedLayout =",
+        );
         push_line(
             output,
             &format!(
-                "        ::vvm::PackedLayout::new(\"{rust_type}\", Self::WIDTH, Self::FIELDS);"
+                "        ::vvm::__private::PackedLayout::new(\"{rust_type}\", Self::WIDTH, \
+                 Self::FIELDS);"
             ),
         );
         push_line(output, "");
@@ -866,7 +871,10 @@ macro_rules! render_packed_struct_type_body {
         push_line(output, "");
         push_line(output, "    /// Returns the packed-struct layout.");
         push_line(output, "    #[must_use]");
-        push_line(output, "    pub const fn layout() -> ::vvm::PackedLayout {");
+        push_line(
+            output,
+            "    pub const fn layout() -> ::vvm::__private::PackedLayout {",
+        );
         push_line(output, "        Self::LAYOUT");
         push_line(output, "    }");
         push_line(output, "");
@@ -877,7 +885,7 @@ macro_rules! render_packed_struct_type_body {
         push_line(output, "    #[must_use]");
         push_line(
             output,
-            "    pub const fn fields() -> &'static [::vvm::PackedFieldLayout] {",
+            "    pub const fn fields() -> &'static [::vvm::__private::PackedFieldLayout] {",
         );
         push_line(output, "        Self::FIELDS");
         push_line(output, "    }");
@@ -909,7 +917,7 @@ macro_rules! render_packed_struct_type_body {
         push_line(output, "        words: impl AsRef<[u32]>,");
         push_line(
             output,
-            "    ) -> std::result::Result<Self, ::vvm::InvalidBitVectorWordCount> {",
+            "    ) -> std::result::Result<Self, ::vvm::__private::InvalidBitVectorWordCount> {",
         );
         push_line(
             output,
@@ -950,7 +958,7 @@ macro_rules! render_packed_struct_type_body {
         push_line(output, "#[allow(clippy::same_name_method)]");
         push_line(
             output,
-            &format!("impl ::vvm::PackedValue for {rust_type} {{"),
+            &format!("impl ::vvm::__private::PackedValue for {rust_type} {{"),
         );
         push_line(output, "    const WIDTH: usize = Self::WIDTH;");
         push_line(output, "    const WORDS: usize = Self::WORDS;");
@@ -959,7 +967,7 @@ macro_rules! render_packed_struct_type_body {
         push_line(output, "        words: impl AsRef<[u32]>,");
         push_line(
             output,
-            "    ) -> std::result::Result<Self, ::vvm::InvalidBitVectorWordCount> {",
+            "    ) -> std::result::Result<Self, ::vvm::__private::InvalidBitVectorWordCount> {",
         );
         push_line(output, "        Self::from_words_le(words)");
         push_line(output, "    }");
@@ -1019,7 +1027,7 @@ macro_rules! render_packed_struct_field_getter_body {
                     output,
                     &format!(
                         "    pub fn {}(&self) -> std::result::Result<{}, \
-                         ::vvm::PackedLayoutError> {{",
+                         ::vvm::__private::PackedLayoutError> {{",
                         field_names.getter,
                         signal_type.rust_type()
                     ),
@@ -1027,7 +1035,7 @@ macro_rules! render_packed_struct_field_getter_body {
 
                 if field.is_bool() {
                     push_line(output, "        Ok(");
-                    push_line(output, "            ::vvm::extract_unsigned(");
+                    push_line(output, "            ::vvm::__private::extract_unsigned(");
                     push_line(output, "                self.words_le(),");
                     push_line(output, "                Self::WIDTH,");
                     push_line(output, &format!("                {},", field.offset()));
@@ -1035,7 +1043,10 @@ macro_rules! render_packed_struct_field_getter_body {
                     push_line(output, "            )? != 0,");
                     push_line(output, "        )");
                 } else if field.signed() {
-                    push_line(output, "        let raw = ::vvm::extract_signed(");
+                    push_line(
+                        output,
+                        "        let raw = ::vvm::__private::extract_signed(",
+                    );
                     push_line(output, "            self.words_le(),");
                     push_line(output, "            Self::WIDTH,");
                     push_line(output, &format!("            {},", field.offset()));
@@ -1055,7 +1066,7 @@ macro_rules! render_packed_struct_field_getter_body {
                         );
                         push_line(
                             output,
-                            "            ::vvm::PackedLayoutError::range_out_of_bounds(",
+                            "            ::vvm::__private::PackedLayoutError::range_out_of_bounds(",
                         );
                         push_line(output, "                Self::WIDTH,");
                         push_line(output, &format!("                {},", field.offset()));
@@ -1064,7 +1075,10 @@ macro_rules! render_packed_struct_field_getter_body {
                         push_line(output, "        })");
                     }
                 } else {
-                    push_line(output, "        let raw = ::vvm::extract_unsigned(");
+                    push_line(
+                        output,
+                        "        let raw = ::vvm::__private::extract_unsigned(",
+                    );
                     push_line(output, "            self.words_le(),");
                     push_line(output, "            Self::WIDTH,");
                     push_line(output, &format!("            {},", field.offset()));
@@ -1084,7 +1098,7 @@ macro_rules! render_packed_struct_field_getter_body {
                         );
                         push_line(
                             output,
-                            "            ::vvm::PackedLayoutError::range_out_of_bounds(",
+                            "            ::vvm::__private::PackedLayoutError::range_out_of_bounds(",
                         );
                         push_line(output, "                Self::WIDTH,");
                         push_line(output, &format!("                {},", field.offset()));
@@ -1107,13 +1121,13 @@ macro_rules! render_packed_struct_field_getter_body {
                     output,
                     &format!(
                         "    pub fn {}(&self) -> std::result::Result<{}, \
-                         ::vvm::PackedLayoutError> {{",
+                         ::vvm::__private::PackedLayoutError> {{",
                         field_names.getter, value_type
                     ),
                 );
                 push_line(
                     output,
-                    &format!("        ::vvm::extract_packed::<{value_type}>("),
+                    &format!("        ::vvm::__private::extract_packed::<{value_type}>("),
                 );
                 push_line(output, "            self.words_le(),");
                 push_line(output, "            Self::WIDTH,");
@@ -1148,7 +1162,7 @@ fn render_packed_struct_field_setter(
                 output,
                 &format!(
                     "    pub fn {}(&mut self, value: {}) -> std::result::Result<(), \
-                     ::vvm::PackedLayoutError> {{",
+                     ::vvm::__private::PackedLayoutError> {{",
                     field_names.setter,
                     signal_type.rust_type()
                 ),
@@ -1157,9 +1171,9 @@ fn render_packed_struct_field_setter(
             push_line(output, "");
 
             if field.signed() {
-                push_line(output, "        ::vvm::insert_signed(");
+                push_line(output, "        ::vvm::__private::insert_signed(");
             } else {
-                push_line(output, "        ::vvm::insert_unsigned(");
+                push_line(output, "        ::vvm::__private::insert_unsigned(");
             }
 
             push_line(output, "            &mut words,");
@@ -1187,7 +1201,7 @@ fn render_packed_struct_field_setter(
             );
             push_line(
                 output,
-                "            .map_err(::vvm::PackedLayoutError::invalid_packed_value)?;",
+                "            .map_err(::vvm::__private::PackedLayoutError::invalid_packed_value)?;",
             );
             push_line(output, "");
             push_line(output, "        Ok(())");
@@ -1205,7 +1219,7 @@ fn render_packed_struct_field_setter(
                 output,
                 &format!(
                     "    pub fn {}(&mut self, value: impl ::core::borrow::Borrow<{}>) -> \
-                     std::result::Result<(), ::vvm::PackedLayoutError> {{",
+                     std::result::Result<(), ::vvm::__private::PackedLayoutError> {{",
                     field_names.setter, value_type
                 ),
             );
@@ -1215,7 +1229,7 @@ fn render_packed_struct_field_setter(
             );
             push_line(output, "        let mut words = self.words_le().to_vec();");
             push_line(output, "");
-            push_line(output, "        ::vvm::insert_packed(");
+            push_line(output, "        ::vvm::__private::insert_packed(");
             push_line(output, "            &mut words,");
             push_line(output, "            Self::WIDTH,");
             push_line(output, &format!("            {},", field.offset()));
@@ -1228,7 +1242,7 @@ fn render_packed_struct_field_setter(
             );
             push_line(
                 output,
-                "            .map_err(::vvm::PackedLayoutError::invalid_packed_value)?;",
+                "            .map_err(::vvm::__private::PackedLayoutError::invalid_packed_value)?;",
             );
             push_line(output, "");
             push_line(output, "        Ok(())");
@@ -1335,14 +1349,14 @@ macro_rules! render_packed_enum_type_body {
         );
         push_line(
             output,
-            "    pub const VARIANTS: &'static [::vvm::PackedEnumVariantLayout] = &[",
+            "    pub const VARIANTS: &'static [::vvm::__private::PackedEnumVariantLayout] = &[",
         );
 
         for variant in enum_type.variants() {
             push_line(
                 output,
                 &format!(
-                    "        ::vvm::PackedEnumVariantLayout::new(\"{}\", {}),",
+                    "        ::vvm::__private::PackedEnumVariantLayout::new(\"{}\", {}),",
                     variant.name, variant.value
                 ),
             );
@@ -1351,12 +1365,15 @@ macro_rules! render_packed_enum_type_body {
         push_line(output, "    ];");
         push_line(output, "");
         push_line(output, "    /// Complete packed-enum layout.");
-        push_line(output, "    pub const LAYOUT: ::vvm::PackedEnumLayout =");
+        push_line(
+            output,
+            "    pub const LAYOUT: ::vvm::__private::PackedEnumLayout =",
+        );
         push_line(
             output,
             &format!(
-                "        ::vvm::PackedEnumLayout::new(\"{rust_type}\", Self::WIDTH, {}, \
-                 Self::VARIANTS);",
+                "        ::vvm::__private::PackedEnumLayout::new(\"{rust_type}\", Self::WIDTH, \
+                 {}, Self::VARIANTS);",
                 enum_type.storage_signed()
             ),
         );
@@ -1402,7 +1419,7 @@ macro_rules! render_packed_enum_type_body {
         push_line(output, "    #[must_use]");
         push_line(
             output,
-            "    pub const fn layout() -> ::vvm::PackedEnumLayout {",
+            "    pub const fn layout() -> ::vvm::__private::PackedEnumLayout {",
         );
         push_line(output, "        Self::LAYOUT");
         push_line(output, "    }");
@@ -1414,7 +1431,7 @@ macro_rules! render_packed_enum_type_body {
         push_line(output, "    #[must_use]");
         push_line(
             output,
-            "    pub const fn variants() -> &'static [::vvm::PackedEnumVariantLayout] {",
+            "    pub const fn variants() -> &'static [::vvm::__private::PackedEnumVariantLayout] {",
         );
         push_line(output, "        Self::VARIANTS");
         push_line(output, "    }");
@@ -1446,7 +1463,7 @@ macro_rules! render_packed_enum_type_body {
         push_line(output, "        words: impl AsRef<[u32]>,");
         push_line(
             output,
-            "    ) -> std::result::Result<Self, ::vvm::InvalidBitVectorWordCount> {",
+            "    ) -> std::result::Result<Self, ::vvm::__private::InvalidBitVectorWordCount> {",
         );
         push_line(
             output,
@@ -1505,9 +1522,10 @@ macro_rules! render_packed_enum_type_body {
         );
         push_line(
             output,
-            "    pub fn raw(&self) -> std::result::Result<u64, ::vvm::PackedLayoutError> {",
+            "    pub fn raw(&self) -> std::result::Result<u64, \
+             ::vvm::__private::PackedLayoutError> {",
         );
-        push_line(output, "        ::vvm::extract_unsigned(");
+        push_line(output, "        ::vvm::__private::extract_unsigned(");
         push_line(output, "            self.words_le(),");
         push_line(output, "            Self::WIDTH,");
         push_line(output, "            0,");
@@ -1547,7 +1565,7 @@ macro_rules! render_packed_enum_type_body {
             output,
             &format!(
                 "    pub fn variant(&self) -> std::result::Result<Option<{variant_type}>, \
-                 ::vvm::PackedLayoutError> {{"
+                 ::vvm::__private::PackedLayoutError> {{"
             ),
         );
         push_line(output, "        let variant = match self.raw()? {");
@@ -1584,7 +1602,7 @@ macro_rules! render_packed_enum_type_body {
         push_line(
             output,
             "    pub fn name(&self) -> std::result::Result<Option<&'static str>, \
-             ::vvm::PackedLayoutError> {",
+             ::vvm::__private::PackedLayoutError> {",
         );
         push_line(
             output,
@@ -1605,7 +1623,8 @@ macro_rules! render_packed_enum_type_body {
         );
         push_line(
             output,
-            "    pub fn is_known(&self) -> std::result::Result<bool, ::vvm::PackedLayoutError> {",
+            "    pub fn is_known(&self) -> std::result::Result<bool, \
+             ::vvm::__private::PackedLayoutError> {",
         );
         push_line(output, "        Ok(self.variant()?.is_some())");
         push_line(output, "    }");
@@ -1632,7 +1651,7 @@ macro_rules! render_packed_enum_type_body {
         push_line(output, "#[allow(clippy::same_name_method)]");
         push_line(
             output,
-            &format!("impl ::vvm::PackedValue for {rust_type} {{"),
+            &format!("impl ::vvm::__private::PackedValue for {rust_type} {{"),
         );
         push_line(output, "    const WIDTH: usize = Self::WIDTH;");
         push_line(output, "    const WORDS: usize = Self::WORDS;");
@@ -1641,7 +1660,7 @@ macro_rules! render_packed_enum_type_body {
         push_line(output, "        words: impl AsRef<[u32]>,");
         push_line(
             output,
-            "    ) -> std::result::Result<Self, ::vvm::InvalidBitVectorWordCount> {",
+            "    ) -> std::result::Result<Self, ::vvm::__private::InvalidBitVectorWordCount> {",
         );
         push_line(output, "        Self::from_words_le(words)");
         push_line(output, "    }");
@@ -1933,7 +1952,7 @@ fn render_struct(output: &mut String, metadata: &DutMetadata, names: &DutNames, 
     push_line(output, "    finished: bool,");
     push_line(output, "");
     push_line(output, "    /// Current logical simulation time.");
-    push_line(output, "    time: ::vvm::SimulationTime,");
+    push_line(output, "    time: ::vvm::__private::SimulationTime,");
     if traced {
         push_line(output, "");
         push_line(output, "    /// Whether the DUT has been evaluated.");
@@ -2004,7 +2023,10 @@ fn render_constructor(
     push_line(output, "        Ok(Self {");
     push_line(output, "            inner,");
     push_line(output, "            finished: false,");
-    push_line(output, "            time: ::vvm::SimulationTime::ZERO,");
+    push_line(
+        output,
+        "            time: ::vvm::__private::SimulationTime::ZERO,",
+    );
     if traced {
         push_line(output, "            evaluated: TraceFlag::new(false),");
         push_line(
@@ -2218,7 +2240,7 @@ fn render_timing(output: &mut String, names: &DutNames) {
     push_line(output, "    #[must_use]");
     push_line(output, "    const fn simulation_time_value(");
     push_line(output, "        &self,");
-    push_line(output, "    ) -> ::vvm::SimulationTime {");
+    push_line(output, "    ) -> ::vvm::__private::SimulationTime {");
     push_line(output, "        self.time");
     push_line(output, "    }");
 
@@ -2236,7 +2258,7 @@ fn render_timing(output: &mut String, names: &DutNames) {
     push_line(output, "    /// the resulting time would overflow.");
     push_line(output, "    fn advance_time_inner(");
     push_line(output, "        &mut self,");
-    push_line(output, "        delta: ::vvm::TimeStep,");
+    push_line(output, "        delta: ::vvm::__private::TimeStep,");
     push_line(output, "    ) -> Result<()> {");
     push_line(output, "        self.ensure_running()?;");
 
@@ -2325,7 +2347,7 @@ fn render_timing_queries(output: &mut String) {
     );
     push_line(
         output,
-        "    pub fn next_time_slot(&self) -> Result<Option<::vvm::SimulationTime>> {",
+        "    pub fn next_time_slot(&self) -> Result<Option<::vvm::__private::SimulationTime>> {",
     );
     push_line(output, "        self.ensure_running()?;");
     push_line(output, "");
@@ -2340,7 +2362,7 @@ fn render_timing_queries(output: &mut String) {
     push_line(output, "");
     push_line(
         output,
-        "        Ok(Some(::vvm::SimulationTime::from_ticks(time)))",
+        "        Ok(Some(::vvm::__private::SimulationTime::from_ticks(time)))",
     );
     push_line(output, "    }");
 }
@@ -2590,7 +2612,7 @@ fn render_inout(output: &mut String, port: &Port, port_names: &PortNames, names:
     );
     push_line(output, "        self.ensure_running()?;");
     push_line(output, "");
-    push_line(output, "        Ok(::vvm::InoutState::new(");
+    push_line(output, "        Ok(::vvm::__private::InoutState::new(");
     push_line(output, &format!("            self.{}()?,", inout.input));
     push_line(
         output,
@@ -2855,46 +2877,20 @@ fn render_packed_aggregate_scalar_input_body(
     names: &DutNames,
 ) {
     if signal_type == SignalType::Bool {
-        push_line(output, "        let raw = ::vvm::extract_unsigned(");
-        push_line(output, "            value.words_le(),");
-        push_line(
+        render_packed_aggregate_scalar_extract(
             output,
-            &format!("            {aggregate_rust_type}::WIDTH,"),
-        );
-        push_line(output, "            0,");
-        push_line(
-            output,
-            &format!("            {aggregate_rust_type}::WIDTH,"),
-        );
-        push_line(output, "        )");
-        push_line(
-            output,
-            &format!(
-                "        .map_err(|_error| {}::PackedLayoutFailed)?;",
-                names.rust_error_type
-            ),
+            aggregate_rust_type,
+            "extract_unsigned",
+            names,
         );
         push_line(output, "");
         push_line(output, "        let raw = raw != 0;");
     } else if storage_signed {
-        push_line(output, "        let raw = ::vvm::extract_signed(");
-        push_line(output, "            value.words_le(),");
-        push_line(
+        render_packed_aggregate_scalar_extract(
             output,
-            &format!("            {aggregate_rust_type}::WIDTH,"),
-        );
-        push_line(output, "            0,");
-        push_line(
-            output,
-            &format!("            {aggregate_rust_type}::WIDTH,"),
-        );
-        push_line(output, "        )");
-        push_line(
-            output,
-            &format!(
-                "        .map_err(|_error| {}::PackedLayoutFailed)?;",
-                names.rust_error_type
-            ),
+            aggregate_rust_type,
+            "extract_signed",
+            names,
         );
         push_line(output, "");
         push_line(
@@ -2913,24 +2909,11 @@ fn render_packed_aggregate_scalar_input_body(
             ),
         );
     } else {
-        push_line(output, "        let raw = ::vvm::extract_unsigned(");
-        push_line(output, "            value.words_le(),");
-        push_line(
+        render_packed_aggregate_scalar_extract(
             output,
-            &format!("            {aggregate_rust_type}::WIDTH,"),
-        );
-        push_line(output, "            0,");
-        push_line(
-            output,
-            &format!("            {aggregate_rust_type}::WIDTH,"),
-        );
-        push_line(output, "        )");
-        push_line(
-            output,
-            &format!(
-                "        .map_err(|_error| {}::PackedLayoutFailed)?;",
-                names.rust_error_type
-            ),
+            aggregate_rust_type,
+            "extract_unsigned",
+            names,
         );
         push_line(output, "");
         push_line(
@@ -2952,6 +2935,37 @@ fn render_packed_aggregate_scalar_input_body(
 
     push_line(output, "");
     push_line(output, &format!("        self.inner_mut()?.{method}(raw);"));
+}
+
+/// Renders extraction of one scalar from flattened packed aggregate storage.
+fn render_packed_aggregate_scalar_extract(
+    output: &mut String,
+    aggregate_rust_type: &str,
+    extraction: &str,
+    names: &DutNames,
+) {
+    push_line(
+        output,
+        &format!("        let raw = ::vvm::__private::{extraction}("),
+    );
+    push_line(output, "            value.words_le(),");
+    push_line(
+        output,
+        &format!("            {aggregate_rust_type}::WIDTH,"),
+    );
+    push_line(output, "            0,");
+    push_line(
+        output,
+        &format!("            {aggregate_rust_type}::WIDTH,"),
+    );
+    push_line(output, "        )");
+    push_line(
+        output,
+        &format!(
+            "        .map_err(|_error| {}::PackedLayoutFailed)?;",
+            names.rust_error_type
+        ),
+    );
 }
 
 /// Renders one packed-array typed output getter.
@@ -3584,7 +3598,7 @@ fn render_debug(output: &mut String, names: &DutNames, traced: bool) {
 fn render_dut_trait(output: &mut String, names: &DutNames) {
     push_line(
         output,
-        &format!("impl ::vvm::Dut for {} {{", names.cpp_type),
+        &format!("impl ::vvm::__private::Dut for {} {{", names.cpp_type),
     );
     push_line(
         output,
@@ -3603,13 +3617,13 @@ fn render_dut_trait(output: &mut String, names: &DutNames) {
 
     push_line(output, "    fn simulation_time(");
     push_line(output, "        &self,");
-    push_line(output, "    ) -> ::vvm::SimulationTime {");
+    push_line(output, "    ) -> ::vvm::__private::SimulationTime {");
     push_line(output, "        Self::simulation_time_value(self)");
     push_line(output, "    }");
 
     push_line(output, "    fn advance_time(");
     push_line(output, "        &mut self,");
-    push_line(output, "        delta: ::vvm::TimeStep,");
+    push_line(output, "        delta: ::vvm::__private::TimeStep,");
     push_line(output, "    ) -> Result<()> {");
     push_line(output, "        Self::advance_time_inner(self, delta)");
     push_line(output, "    }");
@@ -3622,7 +3636,10 @@ fn render_traceable_trait(output: &mut String, names: &DutNames) {
     push_line(output, "#[allow(clippy::same_name_method)]");
     push_line(
         output,
-        &format!("impl ::vvm::TraceableDut for {} {{", names.cpp_type),
+        &format!(
+            "impl ::vvm::__private::TraceableDut for {} {{",
+            names.cpp_type
+        ),
     );
     push_line(output, "    fn open_trace(");
     push_line(output, "        &mut self,");
@@ -3647,7 +3664,7 @@ fn render_traceable_trait(output: &mut String, names: &DutNames) {
 fn render_timed_dut_trait(output: &mut String, names: &DutNames) {
     push_line(
         output,
-        &format!("impl ::vvm::TimedDut for {} {{", names.cpp_type),
+        &format!("impl ::vvm::__private::TimedDut for {} {{", names.cpp_type),
     );
     push_line(output, "    fn events_pending(&self) -> Result<bool> {");
     push_line(output, "        Self::events_pending(self)");
@@ -3655,7 +3672,7 @@ fn render_timed_dut_trait(output: &mut String, names: &DutNames) {
     push_line(output, "");
     push_line(
         output,
-        "    fn next_time_slot(&self) -> Result<Option<::vvm::SimulationTime>> {",
+        "    fn next_time_slot(&self) -> Result<Option<::vvm::__private::SimulationTime>> {",
     );
     push_line(output, "        Self::next_time_slot(self)");
     push_line(output, "    }");

@@ -13,7 +13,8 @@ mod verification;
 mod tests {
     use std::error::Error;
 
-    use vvm::{Drive, Dut, Sample, SimulationTime, TimeStep};
+    use vvm::dut::{Drive, Dut, Sample};
+    use vvm::timing::{SimulationTime, TimeStep};
 
     use crate::resolution::{BusDriver, SettleError, settle_bus};
     use crate::tri_state_bus::TriStateBus;

@@ -1,8 +1,8 @@
 use thiserror::Error;
-use vvm::{
-    Clock, CoverageDefinitionError, Drive, InvalidFailureLimit, Mismatch, RandomContext,
-    ReferenceModel, ReplayToken, ReplayableSequence, Sample, TestResult,
-};
+use vvm::coverage::CoverageDefinitionError;
+use vvm::random::{RandomContext, ReplayToken, ReplayableSequence};
+use vvm::testbench::{InvalidFailureLimit, Mismatch, ReferenceModel, TestResult};
+use vvm::{Clock, Drive, Sample};
 
 use crate::counter::CounterError;
 
@@ -228,7 +228,7 @@ impl Iterator for RandomCounterSequence {
 
 #[cfg(test)]
 mod tests {
-    use vvm::{CheckFailure, ExactScoreboard, ReferenceModel, Scoreboard, Testbench};
+    use vvm::testbench::{CheckFailure, ExactScoreboard, ReferenceModel, Scoreboard, Testbench};
 
     use super::{CounterClock, CounterObservation, CounterReferenceModel, counter_sequence};
     use crate::counter::{Counter, Result};
@@ -237,7 +237,9 @@ mod tests {
     #[derive(Debug, Default)]
     struct IncorrectCounterModel;
 
-    impl vvm::ReferenceModel<crate::verification::CounterStimulus> for IncorrectCounterModel {
+    impl vvm::testbench::ReferenceModel<crate::verification::CounterStimulus>
+        for IncorrectCounterModel
+    {
         type Expected = crate::verification::CounterObservation;
 
         fn predict(&mut self, _stimulus: &crate::verification::CounterStimulus) -> Self::Expected {

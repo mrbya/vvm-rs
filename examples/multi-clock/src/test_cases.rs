@@ -1,4 +1,5 @@
-use vvm::{ExactScoreboard, TestRunConfig, Testbench};
+use vvm::test::TestRunConfig;
+use vvm::testbench::{ExactScoreboard, Testbench};
 
 use crate::multi_clock_counter::MultiClockCounter;
 use crate::verification::{

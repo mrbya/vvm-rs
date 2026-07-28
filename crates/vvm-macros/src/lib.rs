@@ -18,7 +18,7 @@ mod sample;
 /// VVM test attribute expansion.
 mod test;
 
-/// Derives [`vvm::Drive`] for a named-field stimulus structure.
+/// Derives `vvm::Drive` for a named-field stimulus structure.
 ///
 /// The target DUT is selected with `#[vvm(dut = path)]`. Fields marked with
 /// `#[vvm(port)]` drive matching setters, while
@@ -32,7 +32,7 @@ pub fn derive_drive(input: TokenStream) -> TokenStream {
         .into()
 }
 
-/// Derives [`vvm::Sample`] for a named-field observation structure.
+/// Derives `vvm::Sample` for a named-field observation structure.
 ///
 /// The target DUT is selected with `#[vvm(dut = path)]`. Every field must be
 /// mapped with `#[vvm(port)]` or `#[vvm(port = "name")]`.
@@ -45,7 +45,7 @@ pub fn derive_sample(input: TokenStream) -> TokenStream {
         .into()
 }
 
-/// Derives [`vvm::Clock`] for a unit clock-driver type.
+/// Derives `vvm::Clock` for a unit clock-driver type.
 ///
 /// The target DUT and clock port are configured with:
 ///

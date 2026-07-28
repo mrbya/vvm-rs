@@ -1,6 +1,6 @@
 use std::num::{NonZeroU64, ParseIntError};
 
-use vvm::{TimingEvent, TimingSchedulerError};
+use vvm::timing::{TimingEvent, TimingSchedulerError};
 
 use crate::delayed_sequence::DelayedSequenceError;
 

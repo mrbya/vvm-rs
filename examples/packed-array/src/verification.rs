@@ -1,4 +1,5 @@
-use vvm::{Clock, Drive, Mismatch, ReferenceModel, Sample, TestResult};
+use vvm::testbench::{Mismatch, ReferenceModel, TestResult};
+use vvm::{Clock, Drive, Sample};
 
 use crate::packed_array_ports::{PackedArrayPortsError, PackedBytes, PackedBytesOut};
 
@@ -112,7 +113,7 @@ fn packed_bytes<const N: usize>(assignments: [(i64, u8); N]) -> Result<PackedByt
 
 #[cfg(test)]
 mod tests {
-    use vvm::ReferenceModel;
+    use vvm::testbench::ReferenceModel;
 
     use super::{PackedArrayReferenceModel, PackedArrayStimulus, packed_bytes};
 

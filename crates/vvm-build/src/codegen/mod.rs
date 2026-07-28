@@ -358,7 +358,10 @@ mod tests {
         assert!(bridge.contains("fn bus_output_value"));
         assert!(wrapper.contains("pub fn set_bus_input"));
         assert!(wrapper.contains("pub fn set_bus(&mut self"));
-        assert!(wrapper.contains("pub fn bus(&self) -> Result<::vvm::InoutState<bool, bool>>"));
+        assert!(
+            wrapper
+                .contains("pub fn bus(&self) -> Result<::vvm::__private::InoutState<bool, bool>>")
+        );
         assert!(!wrapper.contains("pub fn drive_bus"));
         assert!(!wrapper.contains("pub fn release_bus"));
 
@@ -432,22 +435,24 @@ mod tests {
     fn assert_wide_wrapper_artifacts(wrapper: &str) {
         for width in [65, 96, 129, 256] {
             assert!(wrapper.contains(&format!(
-                "value: impl ::core::borrow::Borrow<::vvm::Bits<{width}>>"
+                "value: impl ::core::borrow::Borrow<::vvm::__private::Bits<{width}>>"
             )));
             assert!(wrapper.contains(&format!(
-                "pub fn output_u{width}(&self) -> Result<::vvm::Bits<{width}>> {{"
+                "pub fn output_u{width}(&self) -> Result<::vvm::__private::Bits<{width}>> {{"
             )));
-            assert!(wrapper.contains(&format!("vec![0_u32; ::vvm::Bits::<{width}>::WORDS];")));
+            assert!(wrapper.contains(&format!(
+                "vec![0_u32; ::vvm::__private::Bits::<{width}>::WORDS];"
+            )));
         }
         for width in [65, 129] {
             assert!(wrapper.contains(&format!(
-                "value: impl ::core::borrow::Borrow<::vvm::SignedBits<{width}>>"
+                "value: impl ::core::borrow::Borrow<::vvm::__private::SignedBits<{width}>>"
             )));
             assert!(wrapper.contains(&format!(
-                "pub fn output_i{width}(&self) -> Result<::vvm::SignedBits<{width}>> {{"
+                "pub fn output_i{width}(&self) -> Result<::vvm::__private::SignedBits<{width}>> {{"
             )));
             assert!(wrapper.contains(&format!(
-                "vec![0_u32; ::vvm::SignedBits::<{width}>::WORDS];"
+                "vec![0_u32; ::vvm::__private::SignedBits::<{width}>::WORDS];"
             )));
         }
         assert!(wrapper.contains("WidePortTransferFailed"));
@@ -479,7 +484,7 @@ mod tests {
         assert!(!wrapper.contains("unsafe"));
         assert!(!wrapper.contains("Vcounter"));
         assert!(wrapper.contains("pub enum CounterError"));
-        assert!(wrapper.contains("impl ::vvm::Dut for Counter"));
+        assert!(wrapper.contains("impl ::vvm::__private::Dut for Counter"));
         assert!(wrapper.contains("impl Drop for Counter"));
         assert!(wrapper.contains("impl std::fmt::Debug for Counter"));
 
@@ -513,7 +518,7 @@ mod tests {
         assert!(timed_bridge.contains("fn events_pending"));
         assert!(timed_bridge.contains("time: &mut u64"));
         assert!(timed_wrapper.contains("pub fn next_time_slot"));
-        assert!(timed_wrapper.contains("impl ::vvm::TimedDut"));
+        assert!(timed_wrapper.contains("impl ::vvm::__private::TimedDut"));
         Ok(())
     }
 
@@ -612,8 +617,8 @@ mod tests {
         assert!(wrapper.contains("evaluated"));
         assert!(wrapper.contains("trace_configured"));
         assert!(wrapper.contains("trace_open"));
-        assert!(wrapper.contains("impl ::vvm::TraceableDut"));
-        assert!(wrapper.contains("impl ::vvm::Dut"));
+        assert!(wrapper.contains("impl ::vvm::__private::TraceableDut"));
+        assert!(wrapper.contains("impl ::vvm::__private::Dut"));
         assert!(wrapper.contains("SimulationTime"));
         assert!(wrapper.contains("advance_time"));
         assert!(wrapper.contains("Drop"));
@@ -708,7 +713,7 @@ mod tests {
             "if let Some(inner) = self.inner.as_mut() {\n            inner.finish();\n        }"
         ));
         assert!(wrapper.contains("#[allow(clippy::same_name_method)]"));
-        assert!(wrapper.contains("impl ::vvm::TraceableDut for Counter"));
+        assert!(wrapper.contains("impl ::vvm::__private::TraceableDut for Counter"));
         assert!(bridge.contains("fn trace_is_open(self: &Counter) -> bool;"));
 
         Ok(())
@@ -764,7 +769,7 @@ mod tests {
 
         assert!(wrapper.contains("pub struct PackedBytes {"));
         assert!(wrapper.contains("pub struct PackedBytesOut {"));
-        assert!(wrapper.contains("impl ::vvm::PackedValue for PackedBytes {"));
+        assert!(wrapper.contains("impl ::vvm::__private::PackedValue for PackedBytes {"));
         assert!(wrapper.contains("pub const WIDTH: usize = 32;"));
         assert!(wrapper.contains("pub const LEN: usize = 4;"));
         assert!(wrapper.contains("pub const ELEMENT_WIDTH: usize = 8;"));
@@ -775,13 +780,13 @@ mod tests {
         assert!(wrapper.contains("Borrow<PackedBytes>"));
         assert!(wrapper.contains("Result<PackedBytesOut>"));
         assert!(wrapper.contains("PackedLayoutFailed"));
-        assert!(wrapper.contains("::vvm::extract_unsigned"));
-        assert!(wrapper.contains("::vvm::insert_unsigned"));
-        assert!(wrapper.contains("::vvm::PackedLayoutError::range_out_of_bounds("));
-        assert!(wrapper.contains("::vvm::PackedLayoutError::invalid_packed_value"));
-        assert!(wrapper.contains("let raw = ::vvm::extract_unsigned("));
+        assert!(wrapper.contains("::vvm::__private::extract_unsigned"));
+        assert!(wrapper.contains("::vvm::__private::insert_unsigned"));
+        assert!(wrapper.contains("::vvm::__private::PackedLayoutError::range_out_of_bounds("));
+        assert!(wrapper.contains("::vvm::__private::PackedLayoutError::invalid_packed_value"));
+        assert!(wrapper.contains("let raw = ::vvm::__private::extract_unsigned("));
         assert!(wrapper.contains("let raw: u32 = u32::try_from(raw)"));
-        assert!(wrapper.contains("let bits = ::vvm::Bits::<32>::from("));
+        assert!(wrapper.contains("let bits = ::vvm::__private::Bits::<32>::from("));
         assert!(wrapper.contains("Ok(PackedBytesOut::from_bits(bits))"));
 
         Ok(())
@@ -808,7 +813,7 @@ mod tests {
         assert!(bridge.contains("words: &[u32]"));
         assert!(wrapper.contains("pub struct Flags"));
         assert!(wrapper.contains("elements: [bool; 4]"));
-        assert!(wrapper.contains("elements: [::vvm::Bits<129>; 2]"));
+        assert!(wrapper.contains("elements: [::vvm::__private::Bits<129>; 2]"));
         assert!(wrapper.contains("UnpackedArrayTransferFailed"));
         Ok(())
     }
@@ -856,52 +861,61 @@ mod tests {
         assert!(wrapper.contains("pub struct PacketOut {"));
         assert!(wrapper.contains("pub struct WidePacket {"));
         assert!(wrapper.contains("pub struct WidePacketOut {"));
-        assert!(wrapper.contains("pub const FIELDS: &'static [::vvm::PackedFieldLayout] = &["));
-        assert!(wrapper.contains("pub const LAYOUT: ::vvm::PackedLayout ="));
+        assert!(
+            wrapper
+                .contains("pub const FIELDS: &'static [::vvm::__private::PackedFieldLayout] = &[")
+        );
+        assert!(wrapper.contains("pub const LAYOUT: ::vvm::__private::PackedLayout ="));
         assert!(wrapper.contains(
-            "pub fn opcode(&self) -> std::result::Result<u8, ::vvm::PackedLayoutError> {"
+            "pub fn opcode(&self) -> std::result::Result<u8, ::vvm::__private::PackedLayoutError> \
+             {"
         ));
         assert!(wrapper.contains(
             "pub fn set_opcode(&mut self, value: u8) -> std::result::Result<(), \
-             ::vvm::PackedLayoutError> {"
+             ::vvm::__private::PackedLayoutError> {"
         ));
         assert!(wrapper.contains(
-            "pub fn valid(&self) -> std::result::Result<bool, ::vvm::PackedLayoutError> {"
+            "pub fn valid(&self) -> std::result::Result<bool, \
+             ::vvm::__private::PackedLayoutError> {"
         ));
         assert!(wrapper.contains(
             "pub fn set_valid(&mut self, value: bool) -> std::result::Result<(), \
-             ::vvm::PackedLayoutError> {"
+             ::vvm::__private::PackedLayoutError> {"
         ));
         assert!(wrapper.contains(
-            "pub fn delta(&self) -> std::result::Result<i8, ::vvm::PackedLayoutError> {"
+            "pub fn delta(&self) -> std::result::Result<i8, ::vvm::__private::PackedLayoutError> {"
         ));
         assert!(wrapper.contains(
             "pub fn set_delta(&mut self, value: i8) -> std::result::Result<(), \
-             ::vvm::PackedLayoutError> {"
+             ::vvm::__private::PackedLayoutError> {"
         ));
         assert!(wrapper.contains(
-            "pub fn payload(&self) -> std::result::Result<u16, ::vvm::PackedLayoutError> {"
+            "pub fn payload(&self) -> std::result::Result<u16, \
+             ::vvm::__private::PackedLayoutError> {"
         ));
         assert!(wrapper.contains(
             "pub fn set_payload(&mut self, value: u16) -> std::result::Result<(), \
-             ::vvm::PackedLayoutError> {"
+             ::vvm::__private::PackedLayoutError> {"
         ));
         assert!(wrapper.contains(
-            "pub fn payload(&self) -> std::result::Result<::vvm::SignedBits<129>, \
-             ::vvm::PackedLayoutError> {"
+            "pub fn payload(&self) -> std::result::Result<::vvm::__private::SignedBits<129>, \
+             ::vvm::__private::PackedLayoutError> {"
         ));
         assert!(wrapper.contains(
             "pub fn set_payload(&mut self, value: impl \
-             ::core::borrow::Borrow<::vvm::SignedBits<129>>) -> std::result::Result<(), \
-             ::vvm::PackedLayoutError> {"
+             ::core::borrow::Borrow<::vvm::__private::SignedBits<129>>) -> \
+             std::result::Result<(), ::vvm::__private::PackedLayoutError> {"
         ));
-        assert!(wrapper.contains("::vvm::extract_unsigned"));
-        assert!(wrapper.contains("::vvm::insert_unsigned"));
-        assert!(wrapper.contains("::vvm::extract_signed"));
-        assert!(wrapper.contains("::vvm::insert_signed"));
-        assert!(wrapper.contains("::vvm::extract_packed::<::vvm::SignedBits<129>>("));
-        assert!(wrapper.contains("::vvm::insert_packed("));
-        assert!(wrapper.contains("impl ::vvm::PackedValue for Packet {"));
+        assert!(wrapper.contains("::vvm::__private::extract_unsigned"));
+        assert!(wrapper.contains("::vvm::__private::insert_unsigned"));
+        assert!(wrapper.contains("::vvm::__private::extract_signed"));
+        assert!(wrapper.contains("::vvm::__private::insert_signed"));
+        assert!(
+            wrapper
+                .contains("::vvm::__private::extract_packed::<::vvm::__private::SignedBits<129>>(")
+        );
+        assert!(wrapper.contains("::vvm::__private::insert_packed("));
+        assert!(wrapper.contains("impl ::vvm::__private::PackedValue for Packet {"));
         assert!(wrapper.contains("value: impl ::core::borrow::Borrow<Packet>"));
         assert!(wrapper.contains("pub fn packet_out(&self) -> Result<PacketOut> {"));
         assert!(wrapper.contains("PackedLayoutFailed"));
@@ -941,30 +955,29 @@ mod tests {
         assert!(wrapper.contains("STATE_BUSY"));
         assert!(wrapper.contains("STATE_DONE"));
         assert!(wrapper.contains("STATE_ERROR"));
-        assert!(
-            wrapper.contains("pub const VARIANTS: &'static [::vvm::PackedEnumVariantLayout] = &[")
-        );
-        assert!(wrapper.contains("pub const LAYOUT: ::vvm::PackedEnumLayout ="));
+        assert!(wrapper.contains(
+            "pub const VARIANTS: &'static [::vvm::__private::PackedEnumVariantLayout] = &["
+        ));
+        assert!(wrapper.contains("pub const LAYOUT: ::vvm::__private::PackedEnumLayout ="));
         assert!(wrapper.contains("pub fn from_raw(value: u64) -> Self {"));
-        assert!(
-            wrapper.contains(
-                "pub fn raw(&self) -> std::result::Result<u64, ::vvm::PackedLayoutError> {"
-            )
-        );
+        assert!(wrapper.contains(
+            "pub fn raw(&self) -> std::result::Result<u64, ::vvm::__private::PackedLayoutError> {"
+        ));
         assert!(wrapper.contains("pub fn from_variant(variant: StateVariant) -> Self {"));
         assert!(wrapper.contains(
             "pub fn variant(&self) -> std::result::Result<Option<StateVariant>, \
-             ::vvm::PackedLayoutError> {"
+             ::vvm::__private::PackedLayoutError> {"
         ));
         assert!(wrapper.contains(
             "pub fn name(&self) -> std::result::Result<Option<&'static str>, \
-             ::vvm::PackedLayoutError> {"
+             ::vvm::__private::PackedLayoutError> {"
         ));
         assert!(wrapper.contains(
-            "pub fn is_known(&self) -> std::result::Result<bool, ::vvm::PackedLayoutError> {"
+            "pub fn is_known(&self) -> std::result::Result<bool, \
+             ::vvm::__private::PackedLayoutError> {"
         ));
         assert!(wrapper.contains("impl From<StateVariant> for State {"));
-        assert!(wrapper.contains("impl ::vvm::PackedValue for State {"));
+        assert!(wrapper.contains("impl ::vvm::__private::PackedValue for State {"));
         assert!(wrapper.contains("value: impl ::core::borrow::Borrow<State>"));
         assert!(wrapper.contains("pub fn state_out(&self) -> Result<StateOut> {"));
         assert!(wrapper.contains("PackedLayoutFailed"));

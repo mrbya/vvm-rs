@@ -215,7 +215,7 @@ docker-build-verilator VERSION SHA256:
     if [ -z "${GITLAB_IMAGE_REGISTRY}" ]; then
         exit 1 # GITLAB_IMAGE_REGISTRY variable has to be set
     fi
-    IMAGE="${GITLAB_IMAGE_REGISTRY}:verilator-{{VERSION}}-rust-1"
+    IMAGE="${GITLAB_IMAGE_REGISTRY}:verilator-{{VERSION}}"
     sudo docker buildx build -f "ci/Dockerfile.verilator" \
         --build-arg "VERILATOR_VERSION={{VERSION}}" \
         --build-arg "VERILATOR_SHA256={{SHA256}}" \

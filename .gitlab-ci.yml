@@ -48,7 +48,7 @@ rust-stable:
 
 native-minimum-verilator:
   stage: test-native
-  image: registry.gitlab.com/byacrates/vvm-rs:verilator-5.000-rust-1
+  image: registry.gitlab.com/byacrates/vvm-rs:verilator-5.000
   script:
     - verilator --version
     - case "$(verilator --version)" in "Verilator 5.000"*) ;; *) exit 1 ;; esac
@@ -56,7 +56,7 @@ native-minimum-verilator:
 
 native-current-verilator:
   stage: test-native
-  image: registry.gitlab.com/byacrates/vvm-rs:verilator-5.048-rust-1
+  image: registry.gitlab.com/byacrates/vvm-rs:verilator-5.050
   script:
     - verilator --version
     - case "$(verilator --version)" in "Verilator 5.048"*) ;; *) exit 1 ;; esac
@@ -64,14 +64,14 @@ native-current-verilator:
 
 end-to-end:
   stage: test-e2e
-  image: registry.gitlab.com/byacrates/vvm-rs:verilator-5.048-rust-1
+  image: registry.gitlab.com/byacrates/vvm-rs:verilator-5.050
   needs: ["native-current-verilator"]
   script:
     - just test-e2e
 
 coverage:
   stage: coverage
-  image: registry.gitlab.com/byacrates/vvm-rs:verilator-5.048-rust-1
+  image: registry.gitlab.com/byacrates/vvm-rs:verilator-5.050
   needs: ["native-current-verilator"]
   script:
     - just test-cov-ci
@@ -100,7 +100,7 @@ doctests:
 
 mutation:
   stage: extended
-  image: registry.gitlab.com/byacrates/vvm-rs:verilator-5.048-rust-1
+  image: registry.gitlab.com/byacrates/vvm-rs:verilator-5.050
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_PIPELINE_SOURCE == "web"

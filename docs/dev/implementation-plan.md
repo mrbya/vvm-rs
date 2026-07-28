@@ -1,7 +1,7 @@
 # VVM-rs Implementation Plan
 
 > **Project:** VVM-rs — Verilator Verification Methodology in Rust
-> **Status:** Early bootstrap
+> **Status:** Pre-release stabilization toward VVM v0.1.0
 > **Primary goal:** Build ergonomic, strongly typed Rust testbenches for Verilator-generated HDL models.
 
 This document is the working roadmap for VVM-rs. Check tasks off as they are completed and update the milestone table after each meaningful change.
@@ -176,7 +176,8 @@ Removed. Shared ABI support should only return once concrete cross-DUT native fu
 | 8 | Derive macros | Complete |
 | 9 | Public facade | Complete |
 | 10 | Tracing, reporting, and standard test harness | Complete |
-| 11 | Wider HDL feature support and Rust-native coverage | In progress (11.7 complete) |
+| 11 | Wider HDL feature support and Rust-native coverage | Complete |
+| 12 | Pre-release cleanup and polish | Planned |
 
 ---
 
@@ -1719,7 +1720,1448 @@ justifies the additional FFI, scope, callback, and lifecycle surface.
 
 ---
 
-# 17. Testing strategy
+# 17. Milestone 12 — Pre-release cleanup and polish
+
+## Goal
+
+Prepare VVM for its first real public release by stabilizing its architecture, public API, tests, examples, documentation, performance baselines, packaging, compatibility policy, and release process.
+
+Milestone 12 is primarily a stabilization milestone.
+
+It should not introduce another broad feature wave. Work that is not required for a credible `v0.1.0` release should be explicitly deferred rather than allowed to expand the release scope indefinitely.
+
+The milestone should produce:
+
+```text
+coherent public API
+    ↓
+consistent internal architecture
+    ↓
+documented error and diagnostic policy
+    ↓
+structured unit, integration, compile-time, and end-to-end tests
+    ↓
+curated realistic examples
+    ↓
+complete mdBook and rustdoc documentation
+    ↓
+repeatable benchmark baselines
+    ↓
+verified crates.io packages
+    ↓
+release candidate
+    ↓
+VVM v0.1.0
+```
+
+## Release principles
+
+* [ ] Freeze the `v0.1.0` feature scope before beginning broad cleanup.
+* [ ] Classify every unfinished earlier-roadmap task as either release-blocking or post-`0.1.0`.
+* [ ] Do not require every aspirational Milestone 11 feature for `v0.1.0`.
+* [ ] Do not add new public abstractions solely to make the cleanup appear comprehensive.
+* [ ] Prefer a deliberate pre-`0.1.0` breaking cleanup over carrying accidental API decisions into the first release.
+* [ ] Make every public item have one canonical documented path.
+* [ ] Test packaged consumer workflows rather than only workspace path dependencies.
+* [ ] Establish compatibility and performance baselines before publishing `v0.1.0`.
+* [ ] Publish a release candidate before the final release.
+* [ ] Treat documentation, packaging, and release automation as release functionality rather than optional polish.
+
+## Required implementation order
+
+Complete the milestone in this order:
+
+```text
+12.1 Public API and facade stabilization
+12.2 Error and diagnostic consistency
+12.3 Test architecture and coverage hardening
+12.4 Example curation and realistic showcases
+12.5 mdBook, rustdoc, and GitLab Pages
+12.6 Benchmark suite and performance baselines
+12.7 Packaging, compatibility, and release engineering
+12.8 Safety, dependency, and final release audit
+12.9 v0.1.0 release candidate
+12.10 v0.1.0 release
+```
+
+Tests, examples, documentation, and benchmarks must target the stabilized API rather than being written against paths that are about to change.
+
+---
+
+## 12.1 — Public API and facade stabilization
+
+### Objective
+
+Replace the flat facade with a coherent domain-oriented public API and establish the public compatibility surface for `v0.1.0`.
+
+### Release-scope freeze
+
+* [ ] Review all unfinished Milestone 11 tasks.
+* [ ] Identify tasks required for a credible `v0.1.0`.
+* [ ] Move non-blocking HDL features into an explicitly post-`0.1.0` roadmap.
+* [ ] Define a feature freeze for Milestone 12.
+* [ ] Require release-scope justification for any new public API added during cleanup.
+
+### Canonical facade modules
+
+Create canonical public modules conceptually resembling:
+
+```rust
+vvm::coverage
+vvm::dut
+vvm::packed
+vvm::random
+vvm::report
+vvm::test
+vvm::testbench
+vvm::timing
+```
+
+The exact module boundaries must be derived from the implemented domain model rather than chosen only for visual symmetry.
+
+* [ ] Inventory every current root re-export.
+* [ ] Assign every public type, trait, function, constant, and error to one domain.
+* [ ] Create public facade modules with focused rustdoc landing pages.
+* [ ] Give every public item one canonical documented path.
+* [ ] Remove accidental or implementation-only exports.
+* [ ] Keep generated-code-only exports under `__private`.
+* [ ] Ensure generated code uses stable absolute facade paths.
+* [ ] Update all workspace crates, examples, fixtures, tests, and documentation to canonical paths.
+* [ ] Add public-path integration tests using only the `vvm` facade.
+
+### Root-level API policy
+
+Keep root-level exports only where they materially improve normal Rust usage.
+
+Likely root-level exports:
+
+```rust
+vvm::Clock
+vvm::Coverage
+vvm::Drive
+vvm::Sample
+vvm::test
+vvm::include_dut!
+vvm::prelude
+```
+
+These derive and attribute macros benefit from short canonical paths.
+
+* [ ] Decide which macros and derives remain at the root.
+* [ ] Decide whether any essential test-authoring types remain at the root.
+* [ ] Remove the broad flat type re-export list.
+* [ ] Do not retain duplicate root aliases merely to avoid a pre-release migration.
+* [ ] Document the deliberate breaking API cleanup in the changelog.
+
+### Domain placement
+
+Prefer traits beside their domain rather than one catch-all `traits` module.
+
+Conceptual organization:
+
+```rust
+vvm::dut::{
+    Clock,
+    Drive,
+    Dut,
+    Sample,
+    TimedDut,
+    TraceableDut,
+}
+
+vvm::testbench::{
+    ExactScoreboard,
+    FailurePolicy,
+    ObservedCycle,
+    ReferenceModel,
+    Scoreboard,
+    Testbench,
+}
+
+vvm::coverage::{
+    Bin,
+    CoverageInstance,
+    CoverageMerge,
+    CoverageModel,
+    CoverageReport,
+    Coverpoint,
+    Cross2,
+}
+```
+
+* [ ] Keep trait and related implementation types discoverable together.
+* [ ] Avoid modules containing only arbitrary type-category groupings.
+* [ ] Avoid exposing `vvm-core` source-module organization accidentally through the facade.
+* [ ] Verify rustdoc module indexes remain understandable.
+
+### Prelude policy
+
+The prelude should contain only frequently required test-authoring items.
+
+Candidate contents:
+
+```rust
+Clock
+Drive
+Dut
+ReferenceModel
+Sample
+Scoreboard
+Testbench
+TestContext
+```
+
+Potential optional contents:
+
+```rust
+CoverageModel
+Randomize
+```
+
+* [ ] Define and document the prelude inclusion policy.
+* [ ] Remove persistence, snapshot, report, builder, and specialized error types.
+* [ ] Ensure derives and traits with matching names remain usable together.
+* [ ] Add compile tests for ordinary prelude usage.
+* [ ] Add documentation showing explicit imports for advanced APIs.
+
+### Published-crate boundaries
+
+Classify the workspace crates:
+
+```text
+vvm-rs
+    Supported primary user-facing library.
+
+vvm-build
+    Supported user-facing build-script library.
+
+cargo-vvm
+    Supported user-facing Cargo subcommand.
+
+vvm-core
+    Published implementation foundation and advanced API.
+    Ordinary users should prefer the facade.
+
+vvm-macros
+    Published procedural-macro implementation dependency.
+    Ordinary users should not depend on it directly.
+```
+
+* [ ] Confirm which crates are published.
+* [ ] Confirm which crates are documented as supported direct entry points.
+* [ ] Review every cross-crate public dependency.
+* [ ] Prevent users from requiring `vvm-core` or `vvm-macros` directly for ordinary workflows.
+* [ ] Document support expectations for each package.
+
+### Extensibility audit
+
+* [ ] Review every public trait for intended downstream implementation.
+* [ ] Seal traits that exist only for generated code or internal coordination.
+* [ ] Verify public traits do not expose private implementation concepts.
+* [ ] Review blanket implementations for future coherence conflicts.
+* [ ] Review default generic parameters for long-term compatibility.
+* [ ] Review public constructors for invariant bypasses.
+* [ ] Add `#[non_exhaustive]` to extensible public enums and structs where appropriate.
+* [ ] Avoid `#[non_exhaustive]` where exhaustive matching is an intentional stable contract.
+
+### Public API baseline
+
+* [ ] Generate a machine-readable public API inventory.
+* [ ] Review it manually for accidental exports.
+* [ ] Store the accepted `v0.1.0` API baseline.
+* [ ] Add `cargo-public-api` or equivalent contributor tooling.
+* [ ] Add `cargo-semver-checks` for post-release compatibility checks.
+* [ ] Document how intentional breaking changes are reviewed after `v0.1.0`.
+
+### Acceptance criteria
+
+* [ ] The facade no longer re-exports nearly every public item at its root.
+* [ ] Public APIs are grouped into coherent documented modules.
+* [ ] Every public item has one canonical path.
+* [ ] The prelude is intentionally small.
+* [ ] Ordinary users require only `vvm`, `vvm-build`, and optionally `cargo-vvm`.
+* [ ] Generated macro paths remain hygienic.
+* [ ] All examples and documentation use the stabilized API.
+* [ ] A reviewed public API baseline exists.
+
+---
+
+## 12.2 — Error and diagnostic consistency
+
+### Objective
+
+Establish one consistent architecture for public errors, internal errors, compiler diagnostics, test diagnostics, and CLI failures.
+
+### Error inventory
+
+* [ ] Inventory every error type in every workspace crate.
+* [ ] Record its visibility, domain, source module, implementation style, and consumers.
+* [ ] Identify duplicated or overlapping error concepts.
+* [ ] Identify errors exposed publicly only by accident.
+* [ ] Identify stringly typed failures that should become structured variants.
+* [ ] Identify error enums whose variants expose unstable internal types.
+
+### Source-layout policy
+
+Use one consistent rule:
+
+```text
+small domain with one compact error:
+    error may remain in the domain module
+
+large subsystem or several related errors:
+    subsystem/error.rs
+
+avoid:
+    arbitrary mixtures of error.rs,
+    foo_error.rs,
+    and unrelated embedded enums
+```
+
+* [ ] Define the policy in the developer guide.
+* [ ] Normalize comparable subsystems.
+* [ ] Avoid mechanical file moves that do not improve domain clarity.
+* [ ] Keep error definitions close enough to their domain to remain discoverable.
+
+### Naming policy
+
+Namespacing permits concise public names.
+
+Conceptual facade API:
+
+```rust
+vvm::coverage::BuildError
+vvm::coverage::SampleError
+vvm::coverage::MergeError
+vvm::coverage::PersistenceError
+
+vvm::testbench::SimulationError
+vvm::test::RegistryError
+
+vvm_build::BuildError
+cargo_vvm::Error
+```
+
+* [ ] Prefer clear names within canonical modules.
+* [ ] Avoid unnecessarily repeating the module name in every type.
+* [ ] Preserve more specific names where ambiguity would remain.
+* [ ] Document all intentional public renames in the changelog.
+
+### Implementation policy
+
+* [ ] Use `thiserror` for ordinary structured error enums.
+* [ ] Handwrite `Display` only when deriving cannot express the intended stable output.
+* [ ] Handwrite `Error` only where custom source behavior is required.
+* [ ] Remove redundant manual implementations.
+* [ ] Preserve deterministic and tested error messages.
+* [ ] Do not require callers to parse `Display`.
+* [ ] Avoid using boxed dynamic errors in normal framework APIs.
+* [ ] Preserve concrete source chains.
+
+### Public error contract
+
+Every public error should provide, where relevant:
+
+```text
+deterministic Display
+meaningful Error::source
+path accessors
+item or signal accessors
+stage or operation accessors
+status accessors
+non-lossy nested source
+```
+
+* [ ] Audit every public error for structured inspection.
+* [ ] Add `#[non_exhaustive]` where new variants are expected.
+* [ ] Review source types for public stability.
+* [ ] Ensure error messages do not leak irrelevant temporary paths or implementation details.
+* [ ] Ensure non-UTF-8 paths remain representable where applicable.
+
+### Panic and invariant audit
+
+* [ ] Audit production `panic!`, `unwrap`, `expect`, indexing, and unreachable assumptions.
+* [ ] Replace recoverable panics with structured errors.
+* [ ] Document genuinely impossible internal invariants.
+* [ ] Keep panic behavior away from FFI boundaries.
+* [ ] Ensure malformed user input cannot panic procedural macros.
+* [ ] Ensure malformed persisted artifacts cannot panic readers.
+* [ ] Ensure CLI input and filesystem failures remain structured.
+
+### Diagnostic layers
+
+Distinguish:
+
+```text
+Rust compiler diagnostics
+    Procedural macro misuse and type errors.
+
+Build diagnostics
+    Verilator, compiler, metadata, and native-link failures.
+
+Simulation diagnostics
+    DUT driving, evaluation, sampling, timing, and scoreboard failures.
+
+Coverage diagnostics
+    Definition, sampling, capture, persistence, and merge failures.
+
+Command diagnostics
+    cargo-vvm configuration and orchestration failures.
+```
+
+* [ ] Ensure each layer has a clear owner.
+* [ ] Avoid converting structured failures into strings prematurely.
+* [ ] Preserve original verification failures when framework diagnostics are appended.
+* [ ] Document diagnostic ordering and aggregation.
+
+### Tests
+
+* [ ] Test every public error variant.
+* [ ] Test every nested `source()`.
+* [ ] Test structured accessors.
+* [ ] Test deterministic `Display`.
+* [ ] Test combined verification and framework diagnostics.
+* [ ] Test non-UTF-8 paths on supported platforms.
+* [ ] Test that malformed external data returns errors rather than panicking.
+
+### Acceptance criteria
+
+* [ ] Error placement follows one documented policy.
+* [ ] Comparable errors use consistent names and implementation style.
+* [ ] Public errors are structurally inspectable.
+* [ ] Manual `Display` and `Error` implementations are exceptional and justified.
+* [ ] Recoverable user failures do not panic.
+* [ ] Error and diagnostic tests cover every public variant.
+
+---
+
+## 12.3 — Test architecture and coverage hardening
+
+### Objective
+
+Replace the current ad hoc test layout with an explicit testing strategy covering private invariants, public API contracts, macro behavior, package integration, and complete external workflows.
+
+### Testing taxonomy
+
+Adopt the following categories.
+
+#### Unit tests
+
+Use unit tests for:
+
+```text
+private invariants
+small parsers
+state transitions
+checked arithmetic
+overflow behavior
+error formatting
+internal scheduling
+```
+
+* [ ] Keep short tests inline where locality helps.
+* [ ] Move substantial unit suites to sibling `tests.rs` or `tests/` modules.
+* [ ] Avoid enormous source files containing both implementation and hundreds of test lines.
+* [ ] Preserve access to private implementation only where the tested invariant requires it.
+
+#### Crate integration tests
+
+Use `<crate>/tests/` for:
+
+```text
+public API contracts
+cross-module workflows
+serialization compatibility
+canonical facade paths
+consumer-visible behavior
+```
+
+* [ ] Use only public APIs.
+* [ ] Add facade integration tests that do not import `vvm-core`.
+* [ ] Add package-specific integration tests for `vvm-build` and `cargo-vvm`.
+* [ ] Keep persisted schema and golden-output compatibility tests at integration level.
+
+#### Compile-time tests
+
+Use `trybuild` for:
+
+```text
+derive and attribute macros
+compile-fail diagnostics
+typestate method availability
+generated-code paths
+invalid API combinations
+```
+
+* [ ] Review every `.stderr` fixture manually.
+* [ ] Avoid snapshots for diagnostics that are not intended to be stable.
+* [ ] Preserve spans and actionable compiler messages.
+
+#### Fixture workspaces
+
+Use isolated Cargo projects for:
+
+```text
+vvm-build consumer builds
+cargo-vvm orchestration
+package installation
+clean build scripts
+Cargo metadata behavior
+packaged-crate use
+```
+
+* [ ] Prevent fixtures from joining the parent workspace accidentally.
+* [ ] Give nested Cargo executions isolated target directories.
+* [ ] Avoid requiring Verilator for pure orchestration fixtures.
+* [ ] Add dedicated Verilator fixtures where native integration is the subject.
+
+#### End-to-end tests
+
+Add release-gating external workflows:
+
+* [ ] Clean external project builds a generated DUT using `vvm-build`.
+* [ ] Counter deterministic and randomized tests run successfully.
+* [ ] A deliberate mismatch retains useful diagnostics.
+* [ ] Tracing generates a readable VCD.
+* [ ] Timing-enabled delayed events execute correctly.
+* [ ] Multi-clock execution preserves independent timing.
+* [ ] Inout resolution example exercises contention and floating policy.
+* [ ] `cargo vvm coverage` produces per-test artifacts, merged JSON, text, HTML, and CI metric.
+* [ ] A failing test still produces available coverage reports and retains its exit status.
+* [ ] A project built from packaged crate archives works without workspace paths.
+
+### Existing-test migration
+
+* [ ] Inventory every existing test.
+* [ ] Classify it as unit, integration, compile-time, fixture, or end-to-end.
+* [ ] Move misplaced tests without changing their coverage.
+* [ ] Move example-like integration tests out of user-facing examples.
+* [ ] Remove duplicate tests that prove the same behavior at several internal layers.
+* [ ] Keep regression tests for every previously fixed bug.
+
+### Coverage hardening
+
+* [ ] Produce line and branch coverage per crate.
+* [ ] Identify every completely untested production module.
+* [ ] Add tests for every currently untested deterministic module.
+* [ ] Define explicit exclusions for generated code and narrowly justified FFI glue.
+* [ ] Establish a global coverage floor that cannot regress.
+* [ ] Prefer per-crate floors where one aggregate number hides weak crates.
+* [ ] Retain human-readable and Cobertura coverage artifacts in CI.
+* [ ] Do not increase line coverage through meaningless assertion-free execution.
+
+### Property-based testing
+
+Evaluate property testing for:
+
+* [ ] Packed extraction and insertion round trips.
+* [ ] Signed conversion and sign-extension behavior.
+* [ ] Random replay determinism.
+* [ ] Scheduler ordering and time arithmetic.
+* [ ] Coverage merge order independence.
+* [ ] Artifact serialization round trips.
+* [ ] Counter and ratio overflow invariants.
+
+Use fixed seeds for reproducible failures.
+
+### Mutation testing
+
+* [ ] Evaluate `cargo-mutants` for deterministic pure-Rust modules.
+* [ ] Establish an initial mutation baseline.
+* [ ] Run mutation testing manually or on a scheduled CI pipeline.
+* [ ] Do not make the entire mutation suite block every merge initially.
+* [ ] Investigate surviving mutations in safety-critical arithmetic and persistence logic.
+
+### CI test matrix
+
+Add jobs covering:
+
+```text
+minimum supported Rust
+current stable Rust
+minimum supported Verilator
+current supported Verilator
+pure-Rust tests without Verilator
+native integration tests
+package archive tests
+documentation tests
+```
+
+* [ ] Split fast pure-Rust tests from expensive native tests.
+* [ ] Preserve one contributor command equivalent to required CI checks.
+* [ ] Ensure test jobs do not depend on untracked generated files.
+
+### Acceptance criteria
+
+* [ ] A written test-location policy exists.
+* [ ] Tests are consistently organized.
+* [ ] Public contracts are tested through integration tests.
+* [ ] Procedural macros retain compile-pass and compile-fail coverage.
+* [ ] Real end-to-end workflows run in CI.
+* [ ] No deterministic production module is completely untested without an explicit justification.
+* [ ] Coverage cannot regress silently.
+* [ ] Packaged consumer workflows are tested.
+
+---
+
+## 12.4 — Example curation and realistic showcases
+
+### Objective
+
+Make `examples/` a collection of understandable real verification use cases rather than a second integration-test directory.
+
+### Example inventory
+
+* [ ] Inventory every current example.
+* [ ] Record the VVM or HDL feature it exists to exercise.
+* [ ] Identify examples that are primarily type-shape or code-generation fixtures.
+* [ ] Identify duplicate examples that teach no additional workflow.
+* [ ] Identify missing realistic use cases.
+
+### Reclassification
+
+Move implementation fixtures into dedicated test locations:
+
+```text
+tests/fixtures/hdl/
+tests/fixtures/build/
+tests/fixtures/generated/
+```
+
+Likely fixture-oriented cases include narrowly focused:
+
+```text
+packed arrays
+packed enums
+packed structs
+wide transforms
+unpacked arrays
+single-purpose type mappings
+```
+
+* [ ] Preserve their integration coverage after moving them.
+* [ ] Keep fixture names descriptive.
+* [ ] Do not expose fixture packages as recommended examples.
+* [ ] Keep fixtures buildable independently where useful.
+
+### User-facing example ladder
+
+#### Counter
+
+Keep the counter as the beginner example.
+
+It should demonstrate:
+
+```text
+DUT build
+Drive and Sample
+Clock
+reference model
+scoreboard
+registered tests
+random replay
+tracing
+functional coverage
+cargo-vvm reporting
+```
+
+* [ ] Keep it minimal enough for a first-time user.
+* [ ] Ensure its README follows the stabilized API.
+* [ ] Include expected commands and output.
+
+#### Synchronous FIFO
+
+Add or promote a real FIFO example demonstrating:
+
+```text
+structured transactions
+ready/valid or push/pop flow
+backpressure
+queue reference model
+underflow and overflow behavior
+longer randomized sequences
+functional coverage
+```
+
+* [ ] Provide meaningful normal and error scenarios.
+* [ ] Include occupancy and operation crosses.
+* [ ] Include deterministic replay.
+
+#### Protocol or timing example
+
+Add a UART, timer, or similar real timed design demonstrating:
+
+```text
+timing-enabled execution
+protocol reconstruction
+error injection
+nontrivial observations
+functional coverage
+```
+
+* [ ] Keep the RTL understandable.
+* [ ] Document timing assumptions.
+* [ ] Avoid turning the example into a full protocol verification framework.
+
+#### Multi-clock example
+
+Replace or expand the synthetic multi-clock case with an asynchronous FIFO or another understandable CDC design.
+
+* [ ] Demonstrate independent clocks and phase relationships.
+* [ ] Demonstrate deterministic same-time ordering.
+* [ ] Include meaningful verification goals.
+* [ ] Clearly state that the example is not a formal CDC proof.
+
+#### Bus-peripheral example
+
+Evaluate a small APB, Wishbone, or similarly compact peripheral.
+
+* [ ] Demonstrate structured bus transactions.
+* [ ] Demonstrate register-model-like reference behavior without introducing a premature register abstraction.
+* [ ] Demonstrate protocol and data functional coverage.
+
+### Example quality standard
+
+Every user-facing example should include:
+
+```text
+README
+design overview
+block diagram
+verification goals
+features demonstrated
+run commands
+expected result
+coverage workflow where relevant
+known limitations
+```
+
+* [ ] Keep example code idiomatic and reviewed as public documentation.
+* [ ] Avoid unexplained helper machinery.
+* [ ] Ensure examples use only public supported APIs.
+* [ ] Run every example in CI.
+* [ ] Keep example output deterministic where practical.
+
+### Acceptance criteria
+
+* [ ] `examples/` contains only projects intended for users to study.
+* [ ] Narrow code-generation cases live under fixtures.
+* [ ] Counter remains a clear beginner workflow.
+* [ ] At least one realistic sequential design is documented.
+* [ ] At least one meaningful timing or multi-clock design is documented.
+* [ ] Every retained example has complete user-facing documentation.
+* [ ] Every example runs in CI.
+
+---
+
+## 12.5 — mdBook, rustdoc, and GitLab Pages
+
+### Objective
+
+Publish one coherent project book containing the user guide, developer guide, examples, architecture documentation, and links to generated API documentation.
+
+### mdBook layout
+
+Create:
+
+```text
+docs/book/
+├── book.toml
+└── src/
+    ├── SUMMARY.md
+    ├── introduction.md
+    ├── getting-started/
+    ├── user-guide/
+    ├── coverage/
+    ├── cargo-vvm/
+    ├── examples/
+    ├── reference/
+    ├── developer-guide/
+    └── contributing/
+```
+
+### User guide
+
+Document:
+
+* [ ] Project purpose and supported use cases.
+* [ ] Installation and prerequisites.
+* [ ] First VVM project.
+* [ ] `vvm-build` and `build.rs`.
+* [ ] Generated DUT inclusion.
+* [ ] Driving and sampling transactions.
+* [ ] Clock configuration.
+* [ ] Testbench construction.
+* [ ] Reference models and scoreboards.
+* [ ] Registered VVM tests.
+* [ ] Failure policies and diagnostics.
+* [ ] Randomization and replay.
+* [ ] Tracing.
+* [ ] Multi-clock execution.
+* [ ] Timing-enabled models.
+* [ ] Inout behavior and limitations.
+* [ ] Functional coverage.
+* [ ] `cargo vvm coverage`.
+* [ ] CI integration.
+* [ ] Troubleshooting.
+
+### Developer guide
+
+Document:
+
+* [ ] Workspace architecture.
+* [ ] Supported public crate boundaries.
+* [ ] Verilator invocation and metadata pipeline.
+* [ ] Generated C++ adapter.
+* [ ] CXX bridge generation.
+* [ ] Generated Rust wrapper.
+* [ ] DUT lifecycle.
+* [ ] FFI and unsafe invariants.
+* [ ] Testbench execution ordering.
+* [ ] Multi-clock scheduler.
+* [ ] Timing scheduler.
+* [ ] Randomization architecture.
+* [ ] Coverage architecture.
+* [ ] Procedural macro architecture.
+* [ ] Error and diagnostic policy.
+* [ ] Testing strategy.
+* [ ] Benchmark policy.
+* [ ] Compatibility policy.
+* [ ] Release process.
+
+### Rustdoc integration
+
+Build a Pages tree conceptually shaped as:
+
+```text
+public/
+├── index.html
+├── api/
+│   ├── vvm/
+│   ├── vvm_build/
+│   ├── vvm_core/
+│   └── vvm_macros/
+└── coverage/
+```
+
+* [ ] Build mdBook into the Pages root.
+* [ ] Build rustdoc for all published library crates.
+* [ ] Publish rustdoc below `/api/`.
+* [ ] Add API-reference landing pages in the book.
+* [ ] Preserve rustdoc search and source navigation.
+* [ ] Link the book and API documentation bidirectionally.
+* [ ] Decide whether `cargo-vvm` command documentation is book-only.
+
+### Package READMEs
+
+Create or thoroughly update:
+
+```text
+crates/vvm/README.md
+crates/vvm-build/README.md
+crates/cargo-vvm/README.md
+```
+
+* [ ] Ensure each README works independently on crates.io.
+* [ ] Give each package a focused purpose statement.
+* [ ] Include the minimum useful installation example.
+* [ ] Link to the project book.
+* [ ] Link to the relevant API documentation.
+* [ ] Avoid using workspace-relative links that break on crates.io.
+* [ ] Add `readme` and `documentation` metadata to package manifests.
+
+### Documentation quality gates
+
+* [ ] Enable or retain missing-public-doc warnings.
+* [ ] Run all rustdoc tests.
+* [ ] Check internal and external links.
+* [ ] Check mdBook builds with warnings treated seriously.
+* [ ] Check code examples against the stabilized API.
+* [ ] Remove stale alpha workflows and manual coverage instructions.
+* [ ] Document Linux-only support explicitly if that remains the supported platform.
+* [ ] Document supported Rust and Verilator versions.
+
+### GitLab Pages
+
+* [ ] Add a Pages stage and job.
+* [ ] Build mdBook and rustdoc reproducibly.
+* [ ] Publish only from intended branches or tags.
+* [ ] Retain build artifacts for troubleshooting.
+* [ ] Verify relative links under the GitLab Pages base path.
+* [ ] Publish version or release information visibly.
+* [ ] Verify the deployed site from CI.
+
+### Acceptance criteria
+
+* [ ] The project book builds locally and in CI.
+* [ ] User and developer guides are substantial and navigable.
+* [ ] API documentation is available below the same Pages site.
+* [ ] `vvm-build` and `cargo-vvm` have crates.io-ready READMEs.
+* [ ] Documentation examples compile.
+* [ ] GitLab Pages deployment succeeds.
+* [ ] Public package metadata points to valid documentation.
+
+---
+
+## 12.6 — Benchmark suite and performance baselines
+
+### Objective
+
+Create reproducible performance measurements that reveal regressions in VVM’s pure-Rust runtime, coverage system, generated integration, and orchestration workflows.
+
+### Benchmark policy
+
+* [ ] Define what VVM performance claims and does not claim.
+* [ ] Distinguish deterministic microbenchmarks from noisy system benchmarks.
+* [ ] Use fixed seeds and stable representative inputs.
+* [ ] Record hardware, OS, compiler, Rust, and Verilator versions.
+* [ ] Establish baselines before setting regression thresholds.
+* [ ] Do not make ordinary merge requests fail on small noisy changes initially.
+* [ ] Run expensive system benchmarks on a stable or dedicated runner where possible.
+
+### Criterion microbenchmarks
+
+Add benchmark targets for:
+
+* [ ] Packed extraction and insertion at representative widths.
+* [ ] Signed packed conversion.
+* [ ] `Bits` and `SignedBits` operations.
+* [ ] Random value generation.
+* [ ] Replayable sequence generation.
+* [ ] Exact scoreboard comparisons.
+* [ ] Mock-DUT testbench cycle overhead.
+* [ ] Multi-clock scheduler event processing.
+* [ ] Timing scheduler event processing.
+* [ ] Coverpoint sampling.
+* [ ] Cross sampling.
+* [ ] Coverage snapshot capture.
+* [ ] Coverage artifact encoding.
+* [ ] Coverage artifact decoding.
+* [ ] Coverage merging at several sizes.
+* [ ] Text report generation.
+* [ ] HTML report generation.
+* [ ] Verilator metadata normalization.
+* [ ] Generated-code model construction where practical.
+
+### System benchmarks
+
+Measure:
+
+* [ ] Counter cycles per second.
+* [ ] FIFO transactions per second.
+* [ ] Baseline testbench execution without tracing or coverage.
+* [ ] Tracing overhead.
+* [ ] Functional-coverage overhead.
+* [ ] Multi-clock overhead.
+* [ ] Timing-enabled overhead.
+* [ ] Clean `vvm-build` wall-clock time.
+* [ ] Incremental `vvm-build` wall-clock time.
+* [ ] `cargo-vvm` orchestration overhead.
+* [ ] Peak memory for representative long runs where practical.
+
+### Benchmark organization
+
+Conceptual layout:
+
+```text
+benches/
+    pure-rust microbenchmarks
+
+benchmarks/
+    external or system-level benchmark workspaces
+
+scripts/
+    baseline capture and comparison helpers
+```
+
+* [ ] Avoid requiring Verilator for pure-Rust Criterion benchmarks.
+* [ ] Keep native system benchmarks separately selectable.
+* [ ] Avoid benchmarking debug builds.
+* [ ] Avoid accidental tracing or logging in benchmark paths.
+* [ ] Verify benchmark inputs are not optimized away.
+
+### Reporting and CI
+
+* [ ] Add contributor commands for microbenchmarks.
+* [ ] Add contributor commands for system benchmarks.
+* [ ] Retain Criterion reports as artifacts where useful.
+* [ ] Add a scheduled benchmark pipeline.
+* [ ] Store the initial `v0.1.0` benchmark baseline.
+* [ ] Document how developers compare a branch with the baseline.
+* [ ] Investigate statistically meaningful regressions.
+* [ ] Defer hard automatic thresholds until runner stability is demonstrated.
+
+### Acceptance criteria
+
+* [ ] Criterion benchmarks cover the main pure-Rust hot paths.
+* [ ] Representative real-DUT system benchmarks exist.
+* [ ] Benchmarks use deterministic inputs.
+* [ ] Benchmark commands are documented.
+* [ ] CI can run and retain benchmark output.
+* [ ] A `v0.1.0` performance baseline exists.
+
+---
+
+## 12.7 — Packaging, compatibility, and release engineering
+
+### Objective
+
+Verify that every supported VVM package can be independently packaged, installed, documented, and consumed outside the workspace.
+
+### Package publication policy
+
+Confirm the publication set and order.
+
+Proposed order:
+
+```text
+vvm-core
+vvm-macros
+vvm-build
+vvm-rs
+cargo-vvm
+```
+
+* [ ] Confirm whether every package name is available and appropriate.
+* [ ] Remove `publish = false` from packages intended for release.
+* [ ] Keep implementation-only crates publishable only where dependency resolution requires it.
+* [ ] Document the supported direct-entry packages.
+
+### Package metadata
+
+For every published package, review:
+
+```text
+name
+version
+description
+readme
+documentation
+homepage
+repository
+license
+keywords
+categories
+rust-version
+include / exclude
+```
+
+* [ ] Ensure descriptions are specific and useful.
+* [ ] Ensure package READMEs render on crates.io.
+* [ ] Ensure documentation links are public.
+* [ ] Ensure license declarations match included files.
+* [ ] Ensure package archives contain all generated templates, fixtures, and native sources required by consumers.
+* [ ] Exclude development-only and oversized files.
+
+### Package verification
+
+Run for every published crate:
+
+```console
+cargo package --list
+cargo package
+cargo publish --dry-run
+```
+
+* [ ] Review every package file list manually.
+* [ ] Test packages in publication order.
+* [ ] Build consumers from generated `.crate` archives or a local registry.
+* [ ] Ensure no package relies on workspace-only paths.
+* [ ] Ensure `vvm-build` can locate all packaged templates and support files.
+* [ ] Ensure `cargo-vvm` installs and runs from its package archive.
+* [ ] Test documentation links from packaged READMEs.
+
+### External consumer fixtures
+
+Add clean external projects that use released package shapes:
+
+* [ ] Minimal counter consumer.
+* [ ] Coverage-enabled consumer.
+* [ ] Timing-enabled consumer.
+* [ ] Multi-clock consumer where supported.
+* [ ] `cargo-vvm` installed-command workflow.
+
+The fixtures must not rely on:
+
+```text
+workspace path dependencies
+untracked generated files
+repository-only environment
+parent Cargo configuration
+```
+
+### Compatibility matrix
+
+Define and document:
+
+```text
+minimum supported Rust version
+current stable Rust
+supported Verilator range
+supported C++ compiler range
+supported operating systems
+timing-enabled C++ requirements
+```
+
+* [ ] Verify the declared MSRV.
+* [ ] Add MSRV CI.
+* [ ] Test current stable Rust.
+* [ ] Select and test a minimum supported Verilator.
+* [ ] Test a current supported Verilator.
+* [ ] Test GCC and Clang where practical.
+* [ ] State Linux-only support explicitly if other systems are not verified.
+* [ ] Avoid implying support for untested platforms.
+
+### Public compatibility policy
+
+* [ ] Define the compatibility promise beginning with `v0.1.0`.
+* [ ] Define how pre-`1.0` semver changes will be handled.
+* [ ] Define compatibility expectations for persisted coverage schemas.
+* [ ] Define compatibility expectations for generated-code layouts.
+* [ ] Define compatibility expectations for CLI output used by CI.
+* [ ] Add API-diff checks against the accepted release baseline.
+* [ ] Add schema fixture checks for persisted formats.
+
+### Release documents
+
+Create:
+
+```text
+CHANGELOG.md
+RELEASING.md
+SECURITY.md
+CONTRIBUTING.md
+```
+
+* [ ] Use a consistent changelog format.
+* [ ] Describe the release checklist.
+* [ ] Describe publication order.
+* [ ] Describe tag and GitLab Release creation.
+* [ ] Describe version updates.
+* [ ] Describe release rollback or yanking policy.
+* [ ] Describe security-reporting channels.
+* [ ] Describe contributor validation requirements.
+
+### Release automation
+
+* [ ] Add a tag-triggered release pipeline.
+* [ ] Validate versions against the tag.
+* [ ] Run all release gates before publishing.
+* [ ] Build and verify package archives.
+* [ ] Publish crates in dependency order.
+* [ ] Generate a GitLab Release.
+* [ ] Deploy versioned documentation.
+* [ ] Retain package and documentation artifacts.
+* [ ] Avoid publishing from unreviewed branch pipelines.
+* [ ] Document required protected variables and tokens.
+
+### Acceptance criteria
+
+* [ ] Every intended crate passes `cargo publish --dry-run`.
+* [ ] Package archives work in clean external consumers.
+* [ ] `cargo-vvm` is installable.
+* [ ] The support matrix is explicit and tested.
+* [ ] Changelog and release documentation exist.
+* [ ] Tag release automation is implemented and tested without performing an accidental production publication.
+* [ ] A release-candidate publication process is ready.
+
+---
+
+## 12.8 — Safety, dependency, and final release audit
+
+### Objective
+
+Perform the final technical and repository-level audit before freezing the release candidate.
+
+### FFI and unsafe audit
+
+Review:
+
+* [ ] Every handwritten unsafe block.
+* [ ] Every generated unsafe block.
+* [ ] CXX bridge signatures.
+* [ ] DUT ownership and pinning.
+* [ ] Verilator context and model lifetimes.
+* [ ] Finalization and drop ordering.
+* [ ] Trace object lifetime.
+* [ ] Timing-enabled coroutine integration.
+* [ ] Panic behavior across FFI.
+* [ ] C++ exception containment.
+* [ ] Thread confinement.
+* [ ] `Send` and `Sync` behavior.
+* [ ] Aliasing and mutable-reference assumptions.
+* [ ] Inout transfer and buffer-size invariants.
+
+For every unsafe operation:
+
+* [ ] Document the safety invariant.
+* [ ] Verify generated code preserves the invariant.
+* [ ] Add a regression test where practical.
+* [ ] Remove unnecessary unsafe code.
+* [ ] Ensure no Rust panic or C++ exception crosses an unsupported boundary.
+
+### Dependency audit
+
+* [ ] Run `cargo audit`.
+* [ ] Run `cargo deny check`.
+* [ ] Run `cargo udeps`.
+* [ ] Review duplicate dependency versions.
+* [ ] Review license compatibility.
+* [ ] Reject unapproved Git dependencies in published packages.
+* [ ] Review default features.
+* [ ] Review proc-macro dependency footprint.
+* [ ] Review CLI dependency footprint.
+* [ ] Commit required deny policy configuration.
+* [ ] Document advisory exceptions with expiration or review criteria.
+
+### Reproducibility audit
+
+* [ ] Verify generated source is deterministic.
+* [ ] Verify metadata normalization is deterministic.
+* [ ] Verify coverage artifacts and reports are deterministic.
+* [ ] Verify package contents do not depend on untracked files.
+* [ ] Verify clean builds work from fresh clones.
+* [ ] Verify fixture workspaces are isolated.
+* [ ] Verify documentation builds without network-only local assumptions.
+* [ ] Verify release commands use locked dependencies where appropriate.
+
+### Repository hygiene
+
+* [ ] Remove stale implementation notes from user-facing docs.
+* [ ] Remove obsolete examples and fixtures.
+* [ ] Remove dead feature flags.
+* [ ] Remove unused dependencies.
+* [ ] Remove obsolete lint allowances.
+* [ ] Remove temporary compatibility aliases not intended for release.
+* [ ] Resolve or explicitly defer every release-related `TODO`.
+* [ ] Review ignored tests.
+* [ ] Review committed generated files.
+* [ ] Review package sizes.
+* [ ] Review repository links and badges.
+
+### Release gate
+
+Run the complete release-equivalent validation:
+
+```text
+formatting
+Clippy
+unit tests
+integration tests
+trybuild tests
+end-to-end tests
+doctests
+coverage
+package verification
+dependency audit
+documentation build
+Pages build
+benchmark smoke run
+```
+
+* [ ] Record exact tool versions.
+* [ ] Retain all reports.
+* [ ] Resolve every release-blocking failure.
+* [ ] Document accepted non-blocking limitations.
+
+### Acceptance criteria
+
+* [ ] Unsafe and FFI invariants are documented and reviewed.
+* [ ] Dependency and license policies pass.
+* [ ] Clean and packaged builds are reproducible.
+* [ ] No release-blocking stale code or documentation remains.
+* [ ] The full release validation succeeds.
+* [ ] Remaining limitations are documented.
+
+---
+
+## 12.9 — VVM v0.1.0 release candidate
+
+### Objective
+
+Publish and dogfood a release candidate using the exact package, documentation, and automation path intended for `v0.1.0`.
+
+### Feature freeze
+
+* [ ] Freeze public features.
+* [ ] Permit only release-blocking fixes.
+* [ ] Require explicit review for API changes.
+* [ ] Update the version to `0.1.0-rc.1`.
+* [ ] Update package dependency versions consistently.
+* [ ] Update changelog and release notes.
+
+### Release-candidate validation
+
+* [ ] Run the complete release gate.
+* [ ] Generate all package archives.
+* [ ] Test package archives in external consumer projects.
+* [ ] Install and run `cargo-vvm` from the release-candidate package.
+* [ ] Build the full book and API documentation.
+* [ ] Compare public API against the accepted pre-release baseline.
+* [ ] Compare benchmark results with the stored baseline.
+* [ ] Verify persisted coverage fixtures.
+* [ ] Verify GitLab CI and Pages deployment.
+
+### Publication
+
+* [ ] Publish or otherwise distribute `0.1.0-rc.1` packages in dependency order.
+* [ ] Create the release-candidate tag.
+* [ ] Create a GitLab prerelease.
+* [ ] Publish release-candidate documentation.
+* [ ] Verify crates.io package pages and README rendering.
+* [ ] Verify docs.rs builds.
+* [ ] Verify `cargo install cargo-vvm --version 0.1.0-rc.1`.
+
+### Dogfooding
+
+Test the release candidate in projects that do not use repository path dependencies:
+
+* [ ] Minimal counter project.
+* [ ] Existing counter example copied outside the workspace.
+* [ ] Coverage and reporting workflow.
+* [ ] Timing-enabled example.
+* [ ] Multi-clock example.
+* [ ] At least one realistic FIFO or protocol example.
+* [ ] Clean environment or container build.
+
+### Release-candidate exit criteria
+
+* [ ] No known release-blocking correctness issue remains.
+* [ ] No accidental public export remains.
+* [ ] Package installation and external consumption work.
+* [ ] Documentation is deployed and accurate.
+* [ ] CI and coverage workflows work with published packages.
+* [ ] Benchmark results show no unexplained major regression.
+* [ ] Any required RC fixes are documented in the changelog.
+* [ ] A decision to publish `v0.1.0` is recorded.
+
+---
+
+## 12.10 — VVM v0.1.0 release
+
+### Objective
+
+Publish the first supported VVM release after the release candidate has completed external validation.
+
+### Final preparation
+
+* [ ] Apply only approved release-candidate fixes.
+* [ ] Re-run the complete release gate.
+* [ ] Update versions from `0.1.0-rc.1` to `0.1.0`.
+* [ ] Update internal dependency requirements.
+* [ ] Finalize `CHANGELOG.md`.
+* [ ] Finalize release notes.
+* [ ] Verify the release commit contains no unintended changes.
+* [ ] Verify the public API diff from the final RC is intentional.
+
+### Publication
+
+Publish in dependency order:
+
+```text
+vvm-core
+vvm-macros
+vvm-build
+vvm-rs
+cargo-vvm
+```
+
+* [ ] Wait for each crate to become available before publishing dependents.
+* [ ] Verify checksums and package contents.
+* [ ] Create the `v0.1.0` tag.
+* [ ] Create the GitLab Release.
+* [ ] Publish final versioned documentation.
+* [ ] Verify GitLab Pages.
+* [ ] Verify docs.rs.
+* [ ] Verify crates.io READMEs and metadata.
+* [ ] Verify `cargo install cargo-vvm --version 0.1.0`.
+
+### Post-publication verification
+
+Using only published artifacts:
+
+* [ ] Create a new counter project.
+* [ ] Build a DUT through `vvm-build`.
+* [ ] Run deterministic and randomized tests.
+* [ ] Generate tracing output.
+* [ ] Run `cargo vvm coverage`.
+* [ ] Verify merged JSON, text, HTML, and GitLab metric.
+* [ ] Verify one timing-enabled workflow.
+* [ ] Verify one multi-clock workflow.
+* [ ] Verify package documentation links.
+* [ ] Verify the recorded MSRV.
+
+### Baselines
+
+* [ ] Store the final `v0.1.0` public API baseline.
+* [ ] Store the final persisted-schema fixtures.
+* [ ] Store the final generated-code fixtures.
+* [ ] Store the final benchmark baseline.
+* [ ] Record supported Rust, Verilator, compiler, and OS versions.
+* [ ] Open post-`0.1.0` roadmap items separately from release issues.
+
+### Release completion criteria
+
+* [ ] All intended crates are published.
+* [ ] `cargo-vvm` installs successfully.
+* [ ] External projects work using only published packages.
+* [ ] Documentation is deployed.
+* [ ] The support and compatibility policy is public.
+* [ ] No release-blocking issue is known.
+* [ ] The repository roadmap marks Milestone 12 complete.
+* [ ] Development resumes under a post-`0.1.0` roadmap.
+
+---
+
+## Milestone 12 cross-cutting acceptance criteria
+
+Milestone 12 is complete when:
+
+* [ ] The release scope is frozen and unfinished older work is explicitly classified.
+* [ ] The facade uses coherent canonical modules.
+* [ ] The flat root re-export surface is removed.
+* [ ] The prelude is intentionally small.
+* [ ] Public errors and diagnostics follow one documented architecture.
+* [ ] Public error variants and sources are comprehensively tested.
+* [ ] Tests follow a documented unit/integration/compile-time/end-to-end taxonomy.
+* [ ] No deterministic production module is completely untested without justification.
+* [ ] Real external workflows are tested.
+* [ ] User-facing examples are realistic, documented designs.
+* [ ] Narrow implementation fixtures no longer masquerade as examples.
+* [ ] The mdBook user and developer guides are complete.
+* [ ] Rustdoc and mdBook are deployed together through GitLab Pages.
+* [ ] `vvm-build` and `cargo-vvm` have crates.io-ready READMEs.
+* [ ] The benchmark suite produces a reviewed `v0.1.0` baseline.
+* [ ] All intended packages pass package and dry-run publication checks.
+* [ ] Published-package consumer fixtures work.
+* [ ] The supported Rust, Verilator, compiler, and OS matrix is explicit.
+* [ ] Release and security documentation exists.
+* [ ] Unsafe and FFI invariants are reviewed and documented.
+* [ ] Dependency, advisory, and license policies pass.
+* [ ] `v0.1.0-rc.1` is published and externally validated.
+* [ ] `v0.1.0` is published successfully.
+* [ ] Final API, schema, generated-code, and benchmark baselines are retained.
+
+## Milestone 12 non-goals
+
+Do not use pre-release cleanup to introduce:
+
+* a new verification component hierarchy;
+* a UVM-style phase system;
+* a new asynchronous runtime;
+* arbitrary new HDL feature families;
+* N-way coverage crosses;
+* a register abstraction without a demonstrated example;
+* broad platform claims without CI evidence;
+* hard benchmark thresholds before runner stability is known;
+* compatibility aliases that undermine the canonical API cleanup;
+* a requirement to complete every aspirational Milestone 11 item before release.
+
+The objective is a credible, coherent, tested, documented, and publishable first release—not an attempt to finish every possible VVM feature.
+
+---
+
+# 18. Testing strategy
 
 ## `vvm-build`
 
@@ -1772,7 +3214,7 @@ justifies the additional FFI, scope, callback, and lifecycle surface.
 
 ---
 
-# 18. Documentation plan
+# 19. Documentation plan
 
 ## During development
 
@@ -1802,7 +3244,7 @@ justifies the additional FFI, scope, callback, and lifecycle surface.
 
 ---
 
-# 19. Risks and mitigation
+# 20. Risks and mitigation
 
 ## Generated CXX bridge under `OUT_DIR`
 
@@ -1861,7 +3303,7 @@ justifies the additional FFI, scope, callback, and lifecycle surface.
 
 ---
 
-# 20. Decision log
+# 21. Decision log
 
 | ID | Decision | Status |
 |---|---|---|
@@ -1882,7 +3324,7 @@ justifies the additional FFI, scope, callback, and lifecycle surface.
 
 ---
 
-# 21. MVP definition of done
+# 22. MVP definition of done
 
 ## Build integration
 
@@ -1922,7 +3364,7 @@ justifies the additional FFI, scope, callback, and lifecycle surface.
 
 ---
 
-# 22. Immediate next steps
+# 23. Immediate next steps
 
 Complete these in exact order:
 
@@ -1942,14 +3384,3 @@ Complete these in exact order:
 - [ ] Only then extract build logic into `vvm-build`.
 
 ---
-
-## Progress notes
-
-Use this section for dated notes.
-
-### YYYY-MM-DD
-
-- **Work completed:**
-- **Problems encountered:**
-- **Decisions made:**
-- **Next action:**

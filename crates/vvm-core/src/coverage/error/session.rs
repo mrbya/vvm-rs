@@ -112,3 +112,51 @@ impl CoverageSessionError {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{CoverageGroupError, CoverageSessionCountKind, CoverageSessionError};
+
+    #[test]
+    fn session_errors_expose_variant_specific_context() {
+        let duplicate = CoverageSessionError::DuplicateInstancePath {
+            test: "random_decoder".into(),
+            instance_path: "dut.decoder".into(),
+        };
+        let invalid_group = CoverageSessionError::InvalidGroup {
+            test: "random_decoder".into(),
+            source: Box::new(CoverageGroupError::EmptyGroup {
+                definition: "decoder".into(),
+                instance: "dut.decoder".into(),
+            }),
+        };
+
+        assert_eq!(duplicate.test(), "random_decoder");
+        assert_eq!(duplicate.instance_path(), Some("dut.decoder"));
+        assert_eq!(duplicate.group_error(), None);
+        assert_eq!(
+            duplicate.to_string(),
+            "coverage session for test `random_decoder` already contains instance path \
+             `dut.decoder`"
+        );
+        assert!(matches!(
+            invalid_group.group_error(),
+            Some(CoverageGroupError::EmptyGroup { .. })
+        ));
+        assert_eq!(invalid_group.instance_path(), None);
+    }
+
+    #[test]
+    fn count_overflow_formats_the_session_counter() {
+        let error = CoverageSessionError::CountOverflow {
+            test: "random_decoder".into(),
+            counter: CoverageSessionCountKind::Groups,
+        };
+
+        assert_eq!(error.counter(), Some(CoverageSessionCountKind::Groups));
+        assert_eq!(
+            error.to_string(),
+            "coverage session for test `random_decoder` overflowed its group count"
+        );
+    }
+}

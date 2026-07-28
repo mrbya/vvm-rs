@@ -120,3 +120,98 @@ pub fn port_method_ident(port_name: &str, span: Span, prefix: &str) -> Result<Id
 
     Ok(method)
 }
+
+#[cfg(test)]
+mod tests {
+    use quote::quote;
+    use syn::{Attribute, parse_quote};
+
+    use super::{parse_dut_path, parse_port_attribute, port_method_ident};
+
+    #[test]
+    fn parses_dut_path_and_port_mappings() -> Result<(), Box<dyn std::error::Error>> {
+        let attributes = vec![parse_quote!(#[vvm(dut = crate::models::Counter)])];
+        let raw_field: syn::Field = parse_quote!(#[vvm(port)] raw_status: bool);
+        let data_field: syn::Field = parse_quote!(#[vvm(port = "data_out")] data: u8);
+        let dut = parse_dut_path(&attributes, proc_macro2::Span::call_site())?;
+        let raw_port = parse_port_attribute(&raw_field.attrs)?.expect("port attribute exists");
+        let data_port = parse_port_attribute(&data_field.attrs)?.expect("port attribute exists");
+
+        assert_eq!(quote!(#dut).to_string(), "crate :: models :: Counter");
+        assert_eq!(
+            raw_port.method_ident(&parse_quote!(raw_status), "")?,
+            "raw_status"
+        );
+        assert_eq!(
+            data_port.method_ident(&parse_quote!(data), "set_")?,
+            "set_data_out"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_invalid_dut_attributes_with_specific_diagnostics() {
+        let cases: [(Vec<Attribute>, &str); 4] = [
+            (Vec::new(), "missing `#[vvm(dut = path)]` attribute"),
+            (
+                vec![parse_quote!(#[vvm(clock = "clk")])],
+                "unsupported `vvm` container option: expected `dut`",
+            ),
+            (
+                vec![parse_quote!(#[vvm(dut = A, dut = B)])],
+                "duplicate `dut` option",
+            ),
+            (vec![parse_quote!(#[vvm(dut)])], "expected `=`"),
+        ];
+
+        for (attributes, expected) in cases {
+            let result = parse_dut_path(&attributes, proc_macro2::Span::call_site());
+
+            assert_eq!(
+                result.as_ref().err().map(ToString::to_string).as_deref(),
+                Some(expected)
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_invalid_port_attributes_with_specific_diagnostics() {
+        let cases: [(Vec<Attribute>, &str); 4] = [
+            (
+                vec![parse_quote!(#[vvm(signal)])],
+                "unsupported `vvm` field option: expected `port`",
+            ),
+            (
+                vec![parse_quote!(#[vvm(port, port)])],
+                "duplicate `port` option",
+            ),
+            (
+                vec![parse_quote!(#[vvm(port = "")])],
+                "port name must not be empty",
+            ),
+            (
+                vec![parse_quote!(#[vvm(port = identifier)])],
+                "expected string literal",
+            ),
+        ];
+
+        for (attributes, expected) in cases {
+            let result = parse_port_attribute(&attributes);
+
+            assert_eq!(
+                result.as_ref().err().map(ToString::to_string).as_deref(),
+                Some(expected)
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_port_names_that_cannot_form_method_identifiers() {
+        let result = port_method_ident("not-a-port", proc_macro2::Span::call_site(), "set_");
+
+        assert_eq!(
+            result.as_ref().err().map(ToString::to_string).as_deref(),
+            Some("port name `not-a-port` does not produce a valid Rust method identifier")
+        );
+    }
+}

@@ -309,6 +309,9 @@ impl CoverageMerge {
                 }
             }
         }
+
+        inputs.sort_unstable_by_key(input_key);
+
         if counts.included == 0 {
             return Err(CoverageMergeError::NoIncludedArtifacts { policy });
         }

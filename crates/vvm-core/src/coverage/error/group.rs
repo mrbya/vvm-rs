@@ -183,3 +183,51 @@ impl CoverageGroupError {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{CoverageGroupCountKind, CoverageGroupError, CrossAxis};
+
+    #[test]
+    fn group_error_accessors_distinguish_identity_and_structure_failures() {
+        let invalid_path = CoverageGroupError::InvalidInstancePath {
+            path: "dut..decoder".into(),
+        };
+        let missing = CoverageGroupError::MissingCrossSource {
+            definition: "decoder".into(),
+            instance: "dut.decoder".into(),
+            cross: "opcode_x_response".into(),
+            axis: CrossAxis::Left,
+            coverpoint: "opcode".into(),
+        };
+
+        assert_eq!(invalid_path.definition(), None);
+        assert_eq!(invalid_path.instance(), Some("dut..decoder"));
+        assert_eq!(
+            invalid_path.to_string(),
+            "invalid coverage-group instance path `dut..decoder`"
+        );
+        assert_eq!(missing.definition(), Some("decoder"));
+        assert_eq!(missing.instance(), Some("dut.decoder"));
+        assert_eq!(missing.cross(), Some("opcode_x_response"));
+        assert_eq!(missing.axis(), Some(CrossAxis::Left));
+        assert_eq!(missing.coverpoint(), Some("opcode"));
+        assert_eq!(missing.item(), None);
+        assert_eq!(missing.counter(), None);
+    }
+
+    #[test]
+    fn count_overflow_reports_its_counter_kind() {
+        let error = CoverageGroupError::CountOverflow {
+            definition: "decoder".into(),
+            instance: "dut.decoder".into(),
+            counter: CoverageGroupCountKind::TotalBins,
+        };
+
+        assert_eq!(error.counter(), Some(CoverageGroupCountKind::TotalBins));
+        assert_eq!(
+            error.to_string(),
+            "coverage group `decoder` instance `dut.decoder` overflowed total-bin count"
+        );
+    }
+}

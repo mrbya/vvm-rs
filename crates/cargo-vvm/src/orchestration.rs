@@ -211,10 +211,6 @@ const fn map_detail(detail: CliBinDetail) -> CoverageBinDetail {
 fn child_command(invocation: &CargoInvocation) -> Vec<OsString> {
     let mut command = vec![invocation.cargo.clone()];
 
-    if let Some(toolchain) = invocation.toolchain.as_ref() {
-        command.push(toolchain.clone());
-    }
-
     command.extend(invocation.arguments.clone());
     command
 }
@@ -256,12 +252,59 @@ fn report_error(error: &CoverageCommandError) -> ExitCode {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
+    use std::ffi::OsString;
+    use std::path::PathBuf;
+    use std::process::{Command, ExitStatus};
+    use std::{fs, io};
 
     use tempfile::tempdir;
     use vvm_core::CoverageArtifact;
 
-    use super::discover_artifacts;
+    use super::{child_command, discover_artifacts, execute, run_child, select_status};
+    use crate::cli::{CliBinDetail, CliMergePolicy, CoverageCommand};
+    use crate::command::parse;
+    use crate::error::CoverageCommandError;
+    use crate::process::{MetadataRequest, ProcessOutput, ProcessRunner, TestProcessRequest};
+
+    struct FakeRunner {
+        metadata: ProcessOutput,
+        child_status: ExitStatus,
+        test_request: Option<TestProcessRequest>,
+    }
+
+    impl ProcessRunner for FakeRunner {
+        fn cargo_metadata(&mut self, _: &MetadataRequest) -> Result<ProcessOutput, io::Error> {
+            Ok(ProcessOutput {
+                status: self.metadata.status,
+                stdout: self.metadata.stdout.clone(),
+                stderr: self.metadata.stderr.clone(),
+            })
+        }
+
+        fn run_tests(&mut self, request: &TestProcessRequest) -> Result<ExitStatus, io::Error> {
+            self.test_request = Some(request.clone());
+
+            Ok(self.child_status)
+        }
+    }
+
+    fn status(program: &str) -> Result<ExitStatus, io::Error> {
+        Command::new(program).status()
+    }
+
+    fn command(output: PathBuf) -> CoverageCommand {
+        CoverageCommand {
+            output: Some(output),
+            name: String::from("coverage"),
+            merge_policy: CliMergePolicy::PassedOnly,
+            bin_detail: CliBinDetail::Uncovered,
+            no_inputs: false,
+            fingerprints: false,
+            child: ["nextest", "run", "--workspace"]
+                .map(OsString::from)
+                .to_vec(),
+        }
+    }
 
     #[test]
     fn rejects_empty_artifact_directory() -> Result<(), Box<dyn std::error::Error>> {
@@ -286,6 +329,115 @@ mod tests {
         )?;
 
         assert_eq!(discover_artifacts(directory.path())?.len(), 1);
+
+        Ok(())
+    }
+
+    #[test]
+    fn discovers_artifacts_in_path_order() -> Result<(), Box<dyn std::error::Error>> {
+        let directory = tempdir()?;
+        let first = directory.path().join("a.vvmcov.json");
+        let second = directory.path().join("z.vvmcov.json");
+        fs::write(&second, "{}")?;
+        fs::write(&first, "{}")?;
+        fs::create_dir_all(directory.path().join("nested.vvmcov.json"))?;
+
+        assert_eq!(discover_artifacts(directory.path())?, [first, second]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn run_child_preserves_forwarded_arguments_and_nextest_policy()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let directory = tempdir()?;
+        let invocation = parse(
+            ["+nightly", "nextest", "run", "--workspace"]
+                .map(OsString::from)
+                .to_vec(),
+            OsString::from("selected-cargo"),
+        )?;
+        let layout = crate::output::CoverageOutputLayout::create(
+            Some(directory.path().join("coverage")),
+            "coverage",
+            &crate::metadata::WorkspaceMetadata {
+                target_directory: directory.path().join("target"),
+            },
+        )?;
+        let mut runner = FakeRunner {
+            metadata: ProcessOutput {
+                status: status("true")?,
+                stdout: Vec::new(),
+                stderr: Vec::new(),
+            },
+            child_status: status("true")?,
+            test_request: None,
+        };
+
+        run_child(&mut runner, &invocation, &layout)?;
+
+        let request = runner
+            .test_request
+            .ok_or("test child request was not captured")?;
+        assert_eq!(request.program, "selected-cargo");
+        assert_eq!(request.toolchain, Some(OsString::from("+nightly")));
+        assert_eq!(request.arguments, invocation.arguments);
+        assert_eq!(request.coverage_dir, layout.artifacts);
+        assert!(request.nextest_retries);
+
+        Ok(())
+    }
+
+    #[test]
+    fn preserves_failed_child_status_when_postprocessing_fails()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let directory = tempdir()?;
+        let mut runner = FakeRunner {
+            metadata: ProcessOutput {
+                status: status("true")?,
+                stdout: br#"{"workspace_root":"/workspace","target_directory":"/target"}"#.to_vec(),
+                stderr: Vec::new(),
+            },
+            child_status: status("false")?,
+            test_request: None,
+        };
+
+        let result = execute(command(directory.path().join("coverage")), &mut runner);
+
+        assert_eq!(result, std::process::ExitCode::from(1));
+        assert!(runner.test_request.is_some());
+
+        Ok(())
+    }
+
+    #[test]
+    fn reports_postprocessing_failure_after_successful_child()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let error = CoverageCommandError::NoArtifacts {
+            path: PathBuf::from("artifacts"),
+        };
+
+        assert_eq!(
+            select_status(status("true")?, false, Some(error)),
+            std::process::ExitCode::from(2)
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn builds_child_diagnostic_with_toolchain() -> Result<(), Box<dyn std::error::Error>> {
+        let invocation = parse(
+            ["+nightly", "test", "--workspace"]
+                .map(OsString::from)
+                .to_vec(),
+            OsString::from("selected-cargo"),
+        )?;
+
+        assert_eq!(
+            child_command(&invocation),
+            ["selected-cargo", "+nightly", "test", "--workspace"].map(OsString::from)
+        );
 
         Ok(())
     }

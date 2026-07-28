@@ -305,7 +305,7 @@ pub trait ReplayableSequence: IntoIterator {
 
 #[cfg(test)]
 mod tests {
-    use crate::{RandomContext, ReplayToken, Seed};
+    use crate::{ParseReplayTokenError, RandomContext, Randomize, ReplayToken, Seed};
 
     #[test]
     fn chacha8_v1_stream_is_stable() {
@@ -339,5 +339,40 @@ mod tests {
         let seed = Seed::new(0x0123_4567_89ab_cdef);
 
         assert_eq!(seed.to_string().parse::<Seed>(), Ok(seed));
+    }
+
+    #[test]
+    fn parsing_rejects_malformed_seed_and_replay_inputs() {
+        let seed_error = "not-a-seed"
+            .parse::<Seed>()
+            .expect_err("invalid decimal seed must fail");
+        assert_eq!(seed_error.input(), "not-a-seed");
+
+        assert!(matches!(
+            "chacha8-v1".parse::<ReplayToken>(),
+            Err(ParseReplayTokenError::MissingSeparator { .. })
+        ));
+        assert!(matches!(
+            "other:01".parse::<ReplayToken>(),
+            Err(ParseReplayTokenError::UnsupportedAlgorithm { .. })
+        ));
+        assert!(matches!(
+            "chacha8-v1:invalid".parse::<ReplayToken>(),
+            Err(ParseReplayTokenError::InvalidSeed { .. })
+        ));
+    }
+
+    #[test]
+    fn replay_reconstructs_randomize_contract() {
+        let replay = ReplayToken::new(Seed::new(42));
+        let mut original = RandomContext::from_replay(replay);
+        let mut replayed = RandomContext::from_replay(original.replay_token());
+
+        assert_eq!(
+            bool::randomize(&mut original),
+            bool::randomize(&mut replayed)
+        );
+        assert_eq!(u32::randomize(&mut original), u32::randomize(&mut replayed));
+        assert_eq!(i64::randomize(&mut original), i64::randomize(&mut replayed));
     }
 }

@@ -167,8 +167,11 @@ pub fn cargo_executable() -> OsString {
 #[cfg(test)]
 mod tests {
     use std::ffi::OsString;
+    use std::path::PathBuf;
 
     use super::{TestCommandKind, parse};
+    use crate::error::CoverageCommandError;
+
     #[test]
     fn accepts_test() {
         let invocation = parse(vec![OsString::from("test")], OsString::from("cargo"));
@@ -212,5 +215,71 @@ mod tests {
         );
 
         assert!(invocation.is_err());
+    }
+
+    #[test]
+    fn defaults_to_workspace_tests() -> Result<(), Box<dyn std::error::Error>> {
+        let invocation = parse(Vec::new(), OsString::from("selected-cargo"))?;
+
+        assert_eq!(invocation.cargo, "selected-cargo");
+        assert_eq!(
+            invocation.arguments,
+            ["test", "--workspace"].map(OsString::from)
+        );
+        assert!(invocation.toolchain.is_none());
+        assert!(matches!(invocation.kind, TestCommandKind::CargoTest));
+
+        Ok(())
+    }
+
+    #[test]
+    fn preserves_toolchain_and_last_manifest_path() -> Result<(), Box<dyn std::error::Error>> {
+        let invocation = parse(
+            [
+                "+nightly",
+                "test",
+                "--manifest-path=first/Cargo.toml",
+                "--manifest-path",
+                "second/Cargo.toml",
+            ]
+            .map(OsString::from)
+            .to_vec(),
+            OsString::from("cargo"),
+        )?;
+
+        assert_eq!(invocation.toolchain, Some(OsString::from("+nightly")));
+        assert_eq!(
+            invocation.manifest_path,
+            Some(PathBuf::from("second/Cargo.toml"))
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn allows_nextest_test_arguments_after_separator() -> Result<(), Box<dyn std::error::Error>> {
+        let invocation = parse(
+            ["nextest", "run", "--", "--retries", "3"]
+                .map(OsString::from)
+                .to_vec(),
+            OsString::from("cargo"),
+        )?;
+
+        assert!(matches!(invocation.kind, TestCommandKind::NextestRun));
+
+        Ok(())
+    }
+
+    #[test]
+    fn reports_missing_manifest_path_value() {
+        let invocation = parse(
+            ["test", "--manifest-path"].map(OsString::from).to_vec(),
+            OsString::from("cargo"),
+        );
+
+        assert!(matches!(
+            invocation,
+            Err(CoverageCommandError::MissingManifestPathValue)
+        ));
     }
 }

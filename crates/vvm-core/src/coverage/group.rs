@@ -418,3 +418,36 @@ fn checked_add(
             counter,
         })
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{CoverageGroupError, CoverageGroupInstance};
+
+    #[test]
+    fn group_instance_rejects_invalid_definition_and_path() {
+        let invalid_definition = CoverageGroupInstance::new("bad definition", "dut.decoder")
+            .expect_err("definition names must be identifiers");
+        let invalid_path = CoverageGroupInstance::new("decoder", "dut..decoder")
+            .expect_err("instance paths must not contain empty segments");
+
+        assert!(matches!(
+            invalid_definition,
+            CoverageGroupError::InvalidDefinitionName { ref name } if name == "bad definition"
+        ));
+        assert!(matches!(
+            invalid_path,
+            CoverageGroupError::InvalidInstancePath { ref path } if path == "dut..decoder"
+        ));
+    }
+
+    #[test]
+    fn group_instance_preserves_valid_revisioned_identity() -> Result<(), CoverageGroupError> {
+        let instance = CoverageGroupInstance::new_with_revision("decoder", "dut.decoder", 3)?;
+
+        assert_eq!(instance.definition_name(), "decoder");
+        assert_eq!(instance.definition_revision(), 3);
+        assert_eq!(instance.instance_path(), "dut.decoder");
+
+        Ok(())
+    }
+}

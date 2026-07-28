@@ -957,7 +957,46 @@ mod tests {
         TestCapabilities, TestDescriptor, TestOutcome, TestRegistry, TestRegistryError,
         TestRunConfig,
     };
-    use crate::{ReplayToken, Seed, TestDiagnostic};
+    use crate::{Dut, ReplayToken, Seed, SimulationTime, TestDiagnostic, TimeStep, TraceableDut};
+
+    struct TraceDut {
+        opened_path: Option<std::path::PathBuf>,
+    }
+
+    impl Dut for TraceDut {
+        type Error = &'static str;
+
+        fn evaluate(&mut self) -> Result<(), Self::Error> {
+            Ok(())
+        }
+
+        fn simulation_time(&self) -> SimulationTime {
+            SimulationTime::ZERO
+        }
+
+        fn advance_time(&mut self, _delta: TimeStep) -> Result<(), Self::Error> {
+            Ok(())
+        }
+
+        fn finalize(&mut self) -> Result<(), Self::Error> {
+            Ok(())
+        }
+    }
+
+    impl TraceableDut for TraceDut {
+        fn open_trace(&mut self, path: &std::path::Path) -> Result<(), Self::Error> {
+            self.opened_path = Some(path.to_owned());
+            Ok(())
+        }
+
+        fn close_trace(&mut self) -> Result<(), Self::Error> {
+            Ok(())
+        }
+
+        fn trace_is_open(&self) -> bool {
+            self.opened_path.is_some()
+        }
+    }
 
     static CAPTURED_CONFIGS: OnceLock<Mutex<Vec<TestRunConfig>>> = OnceLock::new();
 
@@ -1089,6 +1128,56 @@ mod tests {
 
         assert!(capabilities.coverage());
         assert!(!TestCapabilities::new().coverage());
+    }
+
+    #[test]
+    fn configuration_defaults_and_trace_setup_preserve_requested_values() {
+        let replay = ReplayToken::new(Seed::new(5));
+        let config = TestRunConfig::new()
+            .with_replay_token(replay)
+            .with_trace_path("target/test-wave.vcd")
+            .with_cycles(12_u8);
+        let mut dut = TraceDut { opened_path: None };
+
+        config
+            .configure_trace(&mut dut)
+            .expect("trace-capable DUT should open requested path");
+
+        assert_eq!(
+            config.replay_token_or(ReplayToken::new(Seed::new(1))),
+            replay
+        );
+        assert_eq!(config.cycles_or(1), 12);
+        assert_eq!(
+            dut.opened_path,
+            Some(std::path::PathBuf::from("target/test-wave.vcd"))
+        );
+        assert!(dut.trace_is_open());
+    }
+
+    #[test]
+    fn registry_rejects_invalid_duplicate_and_unsupported_configuration() {
+        let invalid = [TestDescriptor::deterministic("Bad", "Bad", capture_config)];
+        assert!(matches!(
+            TestRegistry::new(&invalid),
+            Err(TestRegistryError::InvalidName { name: "Bad" })
+        ));
+
+        let descriptor = TestDescriptor::deterministic("smoke", "Smoke", capture_config);
+        let duplicate = [descriptor, descriptor];
+        assert!(matches!(
+            TestRegistry::new(&duplicate),
+            Err(TestRegistryError::DuplicateName { name: "smoke" })
+        ));
+
+        assert!(matches!(
+            descriptor.run(&TestRunConfig::new().with_trace_path("trace.vcd")),
+            Err(TestRegistryError::TraceNotSupported { name: "smoke" })
+        ));
+        assert!(matches!(
+            descriptor.run(&TestRunConfig::new().with_cycles(1_u8)),
+            Err(TestRegistryError::CycleOverrideNotSupported { name: "smoke" })
+        ));
     }
 
     #[test]

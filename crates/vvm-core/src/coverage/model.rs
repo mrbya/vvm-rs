@@ -115,3 +115,47 @@ where
         self.model.sample_coverage_items(cycle)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{CoverageInstance, CoverageSpec};
+    use crate::CoverageDefinitionError;
+
+    struct EmptyModel;
+
+    impl CoverageSpec for EmptyModel {
+        const DEFINITION_NAME: &'static str = "decoder";
+        const DEFINITION_REVISION: u64 = 2;
+
+        fn visit_coverage_items(&self, _visitor: &mut dyn crate::CoverageGroupVisitor) {}
+    }
+
+    #[test]
+    fn coverage_instance_reports_invalid_group_identity() {
+        let error = CoverageInstance::__vvm_new("dut..decoder", EmptyModel)
+            .map(|_| ())
+            .expect_err("invalid instance paths must be rejected");
+
+        assert!(matches!(
+            error,
+            CoverageDefinitionError::Group { ref source }
+                if matches!(
+                    source,
+                    crate::CoverageGroupError::InvalidInstancePath { path } if path == "dut..decoder"
+                )
+        ));
+    }
+
+    #[test]
+    fn coverage_instance_validates_its_model_items() {
+        let error = CoverageInstance::__vvm_new("dut.decoder", EmptyModel)
+            .map(|_| ())
+            .expect_err("coverage models must expose at least one item");
+
+        assert!(matches!(
+            error,
+            CoverageDefinitionError::Group { ref source }
+                if matches!(source, crate::CoverageGroupError::EmptyGroup { .. })
+        ));
+    }
+}

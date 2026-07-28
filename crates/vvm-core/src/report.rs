@@ -140,3 +140,49 @@ where
 const fn plural_suffix(is_one: bool) -> &'static str {
     if is_one { "" } else { "s" }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        CheckFailure, ReplayToken, Seed, SimulationError, SimulationStage, SimulationTime,
+        TestResult,
+    };
+
+    #[test]
+    fn reports_failures_clock_errors_finalization_and_replay() {
+        let mut result = TestResult::new(
+            SimulationTime::from_ticks(2),
+            Some(ReplayToken::new(Seed::new(7))),
+        );
+        result.record_check();
+        result.record_failure(CheckFailure::new(
+            0,
+            SimulationTime::from_ticks(3),
+            9_u8,
+            "mismatch",
+        ));
+        result.mark_stopped_by_failure_policy();
+        result.record_simulation_error(SimulationError::new_for_clock(
+            0,
+            SimulationTime::from_ticks(3),
+            SimulationStage::DriveClockActive,
+            "bus".to_owned(),
+            "clock failed",
+        ));
+        result.record_finalization_error("finalize failed");
+        result.record_final_time(SimulationTime::from_ticks(4));
+
+        assert_eq!(
+            result.summary().to_string(),
+            "FAIL: 1 cycle, 1 check, 1 check failure, time 2..4 ticks, stopped by failure policy, \
+             simulation error on clock `bus`, finalization error, replay token \
+             chacha8-v1:0000000000000007",
+        );
+
+        let report = result.detailed_report().to_string();
+        assert!(report.contains("stimulus: 9"));
+        assert!(report.contains("clock: bus"));
+        assert!(report.contains("error: clock failed"));
+        assert!(report.contains("Finalization error"));
+    }
+}

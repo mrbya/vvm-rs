@@ -1,0 +1,14 @@
+[workspace]
+
+[package]
+name = "vvm-packaged-consumer"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+vvm = { package = "vvm-rs", path = "__VVM_PACKAGE__" }
+
+[patch.crates-io]
+vvm-core = { path = "__VVM_CORE_PACKAGE__" }
+vvm-macros = { path = "__VVM_MACROS_PACKAGE__" }

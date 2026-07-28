@@ -47,3 +47,36 @@ impl TraceOptions {
         self
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{DEFAULT_TRACE_DEPTH, TraceFormat, TraceOptions};
+
+    #[test]
+    fn vcd_uses_default_depth() {
+        assert_eq!(
+            TraceOptions::vcd(),
+            TraceOptions {
+                format: TraceFormat::Vcd,
+                depth: DEFAULT_TRACE_DEPTH,
+            }
+        );
+    }
+
+    #[test]
+    fn fst_uses_default_depth() {
+        assert_eq!(
+            TraceOptions::fst(),
+            TraceOptions {
+                format: TraceFormat::Fst,
+                depth: DEFAULT_TRACE_DEPTH,
+            }
+        );
+    }
+
+    #[test]
+    fn trace_depth_overrides_default_for_each_format() {
+        assert_eq!(TraceOptions::vcd().with_depth(0).depth, 0);
+        assert_eq!(TraceOptions::fst().with_depth(12).depth, 12);
+    }
+}

@@ -108,8 +108,13 @@ impl ProcessRunner for StdProcessRunner {
             command.arg(toolchain);
         }
 
+        let arguments = request
+            .arguments
+            .iter()
+            .skip(usize::from(request.toolchain.is_some()));
+
         command
-            .args(&request.arguments)
+            .args(arguments)
             .current_dir(&request.current_dir)
             .env("VVM_COVERAGE_DIR", &request.coverage_dir)
             .stdin(Stdio::inherit())
@@ -121,5 +126,53 @@ impl ProcessRunner for StdProcessRunner {
         }
 
         command.status()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use tempfile::tempdir;
+
+    use super::{MetadataRequest, ProcessRunner, StdProcessRunner, TestProcessRequest};
+
+    #[test]
+    fn runs_cargo_metadata_in_requested_project() -> Result<(), Box<dyn std::error::Error>> {
+        let directory = tempdir()?;
+        let manifest = directory.path().join("Cargo.toml");
+        std::fs::write(&manifest, "[workspace]\nmembers = []\n")?;
+        let request = MetadataRequest {
+            program: "cargo".into(),
+            toolchain: None,
+            manifest_path: Some(manifest),
+            current_dir: directory.path().to_owned(),
+        };
+        let mut runner = StdProcessRunner;
+
+        let output = runner.cargo_metadata(&request)?;
+
+        assert!(output.status.success());
+        assert!(String::from_utf8(output.stdout)?.contains("target_directory"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn runs_cargo_child_with_forwarded_arguments() -> Result<(), Box<dyn std::error::Error>> {
+        let directory = tempdir()?;
+        let request = TestProcessRequest {
+            program: "cargo".into(),
+            toolchain: None,
+            arguments: ["--version"].map(Into::into).to_vec(),
+            current_dir: directory.path().to_owned(),
+            coverage_dir: PathBuf::from("unused"),
+            nextest_retries: false,
+        };
+        let mut runner = StdProcessRunner;
+
+        assert!(runner.run_tests(&request)?.success());
+
+        Ok(())
     }
 }

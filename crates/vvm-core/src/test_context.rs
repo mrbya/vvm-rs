@@ -191,9 +191,25 @@ mod tests {
     use std::error::Error as _;
 
     use crate::{
-        CoverageCounterKind, CoverageRuntimeError, CoverageSampleError, SimulationTime,
-        TestDiagnostic, TestDiagnosticKind,
+        Bin, CoverageCounterKind, CoverageGroup, CoverageGroupInstance, CoverageGroupVisitor,
+        CoverageItemRef, CoverageRuntimeError, CoverageSampleError, Coverpoint, SimulationTime,
+        TestDiagnostic, TestDiagnosticKind, TestRunConfig,
     };
+
+    struct CoverageGroupFixture {
+        instance: CoverageGroupInstance,
+        point: Coverpoint<u8>,
+    }
+
+    impl CoverageGroup for CoverageGroupFixture {
+        fn instance(&self) -> &CoverageGroupInstance {
+            &self.instance
+        }
+
+        fn visit_items(&self, visitor: &mut dyn CoverageGroupVisitor) {
+            visitor.visit(CoverageItemRef::coverpoint(&self.point));
+        }
+    }
 
     #[test]
     fn sampling_diagnostic_retains_typed_source() {
@@ -228,5 +244,32 @@ mod tests {
             "coverage sampling: coverage coverpoint `opcode` failed at cycle 7 at 12 ticks: \
              functional coverage counter overflow in `opcode.reserved`: bin hit count",
         );
+    }
+
+    #[test]
+    fn context_captures_coverage_and_preserves_configuration()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let config = TestRunConfig::new().with_cycles(3_u8);
+        let group = CoverageGroupFixture {
+            instance: CoverageGroupInstance::new("decoder", "dut.decoder")?,
+            point: Coverpoint::builder("opcode")
+                .bin(Bin::value("read", 1_u8))
+                .build()?,
+        };
+        let mut context = super::TestContext::new("decoder-test", config);
+
+        assert_eq!(context.config().cycles(), Some(3));
+
+        context.capture_coverage(&group)?;
+        let finished = context.finish();
+        let coverage = finished.coverage.ok_or("coverage was not captured")?;
+        let captured_group = coverage.groups().first().ok_or("missing captured group")?;
+
+        assert_eq!(coverage.test_name(), "decoder-test");
+        assert_eq!(coverage.groups().len(), 1);
+        assert_eq!(captured_group.instance_path(), "dut.decoder");
+        assert!(finished.diagnostics.is_empty());
+
+        Ok(())
     }
 }

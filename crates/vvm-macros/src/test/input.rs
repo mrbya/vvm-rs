@@ -598,4 +598,172 @@ mod tests {
 
         assert!(Input::parse(TokenStream::new(), item).is_err());
     }
+
+    #[test]
+    fn parses_coverage_context_and_partitions_attributes() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let item: ItemFn = parse_quote! {
+            /// Covered regression.
+            #[cfg(feature = "native")]
+            #[cfg_attr(feature = "native", cfg(unix), inline)]
+            fn covered(context: &mut vvm::TestContext) -> ResultType {
+                run(context.config())
+            }
+        };
+
+        let input = Input::parse(quote!(coverage), item)?;
+
+        assert!(input.coverage);
+        assert!(matches!(input.argument, TestArgument::Context));
+        assert_eq!(input.implementation.sig.ident, "__vvm_test_impl_covered");
+        assert_eq!(input.wrapper_attributes.len(), 3);
+        assert_eq!(input.implementation.attrs.len(), 2);
+        assert_eq!(input.helper_attributes.len(), 2);
+        assert_eq!(
+            input
+                .implementation
+                .attrs
+                .get(1)
+                .and_then(|attribute| attribute.path().get_ident())
+                .map(ToString::to_string)
+                .as_deref(),
+            Some("cfg_attr")
+        );
+        assert_eq!(
+            input
+                .helper_attributes
+                .get(1)
+                .and_then(|attribute| attribute.path().get_ident())
+                .map(ToString::to_string)
+                .as_deref(),
+            Some("cfg_attr")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_invalid_function_forms_with_specific_diagnostics() {
+        let cases: [(ItemFn, TokenStream, &str); 7] = [
+            (
+                parse_quote!(
+                    #[doc = "Test."]
+                    const fn invalid() -> ResultType {
+                        run()
+                    }
+                ),
+                TokenStream::new(),
+                "VVM tests must not be `const` functions",
+            ),
+            (
+                parse_quote!(
+                    #[doc = "Test."]
+                    async fn invalid() -> ResultType {
+                        run()
+                    }
+                ),
+                TokenStream::new(),
+                "VVM tests must be synchronous functions",
+            ),
+            (
+                parse_quote!(
+                    #[doc = "Test."]
+                    unsafe fn invalid() -> ResultType {
+                        run()
+                    }
+                ),
+                TokenStream::new(),
+                "VVM tests must not be `unsafe` functions",
+            ),
+            (
+                parse_quote!(
+                    #[doc = "Test."]
+                    fn invalid<T>() -> ResultType {
+                        run()
+                    }
+                ),
+                TokenStream::new(),
+                "VVM tests must not be generic",
+            ),
+            (
+                parse_quote!(
+                    #[doc = "Test."]
+                    fn invalid() {
+                        run()
+                    }
+                ),
+                TokenStream::new(),
+                "VVM tests must return a value convertible into `TestOutcome`",
+            ),
+            (
+                parse_quote!(
+                    #[doc = "Test."]
+                    fn invalid(
+                        first: &vvm::TestRunConfig,
+                        second: &vvm::TestRunConfig,
+                    ) -> ResultType {
+                        run(first)
+                    }
+                ),
+                TokenStream::new(),
+                "VVM tests accept at most one `&TestRunConfig` or `&mut TestContext` argument",
+            ),
+            (
+                parse_quote!(
+                    #[doc = "Test."]
+                    fn invalid(config: &mut vvm::TestRunConfig) -> ResultType {
+                        run(config)
+                    }
+                ),
+                TokenStream::new(),
+                "VVM test configuration must be an immutable `&TestRunConfig` reference",
+            ),
+        ];
+
+        for (item, attributes, expected) in cases {
+            let result = Input::parse(attributes, item);
+
+            assert_eq!(
+                result.as_ref().err().map(ToString::to_string).as_deref(),
+                Some(expected)
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_invalid_metadata_and_coverage_without_context() {
+        let invalid_name: ItemFn = parse_quote! {
+            /// Test.
+            fn invalid() -> ResultType { run() }
+        };
+        let missing_description: ItemFn = parse_quote! {
+            fn undocumented() -> ResultType { run() }
+        };
+        let coverage_without_context: ItemFn = parse_quote! {
+            /// Test.
+            fn covered(config: &vvm::TestRunConfig) -> ResultType { run(config) }
+        };
+
+        let cases = [
+            (
+                Input::parse(quote!(name = "Invalid"), invalid_name),
+                "invalid VVM test name `Invalid`; names must begin with an ASCII lowercase letter \
+                 and contain only lowercase letters, digits, `-`, `_`, or `.`",
+            ),
+            (
+                Input::parse(TokenStream::new(), missing_description),
+                "VVM tests require a rustdoc description or `description = \"...\"`",
+            ),
+            (
+                Input::parse(quote!(coverage), coverage_without_context),
+                "tests declaring `coverage` must accept `&mut TestContext`",
+            ),
+        ];
+
+        for (result, expected) in cases {
+            assert_eq!(
+                result.as_ref().err().map(ToString::to_string).as_deref(),
+                Some(expected)
+            );
+        }
+    }
 }

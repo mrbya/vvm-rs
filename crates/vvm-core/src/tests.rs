@@ -172,6 +172,9 @@ struct OverflowMockDut {
 
     /// Records whether finalization ran.
     finalized: Rc<Cell<bool>>,
+
+    /// Whether finalization returns an error after recording its lifecycle transition.
+    finalization_fails: bool,
 }
 
 impl OverflowMockDut {
@@ -181,7 +184,14 @@ impl OverflowMockDut {
             time,
             finished: false,
             finalized,
+            finalization_fails: false,
         }
+    }
+
+    /// Configures this mock to fail while finalizing.
+    fn with_finalization_failure(mut self) -> Self {
+        self.finalization_fails = true;
+        self
     }
 }
 
@@ -217,6 +227,10 @@ impl Dut for OverflowMockDut {
     fn finalize(&mut self) -> Result<(), Self::Error> {
         self.finished = true;
         self.finalized.set(true);
+
+        if self.finalization_fails {
+            return Err(MockError::Finished);
+        }
 
         Ok(())
     }
@@ -627,5 +641,44 @@ fn runner_reports_time_overflow_and_still_finalizes() {
     assert_eq!(error.stage(), SimulationStage::AdvanceInactivePhase);
     assert_eq!(error.time(), SimulationTime::from_ticks(u64::MAX));
     assert_eq!(result.final_time(), SimulationTime::from_ticks(u64::MAX));
+    assert!(finalized.get());
+}
+
+#[test]
+fn empty_sequence_finalizes_without_attempting_a_transaction() {
+    let finalized = Rc::new(Cell::new(false));
+    let dut = OverflowMockDut::at_time(SimulationTime::from_ticks(8), Rc::clone(&finalized));
+    let sequence: [MockStimulus; 0] = [];
+    let result = crate::Testbench::new(dut)
+        .with_sequence(sequence)
+        .with_reference_model(Rc::new(Cell::new(0)))
+        .with_scoreboard(ExactScoreboard)
+        .with_clock(MockClock)
+        .run::<MockObservation>();
+
+    assert!(result.passed());
+    assert_eq!(result.cycles(), 0);
+    assert_eq!(result.checks(), 0);
+    assert_eq!(result.start_time(), SimulationTime::from_ticks(8));
+    assert_eq!(result.final_time(), SimulationTime::from_ticks(8));
+    assert!(finalized.get());
+}
+
+#[test]
+fn runner_retains_finalization_failure_after_completed_transactions() {
+    let finalized = Rc::new(Cell::new(false));
+    let dut = OverflowMockDut::at_time(SimulationTime::ZERO, Rc::clone(&finalized))
+        .with_finalization_failure();
+    let result = crate::Testbench::new(dut)
+        .with_sequence([MockStimulus { value: 1 }])
+        .with_reference_model(Rc::new(Cell::new(0)))
+        .with_scoreboard(ExactScoreboard)
+        .with_clock(MockClock)
+        .run::<MockObservation>();
+
+    assert!(!result.passed());
+    assert_eq!(result.cycles(), 1);
+    assert_eq!(result.finalization_error(), Some(&MockError::Finished));
+    assert_eq!(result.final_time(), SimulationTime::from_ticks(2));
     assert!(finalized.get());
 }

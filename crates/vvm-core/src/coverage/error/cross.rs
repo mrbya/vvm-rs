@@ -259,3 +259,67 @@ impl fmt::Display for CrossSampleError {
 }
 
 impl std::error::Error for CrossSampleError {}
+
+#[cfg(test)]
+mod tests {
+    use super::CrossBuildError;
+    use crate::{BinId, CrossAxis, CrossBinId, CrossCounterKind, CrossSampleError};
+
+    #[test]
+    fn build_errors_expose_the_affected_cross_when_available() {
+        let invalid = CrossBuildError::InvalidName {
+            name: "bad name".into(),
+        };
+        let limited = CrossBuildError::BinLimitExceeded {
+            cross: "opcode_x_response".into(),
+            left_bins: 2,
+            right_bins: 3,
+            total_bins: 6,
+            limit: 4,
+        };
+
+        assert_eq!(invalid.cross(), None);
+        assert_eq!(
+            invalid.to_string(),
+            "invalid functional coverage cross name `bad name`"
+        );
+        assert_eq!(limited.cross(), Some("opcode_x_response"));
+        assert_eq!(
+            limited.to_string(),
+            "cross `opcode_x_response` would generate 6 bins, exceeding limit 4"
+        );
+    }
+
+    #[test]
+    fn sample_errors_return_variant_specific_context() {
+        let unknown = CrossSampleError::UnknownBin {
+            cross: "opcode_x_response".into(),
+            axis: CrossAxis::Right,
+            coverpoint: "response".into(),
+            bin: BinId::new(7),
+        };
+        let overflow = CrossSampleError::CounterOverflow {
+            cross: "opcode_x_response".into(),
+            bin: Some(CrossBinId::new(2)),
+            counter: CrossCounterKind::BinHits,
+        };
+
+        assert_eq!(unknown.cross(), "opcode_x_response");
+        assert_eq!(unknown.axis(), Some(CrossAxis::Right));
+        assert_eq!(unknown.source_bin(), Some(BinId::new(7)));
+        assert_eq!(unknown.expected(), None);
+        assert_eq!(unknown.actual(), None);
+        assert_eq!(
+            unknown.to_string(),
+            "cross `opcode_x_response` received unknown right bin ID from `response`"
+        );
+        assert_eq!(overflow.axis(), None);
+        assert_eq!(overflow.bin(), Some(CrossBinId::new(2)));
+        assert_eq!(overflow.counter(), Some(CrossCounterKind::BinHits));
+        assert_eq!(
+            overflow.to_string(),
+            "functional coverage cross counter overflow in `opcode_x_response`: cross bin hit \
+             count (CrossBinId(2)): bin hit count"
+        );
+    }
+}

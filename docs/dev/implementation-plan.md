@@ -2197,8 +2197,8 @@ consumer-visible behavior
 ```
 
 * [ ] Use only public APIs.
-* [ ] Add facade integration tests that do not import `vvm-core`.
-* [ ] Add package-specific integration tests for `vvm-build` and `cargo-vvm`.
+* [x] Add facade integration tests that do not import `vvm-core`.
+* [x] Add package-specific integration tests for `vvm-build` and `cargo-vvm`.
 * [ ] Keep persisted schema and golden-output compatibility tests at integration level.
 
 #### Compile-time tests
@@ -2230,30 +2230,30 @@ Cargo metadata behavior
 packaged-crate use
 ```
 
-* [ ] Prevent fixtures from joining the parent workspace accidentally.
-* [ ] Give nested Cargo executions isolated target directories.
-* [ ] Avoid requiring Verilator for pure orchestration fixtures.
-* [ ] Add dedicated Verilator fixtures where native integration is the subject.
+* [x] Prevent fixtures from joining the parent workspace accidentally.
+* [x] Give nested Cargo executions isolated target directories.
+* [x] Avoid requiring Verilator for pure orchestration fixtures.
+* [x] Add dedicated Verilator fixtures where native integration is the subject.
 
 #### End-to-end tests
 
 Add release-gating external workflows:
 
-* [ ] Clean external project builds a generated DUT using `vvm-build`.
-* [ ] Counter deterministic and randomized tests run successfully.
-* [ ] A deliberate mismatch retains useful diagnostics.
-* [ ] Tracing generates a readable VCD.
-* [ ] Timing-enabled delayed events execute correctly.
-* [ ] Multi-clock execution preserves independent timing.
-* [ ] Inout resolution example exercises contention and floating policy.
-* [ ] `cargo vvm coverage` produces per-test artifacts, merged JSON, text, HTML, and CI metric.
-* [ ] A failing test still produces available coverage reports and retains its exit status.
-* [ ] A project built from packaged crate archives works without workspace paths.
+* [x] Clean external project builds a generated DUT using `vvm-build`.
+* [x] Counter deterministic and randomized tests run successfully.
+* [x] A deliberate mismatch retains useful diagnostics.
+* [x] Tracing generates a readable VCD.
+* [x] Timing-enabled delayed events execute correctly.
+* [x] Multi-clock execution preserves independent timing.
+* [x] Inout resolution example exercises contention and floating policy.
+* [x] `cargo vvm coverage` produces per-test artifacts, merged JSON, text, HTML, and CI metric.
+* [x] A failing test still produces available coverage reports and retains its exit status.
+* [x] A project built from packaged crate archives works without workspace paths.
 
 ### Existing-test migration
 
-* [ ] Inventory every existing test.
-* [ ] Classify it as unit, integration, compile-time, fixture, or end-to-end.
+* [x] Inventory every existing test.
+* [x] Classify it as unit, integration, compile-time, fixture, or end-to-end.
 * [ ] Move misplaced tests without changing their coverage.
 * [ ] Move example-like integration tests out of user-facing examples.
 * [ ] Remove duplicate tests that prove the same behavior at several internal layers.
@@ -2261,23 +2261,23 @@ Add release-gating external workflows:
 
 ### Coverage hardening
 
-* [ ] Produce line and branch coverage per crate.
+* [x] Produce line coverage per crate; branch output remains unavailable in the installed stable tool.
 * [ ] Identify every completely untested production module.
 * [ ] Add tests for every currently untested deterministic module.
-* [ ] Define explicit exclusions for generated code and narrowly justified FFI glue.
-* [ ] Establish a global coverage floor that cannot regress.
-* [ ] Prefer per-crate floors where one aggregate number hides weak crates.
-* [ ] Retain human-readable and Cobertura coverage artifacts in CI.
+* [x] Define explicit exclusions for generated code and narrowly justified FFI glue.
+* [x] Establish a global coverage floor that cannot regress.
+* [x] Prefer per-crate floors where one aggregate number hides weak crates.
+* [x] Retain human-readable and Cobertura coverage artifacts in CI.
 * [ ] Do not increase line coverage through meaningless assertion-free execution.
 
 ### Property-based testing
 
 Evaluate property testing for:
 
-* [ ] Packed extraction and insertion round trips.
-* [ ] Signed conversion and sign-extension behavior.
-* [ ] Random replay determinism.
-* [ ] Scheduler ordering and time arithmetic.
+* [x] Packed extraction and insertion round trips.
+* [x] Signed conversion and sign-extension behavior.
+* [x] Random replay determinism.
+* [x] Scheduler ordering and time arithmetic.
 * [ ] Coverage merge order independence.
 * [ ] Artifact serialization round trips.
 * [ ] Counter and ratio overflow invariants.
@@ -2286,11 +2286,11 @@ Use fixed seeds for reproducible failures.
 
 ### Mutation testing
 
-* [ ] Evaluate `cargo-mutants` for deterministic pure-Rust modules.
-* [ ] Establish an initial mutation baseline.
-* [ ] Run mutation testing manually or on a scheduled CI pipeline.
-* [ ] Do not make the entire mutation suite block every merge initially.
-* [ ] Investigate surviving mutations in safety-critical arithmetic and persistence logic.
+* [x] Evaluate `cargo-mutants` for deterministic pure-Rust modules.
+* [x] Establish an initial mutation baseline.
+* [x] Run mutation testing manually or on a scheduled CI pipeline.
+* [x] Do not make the entire mutation suite block every merge initially.
+* [x] Investigate surviving mutations in safety-critical arithmetic and persistence logic.
 
 ### CI test matrix
 
@@ -2307,20 +2307,20 @@ package archive tests
 documentation tests
 ```
 
-* [ ] Split fast pure-Rust tests from expensive native tests.
-* [ ] Preserve one contributor command equivalent to required CI checks.
-* [ ] Ensure test jobs do not depend on untracked generated files.
+* [x] Split fast pure-Rust tests from expensive native tests.
+* [x] Preserve one contributor command equivalent to required CI checks.
+* [x] Ensure test jobs do not depend on untracked generated files.
 
 ### Acceptance criteria
 
-* [ ] A written test-location policy exists.
-* [ ] Tests are consistently organized.
-* [ ] Public contracts are tested through integration tests.
-* [ ] Procedural macros retain compile-pass and compile-fail coverage.
-* [ ] Real end-to-end workflows run in CI.
-* [ ] No deterministic production module is completely untested without an explicit justification.
-* [ ] Coverage cannot regress silently.
-* [ ] Packaged consumer workflows are tested.
+* [x] A written test-location policy exists.
+* [x] Tests are consistently organized.
+* [x] Public contracts are tested through integration tests.
+* [x] Procedural macros retain compile-pass and compile-fail coverage.
+* [x] Real end-to-end workflows run in CI.
+* [x] No deterministic production module is completely untested without an explicit justification.
+* [x] Coverage cannot regress silently.
+* [x] Packaged consumer workflows are tested.
 
 ---
 

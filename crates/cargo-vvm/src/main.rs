@@ -19,8 +19,10 @@ fn main() -> ExitCode {
     let cli = match cli::Cli::try_parse_from(arguments) {
         Ok(cli) => cli,
         Err(error) => {
+            let exit_code = u8::try_from(error.exit_code()).unwrap_or(1);
+
             drop(error.print());
-            return ExitCode::from(2);
+            return ExitCode::from(exit_code);
         }
     };
 

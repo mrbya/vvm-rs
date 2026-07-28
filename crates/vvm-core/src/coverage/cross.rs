@@ -664,7 +664,9 @@ fn checked_increment(
 
 #[cfg(test)]
 mod tests {
-    use crate::{Bin, BinId, Coverpoint, Cross2, CrossAxis, CrossBinId, CrossSampleError};
+    use crate::{
+        Bin, BinId, Coverpoint, Cross2, CrossAxis, CrossBinId, CrossBuildError, CrossSampleError,
+    };
 
     #[test]
     fn builds_row_major_complete_cross() {
@@ -765,6 +767,34 @@ mod tests {
         assert_eq!(error.axis(), Some(CrossAxis::Left));
         assert_eq!(cross.sample_count(), 0);
         assert!(matches!(error, CrossSampleError::SourceMismatch { .. }));
+    }
+
+    #[test]
+    fn rejects_invalid_cross_builder_configuration() {
+        let left = coverpoint("left", [1]);
+        let right = coverpoint("right", [2]);
+
+        let invalid_name = Cross2::builder("bad cross", &left, &right)
+            .build()
+            .map(|_| ())
+            .expect_err("cross names must be identifiers");
+        let zero_hits = Cross2::builder("left_x_right", &left, &right)
+            .at_least(0)
+            .build()
+            .map(|_| ())
+            .expect_err("cross bins require at least one hit");
+        let zero_limit = Cross2::builder("left_x_right", &left, &right)
+            .max_bins(0)
+            .build()
+            .map(|_| ())
+            .expect_err("crosses require a nonzero bin limit");
+
+        assert!(matches!(invalid_name, CrossBuildError::InvalidName { .. }));
+        assert!(matches!(
+            zero_hits,
+            CrossBuildError::ZeroRequiredHits { .. }
+        ));
+        assert!(matches!(zero_limit, CrossBuildError::ZeroBinLimit { .. }));
     }
 
     fn coverpoint(name: &str, values: impl IntoIterator<Item = u8>) -> Coverpoint<u8> {

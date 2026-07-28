@@ -161,3 +161,78 @@ impl CoverageRuntimeError {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        CoverageBuildError, CoverageDefinitionError, CoverageRuntimeError, CoverageRuntimeItemKind,
+        CoverageSampleError, CrossAxis, CrossSampleError, SimulationTime,
+    };
+
+    #[test]
+    fn definition_errors_retain_the_typed_source() {
+        let error = CoverageDefinitionError::Coverpoint {
+            item: "opcode",
+            source: CoverageBuildError::NoNormalBins {
+                coverpoint: "opcode".into(),
+            },
+        };
+
+        assert_eq!(error.item(), Some("opcode"));
+        assert!(matches!(
+            error.coverpoint_source(),
+            Some(CoverageBuildError::NoNormalBins { .. })
+        ));
+        assert_eq!(error.cross_source(), None);
+        assert_eq!(error.group_source(), None);
+        assert_eq!(
+            error.to_string(),
+            "failed to build coverage coverpoint `opcode`: coverpoint `opcode` contains no normal \
+             bins"
+        );
+    }
+
+    #[test]
+    fn runtime_errors_retain_sampling_location_and_source_kind() {
+        let error = CoverageRuntimeError::Cross {
+            item: "opcode_x_response",
+            cycle: 12,
+            time: SimulationTime::from_ticks(48),
+            source: CrossSampleError::SourceMismatch {
+                cross: "opcode_x_response".into(),
+                axis: CrossAxis::Left,
+                expected: "opcode".into(),
+                actual: "other_opcode".into(),
+            },
+        };
+
+        assert_eq!(error.item(), "opcode_x_response");
+        assert_eq!(error.cycle(), 12);
+        assert_eq!(error.time(), SimulationTime::from_ticks(48));
+        assert_eq!(error.item_kind(), CoverageRuntimeItemKind::Cross);
+        assert_eq!(error.coverpoint_source(), None);
+        assert!(matches!(
+            error.cross_source(),
+            Some(CrossSampleError::SourceMismatch { .. })
+        ));
+        assert_eq!(
+            error.to_string(),
+            "coverage cross `opcode_x_response` failed at cycle 12 at 48 ticks: cross \
+             `opcode_x_response` expected left sample from `opcode`, but received a sample from \
+             `other_opcode`"
+        );
+
+        let coverpoint = CoverageRuntimeError::Coverpoint {
+            item: "opcode",
+            cycle: 0,
+            time: SimulationTime::ZERO,
+            source: CoverageSampleError::CounterOverflow {
+                coverpoint: "opcode".into(),
+                bin: None,
+                counter: crate::CoverageCounterKind::Samples,
+            },
+        };
+        assert_eq!(coverpoint.item_kind(), CoverageRuntimeItemKind::Coverpoint);
+        assert!(coverpoint.coverpoint_source().is_some());
+    }
+}

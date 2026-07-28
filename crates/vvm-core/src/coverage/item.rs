@@ -145,3 +145,39 @@ impl<'a> CoverageItemRef<'a> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{Bin, CoverageItemKind, CoverageItemRef, Coverpoint, Cross2};
+
+    #[test]
+    fn item_references_preserve_their_public_kind_name_and_counts()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let point = Coverpoint::builder("opcode")
+            .bin(Bin::value("read", 1_u8))
+            .build()?;
+        let response = Coverpoint::builder("response")
+            .bin(Bin::value("okay", true))
+            .build()?;
+        let cross = Cross2::builder("opcode_x_response", &point, &response).build()?;
+        let point_ref = CoverageItemRef::coverpoint(&point);
+        let cross_ref = CoverageItemRef::cross2(&cross);
+
+        assert_eq!(point_ref.kind(), CoverageItemKind::Coverpoint);
+        assert_eq!(point_ref.name(), "opcode");
+        assert_eq!(point_ref.sample_count(), 0);
+        assert_eq!(point_ref.coverage().total(), 1);
+        assert_eq!(cross_ref.kind(), CoverageItemKind::Cross2);
+        assert_eq!(cross_ref.name(), "opcode_x_response");
+        assert_eq!(cross_ref.sample_count(), 0);
+        assert_eq!(cross_ref.coverage().total(), 1);
+
+        Ok(())
+    }
+
+    #[test]
+    fn item_kind_has_stable_display_names() {
+        assert_eq!(CoverageItemKind::Coverpoint.to_string(), "coverpoint");
+        assert_eq!(CoverageItemKind::Cross2.to_string(), "cross");
+    }
+}

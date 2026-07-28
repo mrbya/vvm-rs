@@ -355,4 +355,16 @@ mod tests {
         assert_eq!(session.groups(), before);
         Ok(())
     }
+
+    #[test]
+    fn session_rejects_invalid_test_names() {
+        let error = CoverageSession::new("bad test name")
+            .map(|_| ())
+            .expect_err("test name must be valid");
+
+        assert!(matches!(
+            error,
+            crate::CoverageSessionError::InvalidTestName { ref name } if name == "bad test name"
+        ));
+    }
 }

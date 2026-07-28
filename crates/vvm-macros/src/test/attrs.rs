@@ -198,3 +198,85 @@ fn parse_coverage_option(meta: &syn::meta::ParseNestedMeta<'_>, coverage: &mut b
     *coverage = true;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use quote::quote;
+
+    use super::TestAttributes;
+
+    #[test]
+    fn parses_all_supported_options() -> Result<(), Box<dyn std::error::Error>> {
+        let attributes = TestAttributes::parse(quote! {
+            name = "counter-smoke",
+            description = "Checks the counter.",
+            trace,
+            cycles,
+            replay(default = seed + 1),
+            coverage
+        })?;
+
+        assert_eq!(
+            attributes.name.as_ref().map(syn::LitStr::value),
+            Some("counter-smoke".into())
+        );
+        assert_eq!(
+            attributes.description.as_ref().map(syn::LitStr::value),
+            Some("Checks the counter.".into())
+        );
+        assert!(attributes.trace);
+        assert!(attributes.cycles);
+        assert!(attributes.replay.enabled());
+        assert_eq!(
+            attributes
+                .replay
+                .default_expr()
+                .map(quote::ToTokens::to_token_stream)
+                .map(|tokens| tokens.to_string()),
+            Some("seed + 1".into())
+        );
+        assert!(attributes.coverage);
+        assert!(attributes.configurable());
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_invalid_options_with_specific_diagnostics() {
+        let cases = [
+            (quote!(name = "",), "test name must not be empty"),
+            (
+                quote!(description = " \t ",),
+                "test description must not be empty",
+            ),
+            (quote!(trace, trace), "duplicate `trace` option"),
+            (quote!(cycles = 4), "`cycles` does not accept a value"),
+            (
+                quote!(replay = 3),
+                "use `replay` or `replay(default = expression)`",
+            ),
+            (
+                quote!(replay()),
+                "unexpected end of input, expected nested attribute",
+            ),
+            (
+                quote!(replay(default = 1, default = 2)),
+                "duplicate `default` replay option",
+            ),
+            (quote!(coverage, coverage), "duplicate `coverage` option"),
+            (
+                quote!(unknown),
+                "unsupported `vvm::test` option: expected `name`, `description`, `trace`, \
+                 `cycles`, `replay`, or `coverage`",
+            ),
+        ];
+
+        for (tokens, expected) in cases {
+            let result = TestAttributes::parse(tokens);
+
+            assert_eq!(
+                result.as_ref().err().map(ToString::to_string).as_deref(),
+                Some(expected)
+            );
+        }
+    }
+}

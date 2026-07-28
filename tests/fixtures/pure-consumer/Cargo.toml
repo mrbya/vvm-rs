@@ -1,0 +1,10 @@
+[workspace]
+
+[package]
+name = "vvm-pure-consumer"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+vvm = { package = "vvm-rs", path = "__VVM_PATH__" }

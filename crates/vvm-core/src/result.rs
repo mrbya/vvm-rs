@@ -457,3 +457,67 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{IntoTestOutcome, SimulationError, SimulationStage, TestResult};
+    use crate::{ReplayToken, Seed, SimulationTime, TestStatus};
+
+    #[test]
+    fn outcome_status_distinguishes_check_simulation_and_setup_failures() {
+        let mut check_failure = TestResult::<u8, &str, &str>::new(SimulationTime::ZERO, None);
+        check_failure.record_check();
+        check_failure.record_failure(super::CheckFailure::new(
+            0,
+            SimulationTime::ZERO,
+            1,
+            "mismatch",
+        ));
+        assert_eq!(
+            crate::TestOutcome::from_result(&check_failure).status(),
+            TestStatus::Failed
+        );
+
+        let mut simulation_failure = TestResult::<u8, &str, &str>::new(SimulationTime::ZERO, None);
+        simulation_failure.record_simulation_error(SimulationError::new(
+            0,
+            SimulationTime::ZERO,
+            SimulationStage::Sample,
+            "sample failed",
+        ));
+        assert_eq!(
+            crate::TestOutcome::from_result(&simulation_failure).status(),
+            TestStatus::Error
+        );
+
+        let replay = ReplayToken::new(Seed::new(9));
+        let setup_failure: Result<TestResult<u8, &str, &str>, &str> = Err("setup failed");
+        let outcome = setup_failure.into_test_outcome_with_replay(replay);
+        assert_eq!(outcome.status(), TestStatus::Error);
+        assert_eq!(outcome.replay_token(), Some(replay));
+        assert!(outcome.report().contains("setup failed"));
+    }
+
+    #[test]
+    fn clock_specific_simulation_errors_preserve_context_when_consumed() {
+        let error = SimulationError::new_for_clock(
+            4,
+            SimulationTime::from_ticks(12),
+            SimulationStage::DriveClockInactive,
+            "peripheral".to_owned(),
+            "drive failed",
+        );
+
+        assert!(error.to_string().contains("clock `peripheral` inactive"));
+        assert_eq!(
+            error.into_parts_with_clock(),
+            (
+                4,
+                SimulationTime::from_ticks(12),
+                SimulationStage::DriveClockInactive,
+                Some("peripheral".to_owned()),
+                "drive failed",
+            )
+        );
+    }
+}

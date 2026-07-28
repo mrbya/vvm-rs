@@ -401,4 +401,358 @@ mod tests {
         assert!(Input::parse(input).is_err());
         Ok(())
     }
+
+    #[test]
+    fn retains_coverage_metadata_and_custom_cross_builder() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let input: DeriveInput = parse2(quote! {
+            #[vvm(definition = "bus_model", revision = REVISION + 1, stimulus = crate::Stimulus, observation = Observation)]
+            struct Model {
+                #[vvm(coverpoint(build = build_address, sample = sample_address))]
+                address: Coverpoint<u16>,
+                #[vvm(cross(left = address, right = address, build = build_cross))]
+                address_x_address: Cross2,
+            }
+        })?;
+
+        let parsed = Input::parse(input)?;
+        let revision = &parsed.revision;
+        let stimulus = &parsed.stimulus;
+        let observation = &parsed.observation;
+
+        assert_eq!(parsed.ident, "Model");
+        assert_eq!(parsed.definition.value(), "bus_model");
+        assert_eq!(quote!(#revision).to_string(), "REVISION + 1");
+        assert_eq!(quote!(#stimulus).to_string(), "crate :: Stimulus");
+        assert_eq!(quote!(#observation).to_string(), "Observation");
+        assert!(matches!(
+            parsed.fields.get(1),
+            Some(FieldRole::Cross { build: Some(_), .. })
+        ));
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_invalid_structures_and_metadata_with_specific_diagnostics() {
+        let cases: [(DeriveInput, &str); 7] = [
+            (
+                parse2(quote! {
+                    #[vvm(revision = 1, stimulus = S, observation = O)]
+                    struct Model { field: Coverpoint<u8> }
+                })
+                .expect("derive input parses"),
+                "missing `definition` option",
+            ),
+            (
+                parse2(quote! {
+                    #[vvm(definition = "Model", revision = 1, stimulus = S, observation = O)]
+                    struct Model { field: Coverpoint<u8> }
+                })
+                .expect("derive input parses"),
+                "invalid coverage definition name",
+            ),
+            (
+                parse2(quote! {
+                    #[vvm(definition = "model", revision = 1, stimulus = S, observation = O)]
+                    struct Model;
+                })
+                .expect("derive input parses"),
+                "Coverage supports only named-field structs",
+            ),
+            (
+                parse2(quote! {
+                    #[vvm(definition = "model", revision = 1, stimulus = S, observation = O)]
+                    struct Model<T> { field: T }
+                })
+                .expect("derive input parses"),
+                "generic coverage structs are not supported",
+            ),
+            (
+                parse2(quote! {
+                    #[vvm(definition = "model", revision = 1, stimulus = S, observation = O)]
+                    struct Model { field: Coverpoint<u8> }
+                })
+                .expect("derive input parses"),
+                "coverage fields require an explicit role",
+            ),
+            (
+                parse2(quote! {
+                    #[vvm(definition = "model", revision = 1, stimulus = S, observation = O)]
+                    struct Model {
+                        #[vvm(coverpoint(build = build, sample = sample))]
+                        point: u8,
+                    }
+                })
+                .expect("derive input parses"),
+                "coverpoint fields must have type `Coverpoint<T>`",
+            ),
+            (
+                parse2(quote! {
+                    #[vvm(definition = "model", revision = 1, stimulus = S, observation = O)]
+                    struct Model {
+                        #[vvm(coverpoint(build = build, sample = sample))]
+                        point: Coverpoint<u8>,
+                        #[vvm(cross(left = point, right = missing))]
+                        cross: Cross2,
+                    }
+                })
+                .expect("derive input parses"),
+                "cross sources must name previously declared coverpoint fields",
+            ),
+        ];
+
+        for (input, expected) in cases {
+            let result = Input::parse(input);
+
+            assert_eq!(
+                result.as_ref().err().map(ToString::to_string).as_deref(),
+                Some(expected)
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_role_options_with_specific_diagnostics() -> Result<(), Box<dyn std::error::Error>> {
+        let inputs = [
+            (
+                quote!(#[vvm(coverpoint(build = build))] point: Coverpoint<u8>),
+                "coverpoint requires `sample`",
+            ),
+            (
+                quote!(#[vvm(cross(left = point, right = point, build = a, build = b))] cross: Cross2),
+                "duplicate `build` option",
+            ),
+        ];
+
+        for (field, expected) in inputs {
+            let input: DeriveInput = parse2(quote! {
+                #[vvm(definition = "model", revision = 1, stimulus = S, observation = O)]
+                struct Model {
+                    #[vvm(coverpoint(build = build, sample = sample))]
+                    point: Coverpoint<u8>,
+                    #field
+                }
+            })?;
+            let result = Input::parse(input);
+
+            assert_eq!(
+                result.as_ref().err().map(ToString::to_string).as_deref(),
+                Some(expected)
+            );
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_remaining_group_diagnostics() -> Result<(), Box<dyn std::error::Error>> {
+        let cases = [
+            (
+                quote!(
+                    #[vvm(definition = "model", stimulus = S, observation = O)]
+                    struct Model {
+                        #[vvm(coverpoint(build = build, sample = sample))]
+                        point: Coverpoint<u8>,
+                    }
+                ),
+                "missing `revision` option",
+            ),
+            (
+                quote!(
+                    #[vvm(definition = "model", revision = 1, observation = O)]
+                    struct Model {
+                        #[vvm(coverpoint(build = build, sample = sample))]
+                        point: Coverpoint<u8>,
+                    }
+                ),
+                "missing `stimulus` option",
+            ),
+            (
+                quote!(
+                    #[vvm(definition = "model", revision = 1, stimulus = S)]
+                    struct Model {
+                        #[vvm(coverpoint(build = build, sample = sample))]
+                        point: Coverpoint<u8>,
+                    }
+                ),
+                "missing `observation` option",
+            ),
+            (
+                quote!(
+                    #[vvm(definition = "model", definition = "other", revision = 1, stimulus = S, observation = O)]
+                    struct Model {
+                        #[vvm(coverpoint(build = build, sample = sample))]
+                        point: Coverpoint<u8>,
+                    }
+                ),
+                "duplicate `definition` option",
+            ),
+            (
+                quote!(
+                    #[vvm(definition = "model", revision = 1, stimulus = S, observation = O, clock = C)]
+                    struct Model {
+                        #[vvm(coverpoint(build = build, sample = sample))]
+                        point: Coverpoint<u8>,
+                    }
+                ),
+                "unsupported Coverage option: expected `definition`, `revision`, `stimulus`, or \
+                 `observation`",
+            ),
+            (
+                quote!(
+                    #[vvm(definition = "model", revision = 1, stimulus = S, observation = O)]
+                    struct Model {}
+                ),
+                "Coverage structs must contain at least one field",
+            ),
+        ];
+
+        assert_diagnostics(cases)
+    }
+
+    #[test]
+    fn rejects_coverage_field_order_and_types() -> Result<(), Box<dyn std::error::Error>> {
+        let cases = [
+            (
+                quote!(
+                    #[vvm(definition = "model", revision = 1, stimulus = S, observation = O)]
+                    struct Model {
+                        #[vvm(cross(left = point, right = point))]
+                        cross: Cross2,
+                        #[vvm(coverpoint(build = build, sample = sample))]
+                        point: Coverpoint<u8>,
+                    }
+                ),
+                "cross sources must name previously declared coverpoint fields",
+            ),
+            (
+                quote!(
+                    #[vvm(definition = "model", revision = 1, stimulus = S, observation = O)]
+                    struct Model {
+                        #[vvm(coverpoint(build = build, sample = sample))]
+                        first: Coverpoint<u8>,
+                        #[vvm(cross(left = first, right = first))]
+                        cross: Cross2,
+                        #[vvm(coverpoint(build = build, sample = sample))]
+                        second: Coverpoint<u8>,
+                    }
+                ),
+                "coverpoint fields must appear before cross fields",
+            ),
+            (
+                quote!(
+                    #[vvm(definition = "model", revision = 1, stimulus = S, observation = O)]
+                    struct Model {
+                        #[vvm(role)]
+                        point: Coverpoint<u8>,
+                    }
+                ),
+                "coverage fields require `coverpoint(...)` or `cross(...)`",
+            ),
+            (
+                quote!(
+                    #[vvm(definition = "model", revision = 1, stimulus = S, observation = O)]
+                    struct Model {
+                        #[vvm(coverpoint(sample = sample))]
+                        point: Coverpoint<u8>,
+                    }
+                ),
+                "coverpoint requires `build`",
+            ),
+            (
+                quote!(
+                    #[vvm(definition = "model", revision = 1, stimulus = S, observation = O)]
+                    struct Model {
+                        #[vvm(coverpoint(build = build, sample = sample))]
+                        point: Coverpoint<u8>,
+                        #[vvm(cross(left = point, right = point))]
+                        cross: u8,
+                    }
+                ),
+                "cross fields must have type `Cross2`",
+            ),
+        ];
+
+        assert_diagnostics(cases)
+    }
+
+    #[test]
+    fn rejects_remaining_coverage_role_options() -> Result<(), Box<dyn std::error::Error>> {
+        let cases = [
+            (
+                quote!(
+                    #[vvm(definition = "model", revision = 1, stimulus = S, observation = O)]
+                    struct Model {
+                        #[vvm(coverpoint(build = build, sample = sample, unknown = x))]
+                        point: Coverpoint<u8>,
+                    }
+                ),
+                "unsupported coverpoint option: expected `build` or `sample`",
+            ),
+            (
+                quote!(
+                    #[vvm(definition = "model", revision = 1, stimulus = S, observation = O)]
+                    struct Model {
+                        #[vvm(coverpoint(build = build, sample = sample), cross(left = point, right = point))]
+                        point: Coverpoint<u8>,
+                    }
+                ),
+                "duplicate coverage field role",
+            ),
+            (
+                quote!(
+                    #[vvm(definition = "model", revision = 1, stimulus = S, observation = O)]
+                    struct Model {
+                        #[vvm(coverpoint(build = build, sample = sample))]
+                        point: Coverpoint<u8>,
+                        #[vvm(cross(left = point, right = point, unknown = x))]
+                        cross: Cross2,
+                    }
+                ),
+                "unsupported cross option: expected `left`, `right`, or `build`",
+            ),
+            (
+                quote!(
+                    #[vvm(definition = "model", revision = 1, stimulus = S, observation = O)]
+                    struct Model {
+                        #[vvm(coverpoint(build = build, sample = sample))]
+                        point: Coverpoint<u8>,
+                        #[vvm(cross(right = point))]
+                        cross: Cross2,
+                    }
+                ),
+                "cross requires `left`",
+            ),
+            (
+                quote!(
+                    #[vvm(definition = "model", revision = 1, stimulus = S, observation = O)]
+                    struct Model {
+                        #[vvm(coverpoint(build = build, sample = sample))]
+                        point: Coverpoint<u8>,
+                        #[vvm(cross(left = point))]
+                        cross: Cross2,
+                    }
+                ),
+                "cross requires `right`",
+            ),
+        ];
+
+        assert_diagnostics(cases)
+    }
+
+    fn assert_diagnostics(
+        cases: impl IntoIterator<Item = (proc_macro2::TokenStream, &'static str)>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        for (tokens, expected) in cases {
+            let input: DeriveInput = parse2(tokens)?;
+            let result = Input::parse(input);
+
+            assert_eq!(
+                result.as_ref().err().map(ToString::to_string).as_deref(),
+                Some(expected)
+            );
+        }
+
+        Ok(())
+    }
 }

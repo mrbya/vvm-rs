@@ -156,3 +156,123 @@ fn ensure_unit_struct(input: &DeriveInput) -> Result<()> {
         )),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use quote::quote;
+    use syn::{DeriveInput, parse2};
+
+    use super::Input;
+
+    #[test]
+    fn parses_clock_metadata_and_edge_levels() -> Result<(), Box<dyn std::error::Error>> {
+        let input: DeriveInput = parse2(quote! {
+            #[vvm(dut = crate::Dut, clock = "clk_n", edge = "falling")]
+            struct Clock<T>(std::marker::PhantomData<T>);
+        })?;
+
+        let result = Input::parse(input);
+
+        assert_eq!(
+            result.as_ref().err().map(ToString::to_string).as_deref(),
+            Some("`Clock` can only be derived for a unit struct")
+        );
+
+        let valid_input: DeriveInput = parse2(quote! {
+            #[vvm(dut = crate::Dut, clock = "clk_n", edge = "falling")]
+            struct Clock;
+        })?;
+        let parsed = Input::parse(valid_input)?;
+        let dut = &parsed.dut;
+
+        assert_eq!(parsed.ident, "Clock");
+        assert_eq!(quote!(#dut).to_string(), "crate :: Dut");
+        assert_eq!(parsed.setter, "set_clk_n");
+        assert_eq!((parsed.inactive, parsed.active), (true, false));
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_invalid_clock_inputs_with_specific_diagnostics()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let cases = [
+            (
+                quote!(
+                    #[vvm(clock = "clk")]
+                    struct Clock;
+                ),
+                "missing `dut` option in `#[vvm(...)]`",
+            ),
+            (
+                quote!(
+                    #[vvm(dut = Dut)]
+                    struct Clock;
+                ),
+                "missing `clock` option in `#[vvm(...)]`",
+            ),
+            (
+                quote!(
+                    #[vvm(dut = Dut, clock = "")]
+                    struct Clock;
+                ),
+                "clock port name must not be empty",
+            ),
+            (
+                quote!(
+                    #[vvm(dut = Dut, clock = "clk", edge = "both")]
+                    struct Clock;
+                ),
+                "unsupported clock edge `both`; expected `rising` or `falling`",
+            ),
+            (
+                quote!(
+                    #[vvm(dut = Dut, clock = "clk", clock = "other")]
+                    struct Clock;
+                ),
+                "duplicate `clock` option",
+            ),
+            (
+                quote!(
+                    #[vvm(dut = Dut, clock = "clk", edge = "rising", edge = "falling")]
+                    struct Clock;
+                ),
+                "duplicate `edge` option",
+            ),
+            (
+                quote!(
+                    #[vvm(dut = Dut, clock = "clk", port = "x")]
+                    struct Clock;
+                ),
+                "unsupported `vvm` clock option; expected `dut`, `clock`, or `edge`",
+            ),
+            (
+                quote!(
+                    #[vvm(dut = Dut, clock = "bad-port")]
+                    struct Clock;
+                ),
+                "port name `bad-port` does not produce a valid Rust method identifier",
+            ),
+            (
+                quote!(
+                    #[vvm(dut = Dut, clock = "clk")]
+                    enum Clock {
+                        One,
+                    }
+                ),
+                "`Clock` can only be derived for a unit struct",
+            ),
+        ];
+
+        for (tokens, expected) in cases {
+            let input: DeriveInput = parse2(tokens)?;
+            let result = Input::parse(input);
+
+            assert_eq!(
+                result.as_ref().err().map(ToString::to_string).as_deref(),
+                Some(expected)
+            );
+        }
+
+        Ok(())
+    }
+}

@@ -44,3 +44,21 @@ impl Default for FailurePolicy {
 #[non_exhaustive]
 #[error("maximum failure count must be > 0")]
 pub struct InvalidFailureLimit;
+
+#[cfg(test)]
+mod tests {
+    use super::FailurePolicy;
+
+    #[test]
+    fn rejects_zero_and_stops_at_the_configured_limit() {
+        let zero_limit = FailurePolicy::collect_up_to(0).expect_err("zero limit must be rejected");
+        assert_eq!(zero_limit.to_string(), "maximum failure count must be > 0");
+
+        let policy = FailurePolicy::collect_up_to(3).expect("nonzero limit must be accepted");
+
+        assert!(!policy.should_stop(2));
+        assert!(policy.should_stop(3));
+        assert!(policy.should_stop(4));
+        assert!(FailurePolicy::default().should_stop(1));
+    }
+}

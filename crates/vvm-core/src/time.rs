@@ -168,6 +168,16 @@ mod tests {
     }
 
     #[test]
+    fn time_step_checked_add_preserves_non_zero_sum() -> Result<(), InvalidTimeStep> {
+        let first = TimeStep::new(7)?;
+        let second = TimeStep::new(5)?;
+
+        assert_eq!(first.checked_add(second).map(TimeStep::ticks), Some(12));
+
+        Ok(())
+    }
+
+    #[test]
     fn unit_cycle_timing_uses_one_tick_per_phase() {
         let timing = CycleTiming::UNIT;
 

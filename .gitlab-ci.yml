@@ -1,5 +1,3 @@
-image: registry.gitlab.com/byacrates/vvm-rs:latest
-
 workflow:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -7,22 +5,80 @@ workflow:
     - if: $CI_COMMIT_TAG
 
 stages:
-  - test
+  - validate
+  - test-pure
+  - test-native
+  - test-e2e
+  - coverage
+  - package
+  - docs
+  - extended
 
 cache:
-  key:
+  key: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
   paths:
     - ~/.cargo/registry/
     - ~/.cargo/git/
 
-test:
-  stage: test
+.pure-tests: &pure-tests
+  - cargo test --locked --all-features -p vvm-rs -p vvm-core -p vvm-build -p vvm-macros -p cargo-vvm --lib
+  - cargo test --locked --all-features -p vvm-rs --test public_api
+  - cargo test --locked --all-features -p vvm-core --test properties
+  - cargo test --locked --all-features -p cargo-vvm --test cli -- --skip coverage_command_writes_merged_and_rendered_counter_reports
+  - cargo test --locked --all-features -p vvm-macros --test trybuild
+  - cargo test --locked --all-features -p vvm-rs --test fixtures pure_consumer_uses_only_the_facade_from_an_isolated_workspace
+
+format-and-lint:
+  stage: validate
+  image: rust:1-bookworm
   script:
-    - echo "Running tests..."
-    - just ci
-    - awk '/^TOTAL / { print "LINES_COVERAGE " $10 }' coverage/coverage.txt
+    - rustup component add rustfmt clippy
+    - cargo fmt --all -- --check
+    - cargo clippy --locked --tests --examples --all-targets --all-features --workspace -- -D warnings
+
+rust-msrv:
+  stage: test-pure
+  image: rust:1.87.0-bookworm
+  script: *pure-tests
+
+rust-stable:
+  stage: test-pure
+  image: rust:1-bookworm
+  script: *pure-tests
+
+native-minimum-verilator:
+  stage: test-native
+  image: registry.gitlab.com/byacrates/vvm-rs:verilator-5.000-rust-1
+  script:
+    - verilator --version
+    - case "$(verilator --version)" in "Verilator 5.000"*) ;; *) exit 1 ;; esac
+    - just test-native
+
+native-current-verilator:
+  stage: test-native
+  image: registry.gitlab.com/byacrates/vvm-rs:verilator-5.048-rust-1
+  script:
+    - verilator --version
+    - case "$(verilator --version)" in "Verilator 5.048"*) ;; *) exit 1 ;; esac
+    - just test-native
+
+end-to-end:
+  stage: test-e2e
+  image: registry.gitlab.com/byacrates/vvm-rs:verilator-5.048-rust-1
+  needs: ["native-current-verilator"]
+  script:
+    - just test-e2e
+
+coverage:
+  stage: coverage
+  image: registry.gitlab.com/byacrates/vvm-rs:verilator-5.048-rust-1
+  needs: ["native-current-verilator"]
+  script:
+    - just test-cov-ci
+    - awk '/^TOTAL / { print "LINES_COVERAGE " $10 }' coverage/coverage-summary.txt
   coverage: '/LINES_COVERAGE\s+(\d+(?:\.\d+)?)%/'
   artifacts:
+    when: always
     paths:
       - coverage/
     reports:
@@ -30,3 +86,23 @@ test:
         coverage_format: cobertura
         path: coverage/cobertura.xml
 
+package-consumer:
+  stage: package
+  image: rust:1-bookworm
+  script:
+    - cargo test --locked --all-features -p vvm-rs --test fixtures packaged_consumer_builds_from_extracted_crate_archives
+
+doctests:
+  stage: docs
+  image: rust:1-bookworm
+  script:
+    - cargo test --locked --workspace --doc
+
+mutation:
+  stage: extended
+  image: registry.gitlab.com/byacrates/vvm-rs:verilator-5.048-rust-1
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "web"
+  script:
+    - just mutation

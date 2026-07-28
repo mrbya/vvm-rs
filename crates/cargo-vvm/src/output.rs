@@ -241,3 +241,100 @@ pub(crate) fn write_atomic_new(path: &Path, contents: &[u8]) -> Result<(), Cover
 
     result
 }
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use tempfile::tempdir;
+
+    use super::{CoverageOutputLayout, validate_name, write_atomic_new};
+    use crate::error::CoverageCommandError;
+    use crate::metadata::WorkspaceMetadata;
+
+    #[test]
+    fn validates_portable_output_names() {
+        for name in ["coverage", "coverage-1", "coverage_1.2"] {
+            assert!(validate_name(name).is_ok(), "{name}");
+        }
+
+        for name in [
+            "",
+            ".coverage",
+            "coverage/name",
+            "coverage name",
+            "coverage!",
+        ] {
+            assert!(validate_name(name).is_err(), "{name}");
+        }
+    }
+
+    #[test]
+    fn creates_isolated_layout_with_requested_root() -> Result<(), Box<dyn std::error::Error>> {
+        let directory = tempdir()?;
+        let root = directory.path().join("coverage");
+        let metadata = WorkspaceMetadata {
+            target_directory: directory.path().join("target"),
+        };
+
+        let layout = CoverageOutputLayout::create(Some(root.clone()), "report", &metadata)?;
+
+        assert_eq!(layout.root, fs::canonicalize(root)?);
+        assert!(layout.artifacts.is_dir());
+        assert_eq!(
+            layout.merged.file_name().and_then(|name| name.to_str()),
+            Some("report.vvmcov-merged.json")
+        );
+        assert_eq!(
+            layout.text.file_name().and_then(|name| name.to_str()),
+            Some("report.vvmcov.txt")
+        );
+        assert_eq!(
+            layout.html.file_name().and_then(|name| name.to_str()),
+            Some("report.vvmcov.html")
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_existing_file_or_nonempty_directory() -> Result<(), Box<dyn std::error::Error>> {
+        let directory = tempdir()?;
+        let metadata = WorkspaceMetadata {
+            target_directory: directory.path().join("target"),
+        };
+        let file = directory.path().join("file");
+        let nonempty = directory.path().join("nonempty");
+        fs::write(&file, "existing")?;
+        fs::create_dir_all(&nonempty)?;
+        fs::write(nonempty.join("existing"), "existing")?;
+
+        assert!(matches!(
+            CoverageOutputLayout::create(Some(file), "report", &metadata),
+            Err(CoverageCommandError::OutputPathIsFile { .. })
+        ));
+        assert!(matches!(
+            CoverageOutputLayout::create(Some(nonempty), "report", &metadata),
+            Err(CoverageCommandError::OutputDirectoryNotEmpty { .. })
+        ));
+
+        Ok(())
+    }
+
+    #[test]
+    fn writes_once_without_replacing_destination() -> Result<(), Box<dyn std::error::Error>> {
+        let directory = tempdir()?;
+        let report = directory.path().join("report.txt");
+
+        write_atomic_new(&report, b"first")?;
+
+        assert_eq!(fs::read(&report)?, b"first");
+        assert!(matches!(
+            write_atomic_new(&report, b"second"),
+            Err(CoverageCommandError::WriteReport { .. })
+        ));
+        assert_eq!(fs::read(&report)?, b"first");
+
+        Ok(())
+    }
+}

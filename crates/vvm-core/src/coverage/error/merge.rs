@@ -181,3 +181,78 @@ pub enum CoverageMergeError {
         source: CoveragePersistenceError,
     },
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use crate::{
+        CoverageMergeCountKind, CoverageMergeCounterKind, CoverageMergeError, CoverageMergePolicy,
+    };
+
+    #[test]
+    fn merge_counter_names_are_stable() {
+        let counters = [
+            (
+                CoverageMergeCounterKind::CoverpointSamples,
+                "coverpoint samples",
+            ),
+            (CoverageMergeCounterKind::IgnoredSamples, "ignored samples"),
+            (CoverageMergeCounterKind::IllegalSamples, "illegal samples"),
+            (
+                CoverageMergeCounterKind::UnmatchedSamples,
+                "unmatched samples",
+            ),
+            (
+                CoverageMergeCounterKind::CoverpointBinHits,
+                "coverpoint bin hits",
+            ),
+            (CoverageMergeCounterKind::CrossSamples, "cross samples"),
+            (
+                CoverageMergeCounterKind::SkippedCrossSamples,
+                "skipped cross samples",
+            ),
+            (CoverageMergeCounterKind::CrossBinHits, "cross bin hits"),
+        ];
+
+        for (counter, expected) in counters {
+            assert_eq!(counter.to_string(), expected);
+        }
+    }
+
+    #[test]
+    fn merge_errors_format_policy_path_and_overflow_context() {
+        let excluded = CoverageMergeError::NoIncludedArtifacts {
+            policy: CoverageMergePolicy::PassedOnly,
+        };
+        let duplicate = CoverageMergeError::DuplicateInputPath {
+            path: PathBuf::from("coverage/decoder.json"),
+        };
+        let overflow = CoverageMergeError::CounterOverflow {
+            instance_path: "dut.decoder".into(),
+            item: "opcode".into(),
+            bin: Some("read".into()),
+            counter: CoverageMergeCounterKind::CoverpointBinHits,
+        };
+        let summary = CoverageMergeError::CountOverflow {
+            counter: CoverageMergeCountKind::IncludedArtifacts,
+        };
+
+        assert_eq!(
+            excluded.to_string(),
+            "coverage merge policy `passed_only` excluded every artifact"
+        );
+        assert_eq!(
+            duplicate.to_string(),
+            "duplicate coverage input path `coverage/decoder.json`"
+        );
+        assert_eq!(
+            overflow.to_string(),
+            "coverage merge overflow for coverpoint bin hits in `dut.decoder.opcode`"
+        );
+        assert_eq!(
+            summary.to_string(),
+            "coverage merge summary overflow for included artifacts"
+        );
+    }
+}

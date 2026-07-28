@@ -425,7 +425,8 @@ mod tests {
 
     use super::{
         ENV_COVERAGE_DIR, ENV_CYCLES, ENV_REPLAY, ENV_SEED, ENV_TRACE_DIR, EnvOverrides,
-        TestFailure, default_trace_root, ensure_trace_root, run_test_with_overrides,
+        TestFailure, default_coverage_root, default_trace_root, ensure_trace_root,
+        run_test_with_overrides,
     };
     use crate::random::{ReplayToken, Seed};
     use crate::test::TestDescriptor;
@@ -509,6 +510,28 @@ mod tests {
             Some("chacha8-v1:0123456789abcdef".parse()?),
         );
         Ok(())
+    }
+
+    #[test]
+    fn rejects_invalid_seed_override() {
+        let error = EnvOverrides::parse_with("counter-random", |name| {
+            (name == ENV_SEED).then(|| String::from("not-a-seed"))
+        });
+
+        assert!(
+            matches!(error, Err(ref failure) if format!("{failure:?}").contains("invalid `VVM_SEED` value `not-a-seed`"))
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_replay_override() {
+        let error = EnvOverrides::parse_with("counter-random", |name| {
+            (name == ENV_REPLAY).then(|| String::from("not-a-replay-token"))
+        });
+
+        assert!(
+            matches!(error, Err(ref failure) if format!("{failure:?}").contains("invalid `VVM_REPLAY` value `not-a-replay-token`"))
+        );
     }
 
     #[test]
@@ -596,6 +619,17 @@ mod tests {
     }
 
     #[test]
+    fn rejects_empty_trace_root() {
+        let error = EnvOverrides::parse_with("counter-random", |name| {
+            (name == ENV_TRACE_DIR).then(String::new)
+        });
+
+        assert!(
+            matches!(error, Err(ref failure) if format!("{failure:?}").contains("must not be empty"))
+        );
+    }
+
+    #[test]
     fn creates_default_trace_root_under_target() {
         let root = default_trace_root();
 
@@ -632,6 +666,31 @@ mod tests {
     }
 
     #[test]
+    fn config_for_applies_supported_overrides() -> Result<(), Box<dyn std::error::Error>> {
+        let directory = tempfile::tempdir()?;
+        let root = directory.path().join("traces");
+        let overrides = EnvOverrides::parse_with("counter-random", |name| match name {
+            ENV_REPLAY => Some(String::from("chacha8-v1:0123456789abcdef")),
+            ENV_CYCLES => Some(String::from("64")),
+            ENV_TRACE_DIR => Some(root.display().to_string()),
+            _ => None,
+        })?;
+        let capabilities = TestCapabilities::new()
+            .with_replay()
+            .with_cycles()
+            .with_trace();
+        let config = overrides.config_for(&descriptor(capabilities))?;
+
+        assert_eq!(
+            config.replay_token(),
+            Some("chacha8-v1:0123456789abcdef".parse()?),
+        );
+        assert_eq!(config.cycles(), Some(64));
+        assert_eq!(config.trace_path(), Some(&root.join("counter-random.vcd")));
+        Ok(())
+    }
+
+    #[test]
     fn coverage_path_uses_configured_root_and_process_test_name()
     -> Result<(), Box<dyn std::error::Error>> {
         let directory = tempfile::tempdir()?;
@@ -649,6 +708,13 @@ mod tests {
         assert!(path.to_string_lossy().ends_with(".vvmcov.json"));
         assert!(!root.exists());
         Ok(())
+    }
+
+    #[test]
+    fn default_coverage_root_is_under_target() {
+        let root = default_coverage_root();
+
+        assert!(root.starts_with(Path::new("target").join("vvm-coverage")));
     }
 
     #[test]
@@ -698,6 +764,70 @@ mod tests {
             "covered-failure"
         );
         Ok(())
+    }
+
+    #[test]
+    fn bridge_preserves_test_failure_when_coverage_persistence_fails()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let directory = tempfile::tempdir()?;
+        let root = directory.path().join("coverage");
+        let _file = File::create(&root)?;
+        let descriptor = TestDescriptor::new_with_context(
+            "covered-failure",
+            "Captures coverage before failure",
+            captures_coverage,
+            TestCapabilities::new(),
+        );
+        let overrides = EnvOverrides {
+            coverage_root: Some(root),
+            ..EnvOverrides::default()
+        };
+
+        let error = run_test_with_overrides(&descriptor, &overrides).expect_err("test must fail");
+        let rendered = format!("{error:?}");
+
+        assert!(rendered.contains("intentional failure after coverage capture"));
+        assert!(rendered.contains("Coverage persistence error"));
+        assert!(rendered.contains("not a directory"));
+        Ok(())
+    }
+
+    #[test]
+    fn bridge_reports_replay_metadata_and_execution_details() {
+        let descriptor = TestDescriptor::new(
+            "replay-failure",
+            "Reports replay metadata",
+            |_config| {
+                TestOutcome::error("intentional replay failure")
+                    .with_replay_token(ReplayToken::new(Seed::new(0x1234)))
+            },
+            TestCapabilities::new().with_replay(),
+        );
+
+        let error = run_test_with_overrides(&descriptor, &EnvOverrides::default())
+            .expect_err("test must fail");
+        let rendered = format!("{error}");
+
+        assert!(rendered.contains("Replay:\n  chacha8-v1:0000000000001234"));
+        assert!(rendered.contains("Report:\nTest execution error:"));
+        assert!(rendered.contains("intentional replay failure"));
+    }
+
+    #[test]
+    fn bridge_wraps_registry_configuration_errors() {
+        let descriptor = TestDescriptor::new(
+            "Invalid name",
+            "Invalid registry name",
+            |_config| TestOutcome::error("not reached"),
+            TestCapabilities::new(),
+        );
+
+        let error = run_test_with_overrides(&descriptor, &EnvOverrides::default())
+            .expect_err("invalid descriptor must fail");
+        let rendered = format!("{error:?}");
+
+        assert!(rendered.contains("test configuration failed"));
+        assert!(rendered.contains("invalid registered test name `Invalid name`"));
     }
 
     #[test]

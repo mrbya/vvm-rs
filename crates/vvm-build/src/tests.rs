@@ -1,6 +1,7 @@
 use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use tempfile::tempdir;
 
@@ -8,12 +9,16 @@ use crate::builder::{
     Define, DutBuilder, minimum_supported_version, validate_defines, validate_identifier,
     validate_verilator_arguments,
 };
+use crate::command::run;
 use crate::error::BuildError;
-use crate::paths::{ensure_unique_paths, resolve_directory, resolve_file};
+use crate::paths::{
+    ensure_unique_paths, resolve_directories, resolve_directory, resolve_file, resolve_files,
+    resolve_path,
+};
 use crate::verilator::{
     MetadataCommand, ModelCommand, VerilatorVersion, define_argument, ensure_metadata_output,
     ensure_supported_version, generated_sources, include_argument, metadata_command, model_command,
-    parse_version, select_executable,
+    parse_version, root, select_executable, version,
 };
 
 fn touch(path: &Path) -> std::io::Result<()> {
@@ -64,6 +69,68 @@ fn rejects_non_ascii_identifier() {
 }
 
 #[test]
+fn builder_rejects_invalid_name_before_external_discovery() {
+    let result = DutBuilder::new("invalid-name").build();
+
+    assert!(matches!(
+        result,
+        Err(BuildError::InvalidIdentifier {
+            field: "DUT name",
+            ..
+        })
+    ));
+}
+
+#[test]
+fn builder_rejects_unsupported_trace_before_external_discovery() {
+    let result = DutBuilder::new("counter")
+        .trace(crate::TraceOptions::fst())
+        .build();
+
+    assert!(matches!(result, Err(BuildError::UnsupportedTraceFormat)));
+}
+
+#[test]
+fn builder_rejects_duplicate_defines_before_external_discovery() {
+    let result = DutBuilder::new("counter")
+        .define("WIDTH")
+        .define_value("WIDTH", "8")
+        .build();
+
+    assert!(matches!(
+        result,
+        Err(BuildError::DuplicateDefine { name }) if name == "WIDTH"
+    ));
+}
+
+#[test]
+fn builder_rejects_reserved_argument_before_external_discovery() {
+    let result = DutBuilder::new("counter").verilator_arg("--timing").build();
+
+    assert!(matches!(
+        result,
+        Err(BuildError::ReservedVerilatorArgument {
+            configuration: "DutBuilder::timing()",
+            ..
+        })
+    ));
+}
+
+#[test]
+fn builder_requires_top_module_before_sources_or_environment() {
+    let result = DutBuilder::new("counter").build();
+
+    assert!(matches!(result, Err(BuildError::MissingTopModule)));
+}
+
+#[test]
+fn builder_requires_sources_before_environment() {
+    let result = DutBuilder::new("counter").top_module("counter").build();
+
+    assert!(matches!(result, Err(BuildError::MissingSources)));
+}
+
+#[test]
 fn resolves_relative_file_against_manifest_directory() -> Result<(), Box<dyn std::error::Error>> {
     let directory = tempdir()?;
     let manifest_dir = directory.path();
@@ -75,6 +142,17 @@ fn resolves_relative_file_against_manifest_directory() -> Result<(), Box<dyn std
     let resolved = resolve_file(manifest_dir, Path::new("rtl/counter.sv"), "HDL source file")?;
 
     assert_eq!(resolved, source_path.canonicalize()?);
+    Ok(())
+}
+
+#[test]
+fn resolves_relative_and_absolute_paths() -> Result<(), Box<dyn std::error::Error>> {
+    let directory = tempdir()?;
+    let relative = Path::new("rtl/counter.sv");
+    let absolute = directory.path().join(relative);
+
+    assert_eq!(resolve_path(directory.path(), relative), absolute);
+    assert_eq!(resolve_path(directory.path(), &absolute), absolute);
     Ok(())
 }
 
@@ -162,6 +240,118 @@ fn rejects_file_when_directory_is_expected() -> Result<(), Box<dyn std::error::E
         result,
         Err(BuildError::ConfiguredPathNotDirectory {
             role: "C++ include directory",
+            ..
+        })
+    ));
+    Ok(())
+}
+
+#[test]
+fn rejects_missing_directory() -> Result<(), Box<dyn std::error::Error>> {
+    let directory = tempdir()?;
+    let result = resolve_directory(
+        directory.path(),
+        Path::new("missing"),
+        "HDL include directory",
+    );
+
+    assert!(matches!(
+        result,
+        Err(BuildError::MissingConfiguredPath {
+            role: "HDL include directory",
+            ..
+        })
+    ));
+    Ok(())
+}
+
+#[test]
+fn resolves_multiple_files_and_directories() -> Result<(), Box<dyn std::error::Error>> {
+    let directory = tempdir()?;
+    let rtl_dir = directory.path().join("rtl");
+    let include_dir = rtl_dir.join("include");
+    fs::create_dir_all(&include_dir)?;
+    touch(&rtl_dir.join("counter.sv"))?;
+    touch(&rtl_dir.join("helper.sv"))?;
+
+    let files = resolve_files(
+        directory.path(),
+        &[
+            PathBuf::from("rtl/counter.sv"),
+            PathBuf::from("rtl/helper.sv"),
+        ],
+        "HDL source file",
+    )?;
+    let directories = resolve_directories(
+        directory.path(),
+        &[PathBuf::from("rtl"), PathBuf::from("rtl/include")],
+        "HDL include directory",
+    )?;
+
+    assert_eq!(
+        files,
+        [
+            rtl_dir.join("counter.sv").canonicalize()?,
+            rtl_dir.join("helper.sv").canonicalize()?
+        ]
+    );
+    assert_eq!(
+        directories,
+        [rtl_dir.canonicalize()?, include_dir.canonicalize()?]
+    );
+    Ok(())
+}
+
+#[test]
+fn accepts_unique_paths() -> Result<(), Box<dyn std::error::Error>> {
+    let directory = tempdir()?;
+    let first = directory.path().join("first.sv");
+    let second = directory.path().join("second.sv");
+
+    ensure_unique_paths(&[first, second], "HDL source file")?;
+    Ok(())
+}
+
+#[test]
+fn command_run_captures_successful_output() -> Result<(), Box<dyn std::error::Error>> {
+    let executable = std::env::current_exe()?;
+    let output = run(
+        Command::new(executable).arg("--help"),
+        "test command success",
+    )?;
+
+    assert!(output.status.success());
+    Ok(())
+}
+
+#[test]
+fn command_run_reports_start_failure() -> Result<(), Box<dyn std::error::Error>> {
+    let directory = tempdir()?;
+    let executable = directory.path().join("missing-command");
+    let result = run(&mut Command::new(executable), "test command start failure");
+
+    assert!(matches!(
+        result,
+        Err(BuildError::CommandStart {
+            context: "test command start failure",
+            ..
+        })
+    ));
+    Ok(())
+}
+
+#[test]
+fn command_run_reports_nonzero_exit() -> Result<(), Box<dyn std::error::Error>> {
+    let executable = std::env::current_exe()?;
+    let result = run(
+        Command::new(executable).arg("--unrecognized-test-option"),
+        "test command failure",
+    );
+
+    assert!(matches!(
+        result,
+        Err(BuildError::CommandFailed {
+            context: "test command failure",
             ..
         })
     ));
@@ -367,17 +557,43 @@ fn parses_supported_verilator_versions() -> Result<(), Box<dyn std::error::Error
 #[test]
 fn rejects_malformed_verilator_versions() {
     for output in [
+        "",
         "Verilator",
         "unknown tool 5.040",
         "Verilator version-five",
         "Verilator 5",
         "Verilator 5.x",
+        "Verilator 5.",
+        "Verilator 5.040.1",
+        "Verilator 4294967296.000",
     ] {
         assert!(matches!(
             parse_version(output),
             Err(BuildError::InvalidVerilatorVersion { .. })
         ));
     }
+}
+
+#[test]
+fn verilator_discovery_reports_command_start_failure() -> Result<(), Box<dyn std::error::Error>> {
+    let directory = tempdir()?;
+    let executable = directory.path().join("missing-verilator");
+
+    assert!(matches!(
+        version(executable.as_os_str()),
+        Err(BuildError::CommandStart {
+            context: "verilator version discovery",
+            ..
+        })
+    ));
+    assert!(matches!(
+        root(executable.as_os_str()),
+        Err(BuildError::CommandStart {
+            context: "verilator root discovery",
+            ..
+        })
+    ));
+    Ok(())
 }
 
 #[test]

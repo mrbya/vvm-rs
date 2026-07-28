@@ -13,8 +13,8 @@
 - Run `just init` once to install contributor tooling, including nightly Rust, nextest, coverage, udeps, audit, Markdown TOC, and pre-commit.
 - Format with `just fmt` or check without edits using `just fmt --check`; formatting explicitly uses `cargo +nightly fmt --all`.
 - Run linting with `just check -- -D warnings`; it checks all workspace targets, tests, examples, and features.
-- Run the normal full suite with `just test`; it invokes `cargo nextest run --all-features --workspace`. For focused runs, use Cargo/nextest package filtering, e.g. `cargo nextest run -p vvm-build` or `cargo test -p vvm-example-counter <test-name>`.
-- `just ci` is the CI-equivalent, non-mutating verification: format check, lint with warnings denied, `cargo +nightly udeps`, audit, doctests, and coverage. It writes coverage reports under `coverage/`.
+- Use `just test-fast` for pure-Rust unit, integration, UI, and fixture tests; use `just test-native`, `just test-e2e`, and `just test-package` for their corresponding boundaries. `just test-all` runs every category. The authoritative placement and execution policy is `docs/dev/testing-strategy.md`.
+- `just ci` is the CI-equivalent, non-mutating verification: format check, lint with warnings denied, `cargo +nightly udeps`, audit, every test category, doctests, and coverage. It writes coverage reports under `coverage/`.
 - The pre-commit hook runs `just ci` for Rust/TOML/justfile changes. README changes also run `just index`, which rewrites the README TOC.
 
 ## Tests And Fixtures
@@ -197,4 +197,3 @@ Before completing a task:
 4. Run formatting, linting, tests, and the repository’s lint-suppression check.
 5. Report any remaining readability trade-offs explicitly.
 6. Perform a visual-paragraphing pass over every changed function.
-

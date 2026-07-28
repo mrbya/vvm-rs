@@ -58,6 +58,7 @@ pretty_assertions       = { version = "1" }
 assert_cmd              = { version = "2" }
 predicates              = { version = "3" }
 tempfile                = { version = "3" }
+proptest                = { version = "1.7" }
 
 [workspace.lints.rust]
 missing_docs = "warn"

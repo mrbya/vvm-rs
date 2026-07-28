@@ -116,3 +116,49 @@ pub enum CoveragePersistenceError {
         source: std::io::Error,
     },
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use super::{CoverageIoOperation, CoveragePersistenceError};
+
+    #[test]
+    fn io_operations_have_stable_human_readable_names() {
+        let operations = [
+            (CoverageIoOperation::CreateDirectory, "create directory"),
+            (
+                CoverageIoOperation::CreateTemporaryFile,
+                "create temporary file",
+            ),
+            (CoverageIoOperation::Write, "write"),
+            (CoverageIoOperation::Synchronize, "synchronize"),
+            (CoverageIoOperation::Rename, "rename"),
+            (CoverageIoOperation::Read, "read"),
+        ];
+
+        for (operation, expected) in operations {
+            assert_eq!(operation.to_string(), expected);
+        }
+    }
+
+    #[test]
+    fn persistence_errors_preserve_the_failed_path_and_context() {
+        let path = PathBuf::from("coverage/result.json");
+        let error = CoveragePersistenceError::Io {
+            operation: CoverageIoOperation::Write,
+            path: path.clone(),
+            source: std::io::Error::from_raw_os_error(28),
+        };
+
+        assert_eq!(
+            error.to_string(),
+            "could not write coverage artifact `coverage/result.json`: No space left on device \
+             (os error 28)"
+        );
+        assert_eq!(
+            CoveragePersistenceError::DestinationExists { path }.to_string(),
+            "coverage artifact destination `coverage/result.json` already exists"
+        );
+    }
+}

@@ -6,6 +6,8 @@
 
 pub use crate::dut::{Drive, Dut, Sample};
 pub use crate::test::{TestContext, TestRunConfig};
-pub use crate::testbench::{ExactScoreboard, FailurePolicy, ReferenceModel, Scoreboard, Testbench};
+pub use crate::testbench::{
+    ExactScoreboard, FailurePolicy, Mismatch, ReferenceModel, Scoreboard, TestResult, Testbench,
+};
 pub use crate::timing::Clock;
 pub use crate::{Clock, Coverage, Drive, Sample};

@@ -106,16 +106,36 @@ vvm-build = { git = "https://gitlab.com/byacrates/vvm-rs.git" }
 
 ## Quick Start
 
-Minimal project layout:
+Minimal project example:
 
 ```text
 counter-verification/
 ├── Cargo.toml
-├── build.rs
+├── build.rs        # vvm-build Verilator bootstrap
 ├── rtl/
-│   └── counter.sv
+│   └── counter.sv  # your design HDL source
 └── src/
-    └── lib.rs
+    └── lib.rs      # vvm rust testbench and test setup
+```
+
+`rtl/counter.sv`:
+```systemverilog
+module counter (
+    input  logic       clk,
+    input  logic       reset_n,
+    input  logic       enable,
+    output logic [7:0] count
+);
+
+always_ff @(posedge clk or negedge reset_n) begin
+    if (!reset_n) begin
+        count <= '0;
+    end else if (enable) begin
+        count <= count + 1'b1;
+    end
+end
+
+endmodule
 ```
 
 `build.rs`:
@@ -127,7 +147,7 @@ fn main() -> BuildResult<()> {
     DutBuilder::new("counter")
         .top_module("counter")
         .source("rtl/counter.sv")
-        .trace(TraceOptions::vcd().with_depth(30))
+        .trace(TraceOptions::vcd())
         .build()
 }
 ```
@@ -141,17 +161,20 @@ mod vvm_tests {
 
     vvm::include_dut!(counter);
 
-    use crate::counter::Counter;
+    use crate::counter::{Counter, CounterError};
 
+    /// Stimulus definition.
     #[derive(Clone, Copy, Debug, Drive)]
     #[vvm(dut = Counter)]
     struct CounterStimulus {
         #[vvm(port)]
         reset_n: bool,
+
         #[vvm(port)]
         enable: bool,
     }
 
+    /// Sample definition.
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Sample)]
     #[vvm(dut = Counter)]
     struct CounterObservation {
@@ -159,14 +182,16 @@ mod vvm_tests {
         count: u8,
     }
 
+    /// Clocking signal setup.
     #[derive(Clone, Copy, Debug, Default, Clock)]
     #[vvm(dut = Counter, clock = "clk")]
     struct CounterClock;
 
-    type CounterTestResult = vvm::TestResult<
+    /// Test result type alias.
+    type CounterTestResult = TestResult<
         CounterStimulus,
-        vvm::Mismatch<CounterObservation, CounterObservation>,
-        counter::CounterError,
+        Mismatch<CounterObservation, CounterObservation>,
+        CounterError,
     >;
 
     /// Counter smoke verification.

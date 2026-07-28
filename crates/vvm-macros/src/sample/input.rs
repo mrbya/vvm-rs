@@ -1,7 +1,7 @@
 use syn::{DeriveInput, Generics, Ident, Path, Result};
 
 use crate::attrs::{parse_dut_path, parse_port_attribute};
-use crate::error::{named_fields, unmapped_sample_field};
+use crate::diagnostic::{named_fields, unmapped_sample_field};
 
 /// Parsed `Sample` implementation input.
 pub(super) struct Input {

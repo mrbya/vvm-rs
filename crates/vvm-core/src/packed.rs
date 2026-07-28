@@ -4,8 +4,6 @@
     clippy::modulo_arithmetic
 )]
 
-use std::fmt;
-
 use crate::{Bits, InvalidBitVectorWordCount, SignedBits};
 
 /// Number of bits in one canonical packed storage word.
@@ -302,9 +300,11 @@ impl PackedRange {
 }
 
 /// Error returned by packed-layout extraction and insertion helpers.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
 pub enum PackedLayoutError {
     /// A packed field width was zero.
+    #[error("packed field at offset {offset} in {storage_width}-bit storage has zero width")]
     ZeroWidth {
         /// Containing packed storage width.
         storage_width: usize,
@@ -314,6 +314,7 @@ pub enum PackedLayoutError {
     },
 
     /// A requested packed field is outside the containing storage.
+    #[error("packed field offset {offset} width {width} is outside {storage_width}-bit storage")]
     RangeOutOfBounds {
         /// Containing packed storage width.
         storage_width: usize,
@@ -326,6 +327,7 @@ pub enum PackedLayoutError {
     },
 
     /// A scalar extraction or insertion requested more than 64 bits.
+    #[error("packed scalar field is {width} bits wide; maximum scalar width is {maximum}")]
     ScalarFieldTooWide {
         /// Requested field width.
         width: usize,
@@ -335,6 +337,10 @@ pub enum PackedLayoutError {
     },
 
     /// The supplied word slice length does not match the containing storage width.
+    #[error(
+        "{storage_width}-bit packed storage requires {expected} 32-bit words, but {actual} were \
+         supplied"
+    )]
     InvalidWordCount {
         /// Containing packed storage width.
         storage_width: usize,
@@ -347,8 +353,10 @@ pub enum PackedLayoutError {
     },
 
     /// A packed value could not be reconstructed from extracted words.
+    #[error("failed to construct extracted packed value: {source}")]
     InvalidPackedValue {
         /// Underlying bit-vector construction error.
+        #[source]
         source: InvalidBitVectorWordCount,
     },
 }
@@ -368,59 +376,6 @@ impl PackedLayoutError {
     #[must_use]
     pub const fn invalid_packed_value(source: InvalidBitVectorWordCount) -> Self {
         Self::InvalidPackedValue { source }
-    }
-}
-
-impl fmt::Display for PackedLayoutError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
-            Self::ZeroWidth {
-                storage_width,
-                offset,
-            } => write!(
-                formatter,
-                "packed field at offset {offset} in {storage_width}-bit storage has zero width",
-            ),
-            Self::RangeOutOfBounds {
-                storage_width,
-                offset,
-                width,
-            } => write!(
-                formatter,
-                "packed field offset {offset} width {width} is outside {storage_width}-bit storage",
-            ),
-            Self::ScalarFieldTooWide { width, maximum } => write!(
-                formatter,
-                "packed scalar field is {width} bits wide; maximum scalar width is {maximum}",
-            ),
-            Self::InvalidWordCount {
-                storage_width,
-                expected,
-                actual,
-            } => write!(
-                formatter,
-                "{storage_width}-bit packed storage requires {expected} 32-bit words, but \
-                 {actual} were supplied",
-            ),
-            Self::InvalidPackedValue { ref source } => {
-                write!(
-                    formatter,
-                    "failed to construct extracted packed value: {source}"
-                )
-            }
-        }
-    }
-}
-
-impl std::error::Error for PackedLayoutError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match *self {
-            Self::InvalidPackedValue { ref source } => Some(source),
-            Self::ZeroWidth { .. }
-            | Self::RangeOutOfBounds { .. }
-            | Self::ScalarFieldTooWide { .. }
-            | Self::InvalidWordCount { .. } => None,
-        }
     }
 }
 

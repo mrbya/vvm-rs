@@ -5,6 +5,7 @@ use crate::CoverageDefinitionFingerprint;
 
 /// Filesystem operation involved in coverage persistence.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum CoverageIoOperation {
     /// Create the output directory.
     CreateDirectory,
@@ -34,24 +35,31 @@ impl fmt::Display for CoverageIoOperation {
 }
 
 /// Failure while encoding, decoding, validating, or persisting an artifact.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum CoveragePersistenceError {
     /// JSON encoding failed.
+    #[error("could not encode coverage artifact JSON: {source}")]
     JsonEncode {
         /// Underlying JSON encoder error.
         source: serde_json::Error,
     },
     /// JSON decoding failed.
+    #[error("could not decode coverage artifact JSON: {source}")]
     JsonDecode {
         /// Underlying JSON decoder error.
         source: serde_json::Error,
     },
     /// Artifact format was not recognized.
+    #[error("unsupported coverage artifact format `{found}`")]
     InvalidFormat {
         /// Unrecognized format name.
         found: String,
     },
     /// Artifact schema version is unsupported.
+    #[error(
+        "unsupported coverage artifact schema version {found}; supported version is {supported}"
+    )]
     UnsupportedSchemaVersion {
         /// Encountered schema version.
         found: u32,
@@ -59,11 +67,16 @@ pub enum CoveragePersistenceError {
         supported: u32,
     },
     /// Fingerprint string was invalid.
+    #[error("invalid coverage definition fingerprint `{value}`")]
     InvalidFingerprint {
         /// Invalid fingerprint string.
         value: String,
     },
     /// Stored fingerprint disagreed with computed definition.
+    #[error(
+        "coverage fingerprint mismatch for instance `{instance_path}`: stored {stored}, computed \
+         {computed}"
+    )]
     FingerprintMismatch {
         /// Group instance path.
         instance_path: String,
@@ -73,11 +86,13 @@ pub enum CoveragePersistenceError {
         computed: CoverageDefinitionFingerprint,
     },
     /// Numeric conversion could not be represented.
+    #[error("coverage artifact numeric overflow for `{field}`")]
     NumericOverflow {
         /// Numeric field that overflowed.
         field: String,
     },
     /// JSON data violated an artifact invariant.
+    #[error("invalid coverage artifact data at `{path}`: {reason}")]
     InvalidData {
         /// Logical document path.
         path: String,
@@ -85,11 +100,13 @@ pub enum CoveragePersistenceError {
         reason: String,
     },
     /// Final destination already exists.
+    #[error("coverage artifact destination `{}` already exists", path.display())]
     DestinationExists {
         /// Existing final destination.
         path: PathBuf,
     },
     /// Filesystem operation failed.
+    #[error("could not {operation} coverage artifact `{}`: {source}", path.display())]
     Io {
         /// Failed filesystem operation.
         operation: CoverageIoOperation,
@@ -98,74 +115,4 @@ pub enum CoveragePersistenceError {
         /// Underlying I/O error.
         source: std::io::Error,
     },
-}
-
-impl fmt::Display for CoveragePersistenceError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
-            Self::JsonEncode { ref source } => write!(
-                formatter,
-                "could not encode coverage artifact JSON: {source}"
-            ),
-            Self::JsonDecode { ref source } => write!(
-                formatter,
-                "could not decode coverage artifact JSON: {source}"
-            ),
-            Self::InvalidFormat { ref found } => {
-                write!(formatter, "unsupported coverage artifact format `{found}`")
-            }
-            Self::UnsupportedSchemaVersion { found, supported } => write!(
-                formatter,
-                "unsupported coverage artifact schema version {found}; supported version is \
-                 {supported}"
-            ),
-            Self::InvalidFingerprint { ref value } => write!(
-                formatter,
-                "invalid coverage definition fingerprint `{value}`"
-            ),
-            Self::FingerprintMismatch {
-                ref instance_path,
-                stored,
-                computed,
-            } => write!(
-                formatter,
-                "coverage fingerprint mismatch for instance `{instance_path}`: stored {stored}, \
-                 computed {computed}"
-            ),
-            Self::NumericOverflow { ref field } => write!(
-                formatter,
-                "coverage artifact numeric overflow for `{field}`"
-            ),
-            Self::InvalidData {
-                ref path,
-                ref reason,
-            } => write!(
-                formatter,
-                "invalid coverage artifact data at `{path}`: {reason}"
-            ),
-            Self::DestinationExists { ref path } => write!(
-                formatter,
-                "coverage artifact destination `{}` already exists",
-                path.display()
-            ),
-            Self::Io {
-                operation,
-                ref path,
-                ref source,
-            } => write!(
-                formatter,
-                "could not {operation} coverage artifact `{}`: {source}",
-                path.display()
-            ),
-        }
-    }
-}
-impl std::error::Error for CoveragePersistenceError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match *self {
-            Self::JsonEncode { ref source } | Self::JsonDecode { ref source } => Some(source),
-            Self::Io { ref source, .. } => Some(source),
-            _ => None,
-        }
-    }
 }

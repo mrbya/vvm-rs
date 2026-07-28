@@ -225,6 +225,7 @@ impl<E> SimulationError<E> {
     }
 }
 
+// Clock-drive stages require optional clock-specific wording, unlike other stages.
 impl<E> fmt::Display for SimulationError<E>
 where
     E: fmt::Display,
@@ -252,6 +253,7 @@ where
     }
 }
 
+// The generic source must remain inspectable without imposing it on non-error displays.
 impl<E> std::error::Error for SimulationError<E>
 where
     E: std::error::Error + 'static,

@@ -1,4 +1,3 @@
-use std::fmt;
 use std::num::NonZeroUsize;
 
 /// Policy controlling when check failures stop a testbench run.
@@ -41,13 +40,7 @@ impl Default for FailurePolicy {
 }
 
 /// Error returned for a zero failure-retention limit.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
+#[error("maximum failure count must be > 0")]
 pub struct InvalidFailureLimit;
-
-impl fmt::Display for InvalidFailureLimit {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("maximum failure count must be > 0")
-    }
-}
-
-impl std::error::Error for InvalidFailureLimit {}

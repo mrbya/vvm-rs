@@ -60,24 +60,18 @@
 //! See the counter example for the complete testbench-to-report workflow.
 /// Persisted coverage artifacts.
 pub mod artifact;
-/// Coverage persistence errors.
-pub mod artifact_error;
 /// Coverage bin model.
 pub mod bin;
 /// Coverpoint runtime.
 pub mod coverpoint;
 /// Explicit two-way functional cross coverage.
 pub mod cross;
-/// Structured cross coverage errors.
-pub mod cross_error;
 /// Structured coverage errors.
-pub mod error;
+mod error;
 /// Stable structural coverage fingerprints.
 pub mod fingerprint;
 /// User-defined typed coverage groups.
 pub mod group;
-/// Structured coverage-group errors.
-pub mod group_error;
 /// Shared coverage identifier validation.
 mod identifier;
 /// Read-only type-erased coverage item inspection.
@@ -86,8 +80,6 @@ pub mod item;
 pub mod matcher;
 /// Deterministic offline coverage merging.
 pub mod merge;
-/// Structured coverage merge errors.
-pub mod merge_error;
 /// Typed coverage models and generated-code integration.
 pub mod model;
 /// Fixed-point coverage percentage presentation.
@@ -102,37 +94,33 @@ mod report_html;
 mod report_text;
 /// Mutable per-test coverage-session collection.
 pub mod session;
-/// Structured coverage-session errors.
-pub mod session_error;
 /// Immutable owned coverage snapshots.
 pub mod snapshot;
 
 pub use artifact::{CoverageArtifact, CoverageArtifactGroup};
-pub use artifact_error::{CoverageIoOperation, CoveragePersistenceError};
 pub use bin::{Bin, BinId, BinKind, CoverpointBin};
 pub use coverpoint::{
     CoverageCounterKind, CoverageSampleDisposition, Coverpoint, CoverpointBuilder, CoverpointSample,
 };
 pub use cross::{Cross2, Cross2Builder, CrossBin, CrossBinId, CrossSample, CrossSampleDisposition};
-pub use cross_error::{CrossAxis, CrossBuildError, CrossCounterKind, CrossSampleError};
-pub use error::{CoverageBuildError, CoverageSampleError};
+pub use error::{
+    CoverageBuildError, CoverageDefinitionError, CoverageGroupCountKind, CoverageGroupError,
+    CoverageIoOperation, CoverageMergeCountKind, CoverageMergeCounterKind, CoverageMergeError,
+    CoveragePersistenceError, CoverageRuntimeError, CoverageRuntimeItemKind, CoverageSampleError,
+    CoverageSessionCountKind, CoverageSessionError, CrossAxis, CrossBuildError, CrossCounterKind,
+    CrossSampleError,
+};
 pub use fingerprint::CoverageDefinitionFingerprint;
 pub use group::{CoverageGroup, CoverageGroupInstance, CoverageGroupSummary, CoverageGroupVisitor};
-pub use group_error::{CoverageGroupCountKind, CoverageGroupError};
 pub use item::{CoverageItemKind, CoverageItemRef};
 pub use matcher::BinMatcherKind;
 use matcher::MatcherValidationError;
 pub use merge::{CoverageMerge, CoverageMergeInput, CoverageMergePolicy, CoverageMergeSummary};
-pub use merge_error::{CoverageMergeCountKind, CoverageMergeCounterKind, CoverageMergeError};
-pub use model::{
-    CoverageDefinitionError, CoverageInstance, CoverageModel, CoverageRuntimeError,
-    CoverageRuntimeItemKind,
-};
+pub use model::{CoverageInstance, CoverageModel};
 pub use percentage::CoveragePercentage;
 pub use ratio::CoverageRatio;
 pub use report::{CoverageBinDetail, CoverageReport, CoverageReportOptions};
 pub use session::{CoverageSession, CoverageSessionSnapshot, CoverageSessionSummary};
-pub use session_error::{CoverageSessionCountKind, CoverageSessionError};
 pub use snapshot::{
     CoverageGroupSnapshot, CoverageItemSnapshot, CoverpointBinSnapshot, CoverpointSnapshot,
     Cross2Snapshot, CrossBinSnapshot,

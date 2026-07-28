@@ -5,14 +5,52 @@ use std::borrow::Borrow;
 use vvm::dut::{TimedDut, TraceableDut};
 use vvm::prelude::*;
 use vvm::timing::{
-    SimulationTime, TimeStep, TimingEvent, TimingRun, TimingScheduler, TimingSchedulerError,
-    TimingStage,
+    SchedulerError, SimulationTime, TimeStep, TimingEvent, TimingRun, TimingScheduler, TimingStage,
 };
+
+#[test]
+fn facade_exports_canonical_error_names() {
+    use vvm::coverage::artifact::{IoOperation, PersistenceError};
+    use vvm::coverage::merge::{MergeCountKind, MergeCounterKind, MergeError};
+    use vvm::coverage::session::{SessionCountKind, SessionError};
+    use vvm::coverage::{BuildError, DefinitionError, GroupError, RuntimeError, SampleError};
+    use vvm::packed::{LayoutError, UnpackedIndexError, WordCountError};
+    use vvm::random::{ReplayTokenParseError, SeedParseError};
+    use vvm::test::RegistryError;
+    use vvm::testbench::{FailureLimitError, SimulationError};
+    use vvm::timing::{ClockConfigurationError, SchedulerError, TimeStepError};
+
+    fn accepts<T>() {}
+
+    accepts::<BuildError>();
+    accepts::<DefinitionError>();
+    accepts::<GroupError>();
+    accepts::<RuntimeError>();
+    accepts::<SampleError>();
+    accepts::<IoOperation>();
+    accepts::<PersistenceError>();
+    accepts::<MergeCountKind>();
+    accepts::<MergeCounterKind>();
+    accepts::<MergeError>();
+    accepts::<SessionCountKind>();
+    accepts::<SessionError>();
+    accepts::<LayoutError>();
+    accepts::<UnpackedIndexError>();
+    accepts::<WordCountError>();
+    accepts::<ReplayTokenParseError>();
+    accepts::<SeedParseError>();
+    accepts::<RegistryError>();
+    accepts::<FailureLimitError>();
+    accepts::<SimulationError<MockError>>();
+    accepts::<ClockConfigurationError>();
+    accepts::<SchedulerError<MockError>>();
+    accepts::<TimeStepError>();
+}
 
 const fn uses_types(
     _: Option<TimingEvent>,
     _: Option<TimingRun>,
-    _: Option<TimingSchedulerError<MockError>>,
+    _: Option<SchedulerError<MockError>>,
     _: Option<TimingStage>,
 ) {
 }

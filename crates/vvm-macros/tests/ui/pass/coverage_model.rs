@@ -1,4 +1,4 @@
-use vvm::{coverage::{Bin, CoverageBuildError, Coverpoint, Cross2}, testbench::ObservedCycle};
+use vvm::{coverage::{Bin, BuildError, Coverpoint, Cross2}, testbench::ObservedCycle};
 
 #[derive(vvm::Coverage)]
 #[vvm(definition = "model", revision = 1, stimulus = Stimulus, observation = Observation)]
@@ -16,11 +16,11 @@ struct Stimulus(u8);
 #[derive(Clone, Copy)]
 struct Observation(bool);
 
-fn left(name: &'static str) -> Result<Coverpoint<u8>, CoverageBuildError> {
+fn left(name: &'static str) -> Result<Coverpoint<u8>, BuildError> {
     Coverpoint::builder(name).bin(Bin::value("zero", 0)).build()
 }
 
-fn right(name: &'static str) -> Result<Coverpoint<bool>, CoverageBuildError> {
+fn right(name: &'static str) -> Result<Coverpoint<bool>, BuildError> {
     Coverpoint::builder(name).bin(Bin::value("false", false)).build()
 }
 

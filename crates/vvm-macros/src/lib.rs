@@ -9,10 +9,10 @@ mod attrs;
 mod clock;
 /// Coverage model derives.
 mod coverage;
+/// Common compile-time derive-input diagnostics.
+mod diagnostic;
 /// Drive trait derives.
 mod drive;
-/// Common derive-input diagnostics.
-mod error;
 /// Sample traits derives
 mod sample;
 /// VVM test attribute expansion.

@@ -1,3 +1,5 @@
+use thiserror::Error;
+
 use crate::{
     CoverageGroup, CoverageRuntimeError, CoverageSession, CoverageSessionError,
     CoverageSessionSnapshot, TestRunConfig,
@@ -5,6 +7,7 @@ use crate::{
 
 /// Category of framework diagnostic deferred through [`TestContext`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum TestDiagnosticKind {
     /// Functional-coverage sampling failed.
     CoverageSampling,
@@ -25,36 +28,71 @@ impl std::fmt::Display for TestDiagnosticKind {
 }
 
 /// One deferred framework diagnostic retained with the test outcome.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TestDiagnostic {
-    /// Diagnostic category.
-    kind: TestDiagnosticKind,
-    /// Human-readable deterministic description.
-    message: String,
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+#[non_exhaustive]
+pub enum TestDiagnostic {
+    /// Functional-coverage sampling failed.
+    #[error("coverage sampling: {source}")]
+    CoverageSampling {
+        /// Typed coverage runtime error.
+        #[source]
+        source: CoverageRuntimeError,
+    },
+
+    /// Functional-coverage snapshot capture failed.
+    #[error("coverage capture: {source}")]
+    CoverageCapture {
+        /// Typed coverage session error.
+        #[source]
+        source: CoverageSessionError,
+    },
+
+    /// A coverage-capable test captured no groups.
+    #[error(
+        "missing coverage for test `{test}`: the test declared coverage but captured no groups"
+    )]
+    MissingCoverage {
+        /// Registered test name.
+        test: String,
+    },
 }
 
 impl TestDiagnostic {
     /// Returns the framework diagnostic category.
     #[must_use]
     pub const fn kind(&self) -> TestDiagnosticKind {
-        self.kind
+        match *self {
+            Self::CoverageSampling { .. } => TestDiagnosticKind::CoverageSampling,
+            Self::CoverageCapture { .. } => TestDiagnosticKind::CoverageCapture,
+            Self::MissingCoverage { .. } => TestDiagnosticKind::MissingCoverage,
+        }
     }
 
-    /// Returns the deterministic diagnostic description.
+    /// Returns the retained coverage runtime error when applicable.
     #[must_use]
-    pub fn message(&self) -> &str {
-        &self.message
+    pub const fn coverage_runtime_error(&self) -> Option<&CoverageRuntimeError> {
+        match *self {
+            Self::CoverageSampling { ref source } => Some(source),
+            Self::CoverageCapture { .. } | Self::MissingCoverage { .. } => None,
+        }
     }
 
-    /// Creates one framework diagnostic.
-    pub(crate) const fn new(kind: TestDiagnosticKind, message: String) -> Self {
-        Self { kind, message }
+    /// Returns the retained coverage session error when applicable.
+    #[must_use]
+    pub const fn coverage_session_error(&self) -> Option<&CoverageSessionError> {
+        match *self {
+            Self::CoverageCapture { ref source } => Some(source),
+            Self::CoverageSampling { .. } | Self::MissingCoverage { .. } => None,
+        }
     }
-}
 
-impl std::fmt::Display for TestDiagnostic {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(formatter, "{}: {}", self.kind, self.message)
+    /// Returns the test name when the diagnostic concerns missing coverage.
+    #[must_use]
+    pub fn test_name(&self) -> Option<&str> {
+        match *self {
+            Self::MissingCoverage { ref test } => Some(test),
+            Self::CoverageSampling { .. } | Self::CoverageCapture { .. } => None,
+        }
     }
 }
 
@@ -128,19 +166,15 @@ impl TestContext {
     }
 
     /// Records one deferred coverage sampling failure.
-    pub(crate) fn record_coverage_sampling_error(&mut self, error: &CoverageRuntimeError) {
-        self.diagnostics.push(TestDiagnostic::new(
-            TestDiagnosticKind::CoverageSampling,
-            error.to_string(),
-        ));
+    pub(crate) fn record_coverage_sampling_error(&mut self, error: CoverageRuntimeError) {
+        self.diagnostics
+            .push(TestDiagnostic::CoverageSampling { source: error });
     }
 
     /// Records one deferred coverage capture failure.
-    pub(crate) fn record_coverage_capture_error(&mut self, error: &CoverageSessionError) {
-        self.diagnostics.push(TestDiagnostic::new(
-            TestDiagnosticKind::CoverageCapture,
-            error.to_string(),
-        ));
+    pub(crate) fn record_coverage_capture_error(&mut self, error: CoverageSessionError) {
+        self.diagnostics
+            .push(TestDiagnostic::CoverageCapture { source: error });
     }
 
     /// Finalizes the owned per-test coverage session.
@@ -149,5 +183,50 @@ impl TestContext {
             coverage: self.coverage.finish(),
             diagnostics: self.diagnostics.into_boxed_slice(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::error::Error as _;
+
+    use crate::{
+        CoverageCounterKind, CoverageRuntimeError, CoverageSampleError, SimulationTime,
+        TestDiagnostic, TestDiagnosticKind,
+    };
+
+    #[test]
+    fn sampling_diagnostic_retains_typed_source() {
+        let runtime = CoverageRuntimeError::Coverpoint {
+            item: "opcode",
+            cycle: 7,
+            time: SimulationTime::from_ticks(12),
+            source: CoverageSampleError::CounterOverflow {
+                coverpoint: "opcode".to_owned(),
+                bin: Some("reserved".to_owned()),
+                counter: CoverageCounterKind::BinHits,
+            },
+        };
+        let diagnostic = TestDiagnostic::CoverageSampling { source: runtime };
+
+        assert_eq!(diagnostic.kind(), TestDiagnosticKind::CoverageSampling);
+        assert_eq!(
+            diagnostic
+                .coverage_runtime_error()
+                .map(CoverageRuntimeError::item),
+            Some("opcode")
+        );
+        assert!(diagnostic.coverage_session_error().is_none());
+        assert!(diagnostic.test_name().is_none());
+        assert!(
+            diagnostic
+                .source()
+                .is_some_and(<dyn std::error::Error>::is::<CoverageRuntimeError>)
+        );
+        assert_eq!(
+            diagnostic.to_string(),
+            "coverage sampling: coverage coverpoint `opcode` failed at cycle 7 at 12 ticks: \
+             functional coverage counter overflow in `opcode.reserved`: bin hit count",
+        );
     }
 }

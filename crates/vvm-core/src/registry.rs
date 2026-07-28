@@ -649,10 +649,9 @@ impl TestDescriptor {
         {
             finished.diagnostics = {
                 let mut diagnostics = finished.diagnostics.into_vec();
-                diagnostics.push(TestDiagnostic::new(
-                    TestDiagnosticKind::MissingCoverage,
-                    "test declared coverage but captured no coverage groups".to_owned(),
-                ));
+                diagnostics.push(TestDiagnostic::MissingCoverage {
+                    test: self.name().to_owned(),
+                });
                 diagnostics.into_boxed_slice()
             };
         }
@@ -705,65 +704,66 @@ impl fmt::Display for TestDescriptor {
 }
 
 /// Error returned when constructing or querying a test registry.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
 pub enum TestRegistryError {
     /// A descriptor has an invalid test name.
+    #[error("invalid registered test name `{name}`")]
     InvalidName {
         /// Invalid name.
         name: &'static str,
     },
 
     /// Two descriptors have the same name.
+    #[error("duplicate registered test name `{name}`")]
     DuplicateName {
         /// Duplicated name.
         name: &'static str,
     },
 
     /// The requested test does not exist.
+    #[error("unknown registered test {name}")]
     UnknownTest {
         /// Requested test name.
         name: String,
     },
 
     /// Replay configuration was supplied to a deterministic test.
+    #[error("test `{name}` does not accept replay configuration")]
     ReplayNotSupported {
         /// Deterministic test name.
         name: &'static str,
     },
 
     /// Trace output path was supplied to a test that does not support waveform tracing.
+    #[error("test `{name}` does not support waveform tracing")]
     TraceNotSupported {
         /// Test name.
         name: &'static str,
     },
 
     /// Cycle override was supplied to a test that does not suppport cycle override.
+    #[error("test `{name}` does not accept cycle override")]
     CycleOverrideNotSupported {
         /// Test name.
         name: &'static str,
     },
 }
 
-impl fmt::Display for TestRegistryError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl TestRegistryError {
+    /// Returns the affected registered or requested test name.
+    #[must_use]
+    pub fn test_name(&self) -> &str {
         match *self {
-            Self::InvalidName { name } => write!(f, "invalid registered test name `{name}`"),
-            Self::DuplicateName { name } => write!(f, "duplicate registered test name `{name}`"),
-            Self::UnknownTest { ref name } => write!(f, "unknown registered test {name}"),
-            Self::ReplayNotSupported { name } => {
-                write!(f, "test `{name}` does not accept replay configuration")
-            }
-            Self::CycleOverrideNotSupported { name } => {
-                write!(f, "test `{name}` does not accept cycle override")
-            }
-            Self::TraceNotSupported { name } => {
-                write!(f, "test `{name}` does not support waveform tracing")
-            }
+            Self::InvalidName { name }
+            | Self::DuplicateName { name }
+            | Self::ReplayNotSupported { name }
+            | Self::TraceNotSupported { name }
+            | Self::CycleOverrideNotSupported { name } => name,
+            Self::UnknownTest { ref name } => name,
         }
     }
 }
-
-impl std::error::Error for TestRegistryError {}
 
 /// Validated, ordered collection of registered tests.
 #[derive(Debug, Clone, Copy)]
@@ -957,7 +957,7 @@ mod tests {
         TestCapabilities, TestDescriptor, TestOutcome, TestRegistry, TestRegistryError,
         TestRunConfig,
     };
-    use crate::{ReplayToken, Seed, TestDiagnostic, TestDiagnosticKind};
+    use crate::{ReplayToken, Seed, TestDiagnostic};
 
     static CAPTURED_CONFIGS: OnceLock<Mutex<Vec<TestRunConfig>>> = OnceLock::new();
 
@@ -1093,15 +1093,15 @@ mod tests {
 
     #[test]
     fn diagnostics_preserve_original_outcome_details() {
-        let outcome =
-            TestOutcome::error("simulation failed").with_diagnostics(&[TestDiagnostic::new(
-                TestDiagnosticKind::CoverageSampling,
-                "coverage coverpoint `opcode` failed".to_owned(),
-            )]);
+        let outcome = TestOutcome::error("simulation failed").with_diagnostics(&[
+            TestDiagnostic::MissingCoverage {
+                test: "diagnostic-test".to_owned(),
+            },
+        ]);
 
         assert_eq!(outcome.status(), super::TestStatus::Error);
         assert!(outcome.summary().contains("simulation failed"));
         assert!(outcome.report().contains("Framework diagnostics"));
-        assert!(outcome.report().contains("coverage sampling"));
+        assert!(outcome.report().contains("missing coverage"));
     }
 }

@@ -6,6 +6,8 @@
 
 use std::fmt;
 
+use thiserror::Error;
+
 /// Number of bits stored by one trasfer word.
 const WORD_BITS: usize = 32;
 
@@ -41,7 +43,9 @@ pub struct SignedBits<const N: usize> {
 }
 
 /// Error returned when a packed value is constructed from the wrong number of 32-bit words.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
+#[non_exhaustive]
+#[error("{width}-bit value requires {expected} 32-bit words, but {actual} were supplied")]
 pub struct InvalidBitVectorWordCount {
     /// Declared packed width.
     width: usize,
@@ -72,18 +76,6 @@ impl InvalidBitVectorWordCount {
         self.actual
     }
 }
-
-impl fmt::Display for InvalidBitVectorWordCount {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}-bit value requires {} 32-bit words, but {} were supplied",
-            self.width, self.expected, self.actual,
-        )
-    }
-}
-
-impl std::error::Error for InvalidBitVectorWordCount {}
 
 impl<const N: usize> Bits<N> {
     /// Declared packed width.

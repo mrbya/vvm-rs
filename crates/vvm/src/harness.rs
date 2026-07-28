@@ -4,7 +4,11 @@ use std::sync::OnceLock;
 use std::time::{Duration, SystemTime};
 use std::{env, fmt, fs};
 
-use vvm_core::{CoverageArtifact, ReplayToken, Seed, TestDescriptor, TestRun, TestRunConfig};
+use thiserror::Error;
+use vvm_core::{
+    CoverageArtifact, CoveragePersistenceError, ParseReplayTokenError, ParseSeedError, ReplayToken,
+    Seed, TestDescriptor, TestRegistryError, TestRun, TestRunConfig,
+};
 
 /// Environment variable selecting a seed-derived replay token.
 const ENV_SEED: &str = "VVM_SEED";
@@ -33,10 +37,12 @@ fn run_test_with_overrides(
     descriptor: &TestDescriptor,
     overrides: &EnvOverrides,
 ) -> Result<(), TestFailure> {
-    let config = overrides.config_for(descriptor)?;
-    let run = descriptor
-        .run(&config)
-        .map_err(|error| TestFailure::configuration(descriptor.name(), error.to_string()))?;
+    let config = overrides
+        .config_for(descriptor)
+        .map_err(|error| TestFailure::configuration(descriptor.name(), error))?;
+    let run = descriptor.run(&config).map_err(|source| {
+        TestFailure::configuration(descriptor.name(), HarnessError::Registry { source })
+    })?;
 
     let test_failure = (!run.passed()).then(|| TestFailure::from_run(&run));
     let test_name = run.test().name();
@@ -46,19 +52,16 @@ fn run_test_with_overrides(
         .map(|session| {
             let artifact =
                 CoverageArtifact::from_session(outcome.status(), outcome.replay_token(), session)
-                    .map_err(|error| {
+                    .map_err(|source| {
                     TestFailure::configuration(
                         test_name,
-                        format!("coverage persistence failed: {error}"),
+                        HarnessError::CoveragePersistence { source },
                     )
                 })?;
             let path = overrides.coverage_path_for(test_name)?;
 
-            artifact.write_to(path).map_err(|error| {
-                TestFailure::configuration(
-                    test_name,
-                    format!("coverage persistence failed: {error}"),
-                )
+            artifact.write_to(path).map_err(|source| {
+                TestFailure::configuration(test_name, HarnessError::CoveragePersistence { source })
             })
         })
         .transpose();
@@ -81,9 +84,9 @@ pub struct TestFailure {
 
 impl TestFailure {
     /// Creates a configuration or setup failure.
-    fn configuration(name: &str, details: impl Into<String>) -> Self {
+    fn configuration(name: &str, details: impl std::fmt::Display) -> Self {
         Self {
-            message: format!("VVM test `{name}` failed\n\n{}", details.into()),
+            message: format!("VVM test `{name}` failed\n\n{details}"),
         }
     }
 
@@ -123,19 +126,71 @@ impl TestFailure {
     }
 }
 
+// The standard test harness only retains this final rendered report.
 impl fmt::Debug for TestFailure {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(&self.message)
     }
 }
 
+// Display intentionally matches Debug so test failures preserve the full report.
 impl fmt::Display for TestFailure {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(&self.message)
     }
 }
 
+// No source is exposed because this is the terminal test-harness report wrapper.
 impl std::error::Error for TestFailure {}
+
+/// Typed setup failure retained until the final test-harness reporting boundary.
+#[derive(Debug, Error)]
+enum HarnessError {
+    /// Replay and seed overrides conflict.
+    #[error("environment variables `{first}` and `{second}` are mutually exclusive")]
+    ConflictingEnvironment {
+        /// First conflicting variable.
+        first: &'static str,
+        /// Second conflicting variable.
+        second: &'static str,
+    },
+    /// A replay override was malformed.
+    #[error("invalid `{name}` value `{value}`: {source}")]
+    InvalidReplay {
+        /// Environment variable name.
+        name: &'static str,
+        /// Original value.
+        value: String,
+        /// Typed parse source.
+        #[source]
+        source: ParseReplayTokenError,
+    },
+    /// A seed override was malformed.
+    #[error("invalid `{name}` value `{value}`: {source}")]
+    InvalidSeed {
+        /// Environment variable name.
+        name: &'static str,
+        /// Original value.
+        value: String,
+        /// Typed parse source.
+        #[source]
+        source: ParseSeedError,
+    },
+    /// Test registration or configuration failed.
+    #[error("test configuration failed: {source}")]
+    Registry {
+        /// Typed registry source.
+        #[source]
+        source: TestRegistryError,
+    },
+    /// Coverage artifact construction or persistence failed.
+    #[error("coverage persistence failed: {source}")]
+    CoveragePersistence {
+        /// Typed persistence source.
+        #[source]
+        source: CoveragePersistenceError,
+    },
+}
 
 /// Parsed environment overrides shared across all standard test wrappers.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -170,24 +225,33 @@ impl EnvOverrides {
         if seed.is_some() && replay.is_some() {
             return Err(TestFailure::configuration(
                 test_name,
-                format!(
-                    "environment variables `{ENV_SEED}` and `{ENV_REPLAY}` are mutually exclusive"
-                ),
+                HarnessError::ConflictingEnvironment {
+                    first: ENV_SEED,
+                    second: ENV_REPLAY,
+                },
             ));
         }
 
         let replay_token = if let Some(value) = replay {
-            Some(value.parse::<ReplayToken>().map_err(|error| {
+            Some(value.parse::<ReplayToken>().map_err(|source| {
                 TestFailure::configuration(
                     test_name,
-                    format!("invalid `{ENV_REPLAY}` value `{value}`: {error}"),
+                    HarnessError::InvalidReplay {
+                        name: ENV_REPLAY,
+                        value,
+                        source,
+                    },
                 )
             })?)
         } else if let Some(value) = seed {
-            let parsed_seed = value.parse::<Seed>().map_err(|error| {
+            let parsed_seed = value.parse::<Seed>().map_err(|source| {
                 TestFailure::configuration(
                     test_name,
-                    format!("invalid `{ENV_SEED}` value `{value}`: {error}"),
+                    HarnessError::InvalidSeed {
+                        name: ENV_SEED,
+                        value,
+                        source,
+                    },
                 )
             })?;
             Some(ReplayToken::new(parsed_seed))

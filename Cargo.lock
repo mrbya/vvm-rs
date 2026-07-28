@@ -830,6 +830,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "thiserror",
 ]
 
 [[package]]
@@ -936,6 +937,7 @@ version = "0.1.0-alpha.1"
 dependencies = [
  "cxx",
  "tempfile",
+ "thiserror",
  "vvm-core",
  "vvm-macros",
 ]

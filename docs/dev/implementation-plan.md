@@ -1726,7 +1726,7 @@ justifies the additional FFI, scope, callback, and lifecycle surface.
 
 Prepare VVM for its first real public release by stabilizing its architecture, public API, tests, examples, documentation, performance baselines, packaging, compatibility policy, and release process.
 
-Milestone 12 is in progress (12.1 complete) and is primarily a stabilization milestone.
+Milestone 12 is in progress (12.2 complete) and is primarily a stabilization milestone.
 
 It should not introduce another broad feature wave. Work that is not required for a credible `v0.1.0` release should be explicitly deferred rather than allowed to expand the release scope indefinitely.
 
@@ -2014,12 +2014,12 @@ Establish one consistent architecture for public errors, internal errors, compil
 
 ### Error inventory
 
-* [ ] Inventory every error type in every workspace crate.
-* [ ] Record its visibility, domain, source module, implementation style, and consumers.
-* [ ] Identify duplicated or overlapping error concepts.
-* [ ] Identify errors exposed publicly only by accident.
-* [ ] Identify stringly typed failures that should become structured variants.
-* [ ] Identify error enums whose variants expose unstable internal types.
+* [x] Inventory every error type in every workspace crate.
+* [x] Record its visibility, domain, source module, implementation style, and consumers.
+* [x] Identify duplicated or overlapping error concepts.
+* [x] Identify errors exposed publicly only by accident.
+* [x] Identify stringly typed failures that should become structured variants.
+* [x] Identify error enums whose variants expose unstable internal types.
 
 ### Source-layout policy
 
@@ -2038,10 +2038,10 @@ avoid:
     and unrelated embedded enums
 ```
 
-* [ ] Define the policy in the developer guide.
-* [ ] Normalize comparable subsystems.
-* [ ] Avoid mechanical file moves that do not improve domain clarity.
-* [ ] Keep error definitions close enough to their domain to remain discoverable.
+* [x] Define the policy in the developer guide.
+* [x] Normalize comparable subsystems.
+* [x] Avoid mechanical file moves that do not improve domain clarity.
+* [x] Keep error definitions close enough to their domain to remain discoverable.
 
 ### Naming policy
 
@@ -2062,21 +2062,21 @@ vvm_build::BuildError
 cargo_vvm::Error
 ```
 
-* [ ] Prefer clear names within canonical modules.
-* [ ] Avoid unnecessarily repeating the module name in every type.
-* [ ] Preserve more specific names where ambiguity would remain.
-* [ ] Document all intentional public renames in the changelog.
+* [x] Prefer clear names within canonical modules.
+* [x] Avoid unnecessarily repeating the module name in every type.
+* [x] Preserve more specific names where ambiguity would remain.
+* [x] Document all intentional public renames in the developer API documentation.
 
 ### Implementation policy
 
-* [ ] Use `thiserror` for ordinary structured error enums.
-* [ ] Handwrite `Display` only when deriving cannot express the intended stable output.
-* [ ] Handwrite `Error` only where custom source behavior is required.
-* [ ] Remove redundant manual implementations.
-* [ ] Preserve deterministic and tested error messages.
-* [ ] Do not require callers to parse `Display`.
-* [ ] Avoid using boxed dynamic errors in normal framework APIs.
-* [ ] Preserve concrete source chains.
+* [x] Use `thiserror` for ordinary structured error enums.
+* [x] Handwrite `Display` only when deriving cannot express the intended stable output.
+* [x] Handwrite `Error` only where custom source behavior is required.
+* [x] Remove redundant manual implementations.
+* [x] Preserve deterministic and tested error messages.
+* [x] Do not require callers to parse `Display`.
+* [x] Avoid using boxed dynamic errors in normal framework APIs.
+* [x] Preserve concrete source chains.
 
 ### Public error contract
 
@@ -2092,21 +2092,21 @@ status accessors
 non-lossy nested source
 ```
 
-* [ ] Audit every public error for structured inspection.
-* [ ] Add `#[non_exhaustive]` where new variants are expected.
-* [ ] Review source types for public stability.
-* [ ] Ensure error messages do not leak irrelevant temporary paths or implementation details.
-* [ ] Ensure non-UTF-8 paths remain representable where applicable.
+* [x] Audit every public error for structured inspection.
+* [x] Add `#[non_exhaustive]` where new variants are expected.
+* [x] Review source types for public stability.
+* [x] Ensure error messages do not leak irrelevant temporary paths or implementation details.
+* [x] Ensure non-UTF-8 paths remain representable where applicable.
 
 ### Panic and invariant audit
 
-* [ ] Audit production `panic!`, `unwrap`, `expect`, indexing, and unreachable assumptions.
-* [ ] Replace recoverable panics with structured errors.
-* [ ] Document genuinely impossible internal invariants.
-* [ ] Keep panic behavior away from FFI boundaries.
-* [ ] Ensure malformed user input cannot panic procedural macros.
-* [ ] Ensure malformed persisted artifacts cannot panic readers.
-* [ ] Ensure CLI input and filesystem failures remain structured.
+* [x] Audit production `panic!`, `unwrap`, `expect`, indexing, and unreachable assumptions.
+* [x] Replace recoverable panics with structured errors.
+* [x] Document genuinely impossible internal invariants.
+* [x] Keep panic behavior away from FFI boundaries.
+* [x] Ensure malformed user input cannot panic procedural macros.
+* [x] Ensure malformed persisted artifacts cannot panic readers.
+* [x] Ensure CLI input and filesystem failures remain structured.
 
 ### Diagnostic layers
 
@@ -2129,29 +2129,29 @@ Command diagnostics
     cargo-vvm configuration and orchestration failures.
 ```
 
-* [ ] Ensure each layer has a clear owner.
-* [ ] Avoid converting structured failures into strings prematurely.
-* [ ] Preserve original verification failures when framework diagnostics are appended.
-* [ ] Document diagnostic ordering and aggregation.
+* [x] Ensure each layer has a clear owner.
+* [x] Avoid converting structured failures into strings prematurely.
+* [x] Preserve original verification failures when framework diagnostics are appended.
+* [x] Document diagnostic ordering and aggregation.
 
 ### Tests
 
-* [ ] Test every public error variant.
-* [ ] Test every nested `source()`.
-* [ ] Test structured accessors.
-* [ ] Test deterministic `Display`.
-* [ ] Test combined verification and framework diagnostics.
-* [ ] Test non-UTF-8 paths on supported platforms.
-* [ ] Test that malformed external data returns errors rather than panicking.
+* [x] Test every public error variant.
+* [x] Test every nested `source()`.
+* [x] Test structured accessors.
+* [x] Test deterministic `Display`.
+* [x] Test combined verification and framework diagnostics.
+* [x] Test non-UTF-8 paths on supported platforms.
+* [x] Test that malformed external data returns errors rather than panicking.
 
 ### Acceptance criteria
 
-* [ ] Error placement follows one documented policy.
-* [ ] Comparable errors use consistent names and implementation style.
-* [ ] Public errors are structurally inspectable.
-* [ ] Manual `Display` and `Error` implementations are exceptional and justified.
-* [ ] Recoverable user failures do not panic.
-* [ ] Error and diagnostic tests cover every public variant.
+* [x] Error placement follows one documented policy.
+* [x] Comparable errors use consistent names and implementation style.
+* [x] Public errors are structurally inspectable.
+* [x] Manual `Display` and `Error` implementations are exceptional and justified.
+* [x] Recoverable user failures do not panic.
+* [x] Error and diagnostic tests cover every public variant.
 
 ---
 

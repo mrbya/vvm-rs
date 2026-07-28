@@ -85,7 +85,7 @@ pub(crate) mod verilator;
 
 // Re-exports
 pub use builder::DutBuilder;
-pub use error::{BuildError, BuildResult};
+pub use error::{BuildError, BuildResult, BuildStage};
 pub use trace::TraceOptions;
 
 // Tests

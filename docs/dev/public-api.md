@@ -28,13 +28,24 @@ New root exports require a Rust-language ergonomics justification. New prelude
 items must be common to ordinary test bodies. Do not create duplicate canonical
 paths; generated-only support belongs in `__private`.
 
-## Provisional inventory
+## Final error paths
 
-Review with `cargo public-api -p vvm-rs` when `cargo-public-api` is installed,
-or inspect `cargo doc -p vvm-rs --no-deps` otherwise. This is a provisional
-pre-0.1.0 baseline: facade modules are canonical user-facing APIs, coverage
+The reviewed facade error paths are `vvm::coverage::{BuildError,
+DefinitionError, GroupError, RuntimeError, SampleError, CrossBuildError,
+CrossSampleError}`, `vvm::coverage::artifact::{IoOperation, PersistenceError}`,
+`vvm::coverage::merge::{MergeError, MergeCountKind, MergeCounterKind}`,
+`vvm::coverage::session::{SessionError, SessionCountKind}`,
+`vvm::packed::{LayoutError, UnpackedIndexError, WordCountError}`,
+`vvm::random::{ReplayTokenParseError, SeedParseError}`,
+`vvm::test::RegistryError`, `vvm::testbench::{FailureLimitError,
+SimulationError}`, and `vvm::timing::{ClockConfigurationError, SchedulerError,
+TimeStepError}`.
+
+The inventory was reviewed with `cargo public-api` for `vvm-rs`, `vvm-core`,
+and `vvm-build` after the 12.2 migration. The v0.1.0 baseline uses facade
+modules as canonical user-facing APIs, coverage
 submodules are advanced user-facing APIs, `__private` is generated-only, and
 the former root types plus `IntoTestOutcome`, callback aliases, `NoCoverage`,
 `Unconfigured`, `CoverageSpec`, `CoverageSampleSpec`, and
 `unpacked_array_ordinal` are removed accidental exports. The final semver
-baseline follows Milestone 12.2 error normalization.
+baseline includes the canonical error paths above.

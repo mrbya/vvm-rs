@@ -4,6 +4,7 @@ use crate::CoverageGroupError;
 
 /// Aggregate count maintained by a per-test coverage session.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum CoverageSessionCountKind {
     /// Captured group instances.
     Groups,
@@ -35,14 +36,17 @@ impl fmt::Display for CoverageSessionCountKind {
 }
 
 /// Failure while constructing or capturing a coverage session.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
 pub enum CoverageSessionError {
     /// Test name is invalid.
+    #[error("invalid coverage-session test name `{name}`")]
     InvalidTestName {
         /// Invalid test name.
         name: String,
     },
     /// Captured group is structurally invalid.
+    #[error("coverage session for test `{test}` could not capture coverage group: {source}")]
     InvalidGroup {
         /// Associated test name.
         test: String,
@@ -50,6 +54,7 @@ pub enum CoverageSessionError {
         source: Box<CoverageGroupError>,
     },
     /// An instance path has already been captured.
+    #[error("coverage session for test `{test}` already contains instance path `{instance_path}`")]
     DuplicateInstancePath {
         /// Associated test name.
         test: String,
@@ -57,6 +62,7 @@ pub enum CoverageSessionError {
         instance_path: String,
     },
     /// An aggregate session counter overflowed.
+    #[error("coverage session for test `{test}` overflowed its {counter}")]
     CountOverflow {
         /// Associated test name.
         test: String,
@@ -104,39 +110,5 @@ impl CoverageSessionError {
         } else {
             None
         }
-    }
-}
-impl fmt::Display for CoverageSessionError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
-            Self::InvalidTestName { ref name } => {
-                write!(f, "invalid coverage-session test name `{name}`")
-            }
-            Self::InvalidGroup {
-                ref test,
-                ref source,
-            } => write!(
-                f,
-                "coverage session for test `{test}` could not capture coverage group: {source}"
-            ),
-            Self::DuplicateInstancePath {
-                ref test,
-                ref instance_path,
-            } => write!(
-                f,
-                "coverage session for test `{test}` already contains instance path \
-                 `{instance_path}`"
-            ),
-            Self::CountOverflow { ref test, counter } => write!(
-                f,
-                "coverage session for test `{test}` overflowed its {counter}"
-            ),
-        }
-    }
-}
-impl std::error::Error for CoverageSessionError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        self.group_error()
-            .map(|source| -> &(dyn std::error::Error + 'static) { source })
     }
 }

@@ -4,6 +4,7 @@ use crate::CrossAxis;
 
 /// Checked count accumulated while inspecting a coverage group.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum CoverageGroupCountKind {
     /// Total exposed items.
     Items,
@@ -33,19 +34,23 @@ impl fmt::Display for CoverageGroupCountKind {
 }
 
 /// Invalid coverage-group identity, structure, or metric.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
 pub enum CoverageGroupError {
     /// Definition name is invalid.
+    #[error("invalid coverage-group definition name `{name}`")]
     InvalidDefinitionName {
         /// Invalid definition name.
         name: String,
     },
     /// Hierarchical instance path is invalid.
+    #[error("invalid coverage-group instance path `{path}`")]
     InvalidInstancePath {
         /// Invalid path.
         path: String,
     },
     /// Group exposes no coverage items.
+    #[error("coverage group `{definition}` instance `{instance}` contains no coverage items")]
     EmptyGroup {
         /// Definition name.
         definition: String,
@@ -53,6 +58,9 @@ pub enum CoverageGroupError {
         instance: String,
     },
     /// Two items share one name.
+    #[error(
+        "coverage group `{definition}` instance `{instance}` contains duplicate item name `{item}`"
+    )]
     DuplicateItemName {
         /// Definition name.
         definition: String,
@@ -62,6 +70,10 @@ pub enum CoverageGroupError {
         item: String,
     },
     /// One exact coverpoint instance is exposed more than once.
+    #[error(
+        "coverage group `{definition}` instance `{instance}` exposes coverpoint `{coverpoint}` \
+         more than once"
+    )]
     DuplicateCoverpoint {
         /// Definition name.
         definition: String,
@@ -71,6 +83,10 @@ pub enum CoverageGroupError {
         coverpoint: String,
     },
     /// Cross source coverpoint is absent from the group.
+    #[error(
+        "cross `{cross}` in coverage group `{definition}` instance `{instance}` references \
+         missing {axis} coverpoint `{coverpoint}`"
+    )]
     MissingCrossSource {
         /// Definition name.
         definition: String,
@@ -84,6 +100,7 @@ pub enum CoverageGroupError {
         coverpoint: String,
     },
     /// An aggregate count could not be represented.
+    #[error("coverage group `{definition}` instance `{instance}` overflowed {counter}")]
     CountOverflow {
         /// Definition name.
         definition: String,
@@ -166,62 +183,3 @@ impl CoverageGroupError {
         }
     }
 }
-
-impl fmt::Display for CoverageGroupError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
-            Self::InvalidDefinitionName { ref name } => {
-                write!(f, "invalid coverage-group definition name `{name}`")
-            }
-            Self::InvalidInstancePath { ref path } => {
-                write!(f, "invalid coverage-group instance path `{path}`")
-            }
-            Self::EmptyGroup {
-                ref definition,
-                ref instance,
-            } => write!(
-                f,
-                "coverage group `{definition}` instance `{instance}` contains no coverage items"
-            ),
-            Self::DuplicateItemName {
-                ref definition,
-                ref instance,
-                ref item,
-            } => write!(
-                f,
-                "coverage group `{definition}` instance `{instance}` contains duplicate item name \
-                 `{item}`"
-            ),
-            Self::DuplicateCoverpoint {
-                ref definition,
-                ref instance,
-                ref coverpoint,
-            } => write!(
-                f,
-                "coverage group `{definition}` instance `{instance}` exposes coverpoint \
-                 `{coverpoint}` more than once"
-            ),
-            Self::MissingCrossSource {
-                ref definition,
-                ref instance,
-                ref cross,
-                axis,
-                ref coverpoint,
-            } => write!(
-                f,
-                "cross `{cross}` in coverage group `{definition}` instance `{instance}` \
-                 references missing {axis} coverpoint `{coverpoint}`"
-            ),
-            Self::CountOverflow {
-                ref definition,
-                ref instance,
-                counter,
-            } => write!(
-                f,
-                "coverage group `{definition}` instance `{instance}` overflowed {counter}"
-            ),
-        }
-    }
-}
-
-impl std::error::Error for CoverageGroupError {}

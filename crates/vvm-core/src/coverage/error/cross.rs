@@ -1,27 +1,33 @@
 use core::fmt;
 
-use super::CrossBinId;
-use crate::BinId;
+use crate::{BinId, CrossBinId};
 
 /// Invalid two-way cross definition.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
 pub enum CrossBuildError {
     /// Cross name is invalid.
+    #[error("invalid functional coverage cross name `{name}`")]
     InvalidName {
         /// Invalid name.
         name: String,
     },
     /// Generated cross bins have a zero hit threshold.
+    #[error("cross `{cross}` requires a non-zero hit threshold")]
     ZeroRequiredHits {
         /// Cross name.
         cross: String,
     },
     /// Cross-bin cardinality limit is zero.
+    #[error("cross `{cross}` requires a non-zero bin limit")]
     ZeroBinLimit {
         /// Cross name.
         cross: String,
     },
     /// Axis cardinality multiplication overflowed.
+    #[error(
+        "cross `{cross}` cardinality overflow: {left_bins} left bins × {right_bins} right bins"
+    )]
     CardinalityOverflow {
         /// Cross name.
         cross: String,
@@ -31,6 +37,7 @@ pub enum CrossBuildError {
         right_bins: usize,
     },
     /// Generated cardinality exceeds the configured bound.
+    #[error("cross `{cross}` would generate {total_bins} bins, exceeding limit {limit}")]
     BinLimitExceeded {
         /// Cross name.
         cross: String,
@@ -44,6 +51,7 @@ pub enum CrossBuildError {
         limit: usize,
     },
     /// Generated bins cannot be represented by `CrossBinId`.
+    #[error("cross `{cross}` contains too many bins: {total_bins}")]
     TooManyBins {
         /// Cross name.
         cross: String,
@@ -67,50 +75,9 @@ impl CrossBuildError {
     }
 }
 
-impl fmt::Display for CrossBuildError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
-            Self::InvalidName { ref name } => {
-                write!(f, "invalid functional coverage cross name `{name}`")
-            }
-            Self::ZeroRequiredHits { ref cross } => {
-                write!(f, "cross `{cross}` requires a non-zero hit threshold")
-            }
-            Self::ZeroBinLimit { ref cross } => {
-                write!(f, "cross `{cross}` requires a non-zero bin limit")
-            }
-            Self::CardinalityOverflow {
-                ref cross,
-                left_bins,
-                right_bins,
-            } => write!(
-                f,
-                "cross `{cross}` cardinality overflow: {left_bins} left bins × {right_bins} right \
-                 bins"
-            ),
-            Self::BinLimitExceeded {
-                ref cross,
-                total_bins,
-                limit,
-                ..
-            } => write!(
-                f,
-                "cross `{cross}` would generate {total_bins} bins, exceeding limit {limit}"
-            ),
-            Self::TooManyBins {
-                ref cross,
-                total_bins,
-            } => {
-                write!(f, "cross `{cross}` contains too many bins: {total_bins}")
-            }
-        }
-    }
-}
-
-impl std::error::Error for CrossBuildError {}
-
 /// Side of a two-way cross.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum CrossAxis {
     /// Left coverpoint.
     Left,
@@ -129,6 +96,7 @@ impl fmt::Display for CrossAxis {
 
 /// Kind of two-way cross counter.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum CrossCounterKind {
     /// Total cross sample calls.
     Samples,
@@ -150,6 +118,7 @@ impl fmt::Display for CrossCounterKind {
 
 /// Failure while sampling a two-way cross.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum CrossSampleError {
     /// Sample originated from a different coverpoint instance.
     SourceMismatch {
@@ -244,6 +213,8 @@ impl CrossSampleError {
     }
 }
 
+// This remains manual because optional bin context must appear in a fixed order.
+// Counter overflow wording depends on whether a generated cross-bin ID exists.
 impl fmt::Display for CrossSampleError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {

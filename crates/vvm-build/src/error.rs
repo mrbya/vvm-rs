@@ -8,6 +8,26 @@ use thiserror::Error;
 /// Result alias used by `vvm-build`.
 pub type BuildResult<T> = std::result::Result<T, BuildError>;
 
+/// Stable phase of the DUT build pipeline that produced an error.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum BuildStage {
+    /// Validating builder configuration.
+    Configuration,
+    /// Validating configured filesystem paths.
+    PathValidation,
+    /// Discovering the Verilator installation and version.
+    VerilatorDiscovery,
+    /// Running Verilator.
+    VerilatorExecution,
+    /// Reading and validating Verilator metadata.
+    Metadata,
+    /// Generating Rust and C++ bridge source.
+    CodeGeneration,
+    /// Compiling generated native sources.
+    NativeCompilation,
+}
+
 /// An error encountered while generating or compiling a Verilated DUT.
 #[derive(Debug, Error)]
 #[non_exhaustive]
@@ -441,4 +461,104 @@ pub enum BuildError {
     /// Build was configured with an unsupported waveform trace format.
     #[error("currently, only VCD waveform trace format is supported")]
     UnsupportedTraceFormat,
+}
+
+impl BuildError {
+    /// Returns the pipeline stage that produced this error.
+    #[must_use]
+    pub const fn stage(&self) -> BuildStage {
+        match *self {
+            Self::MissingTopModule
+            | Self::MissingSources
+            | Self::MissingBridge
+            | Self::InvalidIdentifier { .. }
+            | Self::DuplicateDefine { .. }
+            | Self::ReservedVerilatorArgument { .. }
+            | Self::UnsupportedVerilatorArgument { .. }
+            | Self::UnsupportedTraceFormat => BuildStage::Configuration,
+            Self::MissingConfiguredPath { .. }
+            | Self::ConfiguredPathNotFile { .. }
+            | Self::ConfiguredPathNotDirectory { .. }
+            | Self::DuplicateConfiguredPath { .. }
+            | Self::MissingEnvironmentVariable { .. } => BuildStage::PathValidation,
+            Self::InvalidVerilatorVersion { .. }
+            | Self::UnsupportedVerilatorVersion { .. }
+            | Self::EmptyVerilatorRoot => BuildStage::VerilatorDiscovery,
+            Self::CommandStart { .. }
+            | Self::CommandFailed { .. }
+            | Self::InvalidCommandOutput { .. } => BuildStage::VerilatorExecution,
+            Self::MissingMetadataOutput { .. }
+            | Self::MetadataOutputNotFile { .. }
+            | Self::MetadataRead { .. }
+            | Self::InvalidMetadataJson { .. }
+            | Self::MetadataRootNotObject { .. }
+            | Self::MissingMetadataField { .. }
+            | Self::InvalidMetadataFieldType { .. }
+            | Self::MissingTopModuleMetadata { .. }
+            | Self::DuplicateTopModuleMetadata { .. }
+            | Self::DuplicateMetadataAddress { .. }
+            | Self::UnresolvedPortDataType { .. }
+            | Self::DuplicatePortName { .. }
+            | Self::UnknownPortDirection { .. }
+            | Self::InvalidPortRange { .. }
+            | Self::UnsupportedPortDataType { .. }
+            | Self::UnsupportedInoutPort { .. }
+            | Self::UnsupportedInoutPortShape { .. }
+            | Self::UnsupportedPackedArrayPort { .. }
+            | Self::UnsupportedPackedStructPort { .. }
+            | Self::UnsupportedPackedEnumPort { .. }
+            | Self::UnsupportedUnpackedArrayPort { .. } => BuildStage::Metadata,
+            Self::NoGeneratedSources { .. }
+            | Self::MissingRuntimeSource { .. }
+            | Self::UnsupportedCodegenName { .. }
+            | Self::GeneratedNameCollision { .. } => BuildStage::CodeGeneration,
+            Self::Io { .. } => BuildStage::NativeCompilation,
+        }
+    }
+
+    /// Returns the lossless path retained by this error when one is available.
+    #[must_use]
+    pub fn path(&self) -> Option<&std::path::Path> {
+        match *self {
+            Self::MissingConfiguredPath { ref path, .. }
+            | Self::ConfiguredPathNotFile { ref path, .. }
+            | Self::ConfiguredPathNotDirectory { ref path, .. }
+            | Self::DuplicateConfiguredPath { ref path, .. }
+            | Self::Io { ref path, .. }
+            | Self::NoGeneratedSources { ref path }
+            | Self::MissingRuntimeSource { ref path }
+            | Self::MissingMetadataOutput { ref path, .. }
+            | Self::MetadataOutputNotFile { ref path, .. }
+            | Self::MetadataRead { ref path, .. }
+            | Self::InvalidMetadataJson { ref path, .. }
+            | Self::MetadataRootNotObject { ref path, .. }
+            | Self::MissingMetadataField { ref path, .. }
+            | Self::InvalidMetadataFieldType { ref path, .. }
+            | Self::MissingTopModuleMetadata { ref path, .. }
+            | Self::DuplicateTopModuleMetadata { ref path, .. }
+            | Self::DuplicateMetadataAddress { ref path, .. }
+            | Self::UnresolvedPortDataType { ref path, .. } => Some(path),
+            _ => None,
+        }
+    }
+
+    /// Returns the rendered command retained by this error when one is available.
+    #[must_use]
+    pub fn command(&self) -> Option<&str> {
+        match *self {
+            Self::CommandStart { ref command, .. } | Self::CommandFailed { ref command, .. } => {
+                Some(command)
+            }
+            _ => None,
+        }
+    }
+
+    /// Returns the process exit status retained by this error when one is available.
+    #[must_use]
+    pub const fn exit_status(&self) -> Option<ExitStatus> {
+        match *self {
+            Self::CommandFailed { status, .. } => Some(status),
+            _ => None,
+        }
+    }
 }

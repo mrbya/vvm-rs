@@ -5,6 +5,7 @@ use crate::{CoverageDefinitionFingerprint, CoverageMergePolicy, CoveragePersiste
 
 /// Runtime counter merged across compatible artifacts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum CoverageMergeCounterKind {
     /// Coverpoint attempted samples.
     CoverpointSamples,
@@ -41,6 +42,7 @@ impl fmt::Display for CoverageMergeCounterKind {
 
 /// Checked structural or provenance count in a merged result.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum CoverageMergeCountKind {
     /// Input artifacts.
     Artifacts,
@@ -91,21 +93,26 @@ impl fmt::Display for CoverageMergeCountKind {
 }
 
 /// Failure while combining validated functional-coverage artifacts.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum CoverageMergeError {
     /// No per-test artifact was supplied.
+    #[error("no coverage artifacts were supplied")]
     NoInputArtifacts,
     /// The policy excluded every artifact.
+    #[error("coverage merge policy `{policy}` excluded every artifact")]
     NoIncludedArtifacts {
         /// Applied policy.
         policy: CoverageMergePolicy,
     },
     /// One exact file path appeared more than once.
+    #[error("duplicate coverage input path `{}`", path.display())]
     DuplicateInputPath {
         /// Duplicate path.
         path: PathBuf,
     },
     /// One artifact file could not be read or validated.
+    #[error("could not read coverage artifact `{}`: {source}", path.display())]
     ReadArtifact {
         /// Input file path.
         path: PathBuf,
@@ -113,6 +120,7 @@ pub enum CoverageMergeError {
         source: CoveragePersistenceError,
     },
     /// One included group path used incompatible definitions.
+    #[error("incompatible coverage definitions for instance `{instance_path}`")]
     IncompatibleDefinition {
         /// Conflicting group instance path.
         instance_path: Box<str>,
@@ -134,6 +142,10 @@ pub enum CoverageMergeError {
         incoming_fingerprint: Box<CoverageDefinitionFingerprint>,
     },
     /// Matching fingerprints were paired with unequal structure.
+    #[error(
+        "coverage definition structure mismatch for instance `{instance_path}` at `{path}`: \
+         {reason}"
+    )]
     DefinitionStructureMismatch {
         /// Group instance path.
         instance_path: String,
@@ -145,6 +157,7 @@ pub enum CoverageMergeError {
         reason: String,
     },
     /// A runtime counter could not be summed.
+    #[error("coverage merge overflow for {counter} in `{instance_path}.{item}`")]
     CounterOverflow {
         /// Group instance path.
         instance_path: String,
@@ -156,80 +169,15 @@ pub enum CoverageMergeError {
         counter: CoverageMergeCounterKind,
     },
     /// A result-summary count could not be represented.
+    #[error("coverage merge summary overflow for {counter}")]
     CountOverflow {
         /// Overflowed summary count.
         counter: CoverageMergeCountKind,
     },
     /// Canonical ordering or artifact conversion failed.
+    #[error("coverage merge persistence failure: {source}")]
     Persistence {
         /// Nested persistence error.
         source: CoveragePersistenceError,
     },
-}
-
-impl fmt::Display for CoverageMergeError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
-            Self::NoInputArtifacts => formatter.write_str("no coverage artifacts were supplied"),
-            Self::NoIncludedArtifacts { policy } => write!(
-                formatter,
-                "coverage merge policy `{policy}` excluded every artifact"
-            ),
-            Self::DuplicateInputPath { ref path } => write!(
-                formatter,
-                "duplicate coverage input path `{}`",
-                path.display()
-            ),
-            Self::ReadArtifact {
-                ref path,
-                ref source,
-            } => write!(
-                formatter,
-                "could not read coverage artifact `{}`: {source}",
-                path.display()
-            ),
-            Self::IncompatibleDefinition {
-                ref instance_path, ..
-            } => write!(
-                formatter,
-                "incompatible coverage definitions for instance `{instance_path}`"
-            ),
-            Self::DefinitionStructureMismatch {
-                ref instance_path,
-                ref path,
-                ref reason,
-                ..
-            } => write!(
-                formatter,
-                "coverage definition structure mismatch for instance `{instance_path}` at \
-                 `{path}`: {reason}"
-            ),
-            Self::CounterOverflow {
-                ref instance_path,
-                ref item,
-                counter,
-                ..
-            } => write!(
-                formatter,
-                "coverage merge overflow for {counter} in `{instance_path}.{item}`"
-            ),
-            Self::CountOverflow { counter } => {
-                write!(formatter, "coverage merge summary overflow for {counter}")
-            }
-            Self::Persistence { ref source } => {
-                write!(formatter, "coverage merge persistence failure: {source}")
-            }
-        }
-    }
-}
-
-impl std::error::Error for CoverageMergeError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match *self {
-            Self::ReadArtifact { ref source, .. } | Self::Persistence { ref source } => {
-                Some(source)
-            }
-            _ => None,
-        }
-    }
 }

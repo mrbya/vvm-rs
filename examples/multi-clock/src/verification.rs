@@ -1,7 +1,7 @@
 use thiserror::Error;
 use vvm::testbench::{Mismatch, ReferenceModel, TestResult};
 use vvm::timing::{
-    ClockConfigurationError, ClockScheduler, ClockTiming, CycleTiming, InvalidTimeStep, TimeStep,
+    ClockConfigurationError, ClockScheduler, ClockTiming, CycleTiming, TimeStep, TimeStepError,
 };
 use vvm::{Clock, Drive, Sample};
 
@@ -12,7 +12,7 @@ pub enum Error {
     #[error(transparent)]
     Dut(#[from] MultiClockCounterError),
     #[error(transparent)]
-    InvalidTimeStep(#[from] InvalidTimeStep),
+    InvalidTimeStep(#[from] TimeStepError),
     #[error(transparent)]
     ClockConfiguration(#[from] ClockConfigurationError),
     #[error(transparent)]

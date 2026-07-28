@@ -1,4 +1,22 @@
-use core::fmt;
+/// Coverage artifact persistence errors.
+mod artifact;
+/// Cross construction and sampling errors.
+mod cross;
+/// Coverage-group construction errors.
+mod group;
+/// Coverage merge errors.
+mod merge;
+/// Typed coverage model construction and sampling errors.
+mod model;
+/// Coverage session errors.
+mod session;
+
+pub use artifact::{CoverageIoOperation, CoveragePersistenceError};
+pub use cross::{CrossAxis, CrossBuildError, CrossCounterKind, CrossSampleError};
+pub use group::{CoverageGroupCountKind, CoverageGroupError};
+pub use merge::{CoverageMergeCountKind, CoverageMergeCounterKind, CoverageMergeError};
+pub use model::{CoverageDefinitionError, CoverageRuntimeError, CoverageRuntimeItemKind};
+pub use session::{CoverageSessionCountKind, CoverageSessionError};
 
 use crate::coverage::{BinKind, CoverageCounterKind};
 
@@ -6,15 +24,18 @@ use crate::coverage::{BinKind, CoverageCounterKind};
 ///
 /// These errors report invalid definitions during [`crate::CoverpointBuilder::build`],
 /// before runtime sampling begins.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
 pub enum CoverageBuildError {
     /// Coverpoint name is invalid.
+    #[error("coverpoint name `{name}` is invalid")]
     InvalidCoverpointName {
         /// Provided name.
         name: String,
     },
 
     /// Bin name is invalid.
+    #[error("coverpoint `{coverpoint}`, bin `{bin}` name is invalid")]
     InvalidBinName {
         /// Owning coverpoint.
         coverpoint: String,
@@ -24,6 +45,7 @@ pub enum CoverageBuildError {
     },
 
     /// Two bins share one name.
+    #[error("coverpoint `{coverpoint}` already contains bin `{bin}`")]
     DuplicateBinName {
         /// Owning coverpoint.
         coverpoint: String,
@@ -33,12 +55,14 @@ pub enum CoverageBuildError {
     },
 
     /// No normal bins were provided.
+    #[error("coverpoint `{coverpoint}` contains no normal bins")]
     NoNormalBins {
         /// Coverpoint name.
         coverpoint: String,
     },
 
     /// Value-set matcher contains no values.
+    #[error("coverpoint `{coverpoint}`, bin `{bin}` contains no values to match against")]
     EmptyValueSet {
         /// Coverpoint name.
         coverpoint: String,
@@ -48,6 +72,7 @@ pub enum CoverageBuildError {
     },
 
     /// Value-set matcher repeats a value.
+    #[error("coverpoint `{coverpoint}`, bin `{bin}` contains duplicate values")]
     DuplicateValue {
         /// Coverpoint name.
         coverpoint: String,
@@ -63,6 +88,7 @@ pub enum CoverageBuildError {
     },
 
     /// Inclusive range bounds are invalid.
+    #[error("coverpoint `{coverpoint}`, bin `{bin}` inclusive range boundaries are invalid")]
     InvalidInclusiveRange {
         /// Coverpoint name.
         coverpoint: String,
@@ -72,6 +98,7 @@ pub enum CoverageBuildError {
     },
 
     /// Normal-bin hit threshold is zero.
+    #[error("coverpoint `{coverpoint}`, normal bin `{bin}` hit threshold is zero")]
     ZeroRequiredHits {
         /// Coverpoint name.
         coverpoint: String,
@@ -81,6 +108,9 @@ pub enum CoverageBuildError {
     },
 
     /// Ignore or illegal bin has a custom threshold.
+    #[error(
+        "coverpoint `{coverpoint}`, excluded {kind} bin `{bin}` has a non-zero hit requirement"
+    )]
     HitRequirementOnExcludedBin {
         /// Coverpoint name.
         coverpoint: String,
@@ -93,75 +123,12 @@ pub enum CoverageBuildError {
     },
 
     /// More bins exist than `BinId` can represent.
+    #[error("coverpoint `{coverpoint}` contains too many bins")]
     TooManyBins {
         /// Coverpoint name.
         coverpoint: String,
     },
 }
-
-impl fmt::Display for CoverageBuildError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match *self {
-            Self::InvalidCoverpointName { ref name } => {
-                write!(f, "coverpoint name `{name}` is invalid")
-            }
-            Self::InvalidBinName {
-                ref coverpoint,
-                ref bin,
-            } => write!(f, "coverpoint `{coverpoint}`, bin `{bin}` name is invalid"),
-            Self::DuplicateBinName {
-                ref coverpoint,
-                ref bin,
-            } => write!(f, "coverpoint `{coverpoint}` already contains bin `{bin}`"),
-            Self::NoNormalBins { ref coverpoint } => {
-                write!(f, "coverpoint `{coverpoint}` contains no normal bins")
-            }
-            Self::EmptyValueSet {
-                ref coverpoint,
-                ref bin,
-            } => write!(
-                f,
-                "coverpoint `{coverpoint}`, bin `{bin}` contains no values to match against"
-            ),
-            Self::DuplicateValue {
-                ref coverpoint,
-                ref bin,
-                ..
-            } => write!(
-                f,
-                "coverpoint `{coverpoint}`, bin `{bin}` contains duplicate values"
-            ),
-            Self::InvalidInclusiveRange {
-                ref coverpoint,
-                ref bin,
-            } => write!(
-                f,
-                "coverpoint `{coverpoint}`, bin `{bin}` inclusive range boundaries are invalid"
-            ),
-            Self::ZeroRequiredHits {
-                ref coverpoint,
-                ref bin,
-            } => write!(
-                f,
-                "coverpoint `{coverpoint}`, normal bin `{bin}` hit threshold is zero"
-            ),
-            Self::HitRequirementOnExcludedBin {
-                ref coverpoint,
-                ref bin,
-                kind,
-            } => write!(
-                f,
-                "coverpoint `{coverpoint}`, excluded {kind} bin `{bin}` has a non-zero hit \
-                 requirement"
-            ),
-            Self::TooManyBins { ref coverpoint } => {
-                write!(f, "coverpoint `{coverpoint}` contains too many bins")
-            }
-        }
-    }
-}
-
-impl std::error::Error for CoverageBuildError {}
 
 /// Failure while sampling functional coverage.
 ///
@@ -170,6 +137,7 @@ impl std::error::Error for CoverageBuildError {}
 /// [`CoverageSampleError::CounterOverflow`] means an update cannot be
 /// represented and no counter mutation occurs.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum CoverageSampleError {
     /// One or more illegal bins matched.
     IllegalBinHit {
@@ -245,6 +213,7 @@ impl CoverageSampleError {
     }
 }
 
+// This remains manual because illegal bins must be formatted in their sample order.
 impl std::fmt::Display for CoverageSampleError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {

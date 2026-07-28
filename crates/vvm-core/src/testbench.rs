@@ -653,12 +653,12 @@ where
             }
         });
 
-        if let Some(error) = sampling_error.as_ref() {
+        if let Some(error) = sampling_error {
             context.record_coverage_sampling_error(error);
         }
 
         if let Err(error) = context.capture_coverage(&coverage) {
-            context.record_coverage_capture_error(&error);
+            context.record_coverage_capture_error(error);
         }
 
         result

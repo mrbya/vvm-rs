@@ -1,33 +1,7 @@
 use std::num::NonZeroU64;
 
-use super::{Clock, ClockTiming};
+use super::{Clock, ClockConfigurationError, ClockTiming};
 use crate::{Dut, TimeStep};
-
-/// Error returned while configuring a clock scheduler.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ClockConfigurationError {
-    /// A clock name was empty.
-    EmptyName,
-
-    /// Two clocks used the same diagnostic name.
-    DuplicateName {
-        /// Duplicate clock name.
-        name: String,
-    },
-}
-
-impl std::fmt::Display for ClockConfigurationError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match *self {
-            Self::EmptyName => formatter.write_str("clock name must not be empty"),
-            Self::DuplicateName { ref name } => {
-                write!(formatter, "clock name `{name}` is already registered")
-            }
-        }
-    }
-}
-
-impl std::error::Error for ClockConfigurationError {}
 
 /// Current semantic phase of one clock.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -381,6 +355,7 @@ impl<E> ClockDriveFailure<E> {
     }
 }
 
+// This internal failure renders scheduler-local clock and phase context.
 impl<E> std::fmt::Display for ClockDriveFailure<E>
 where
     E: std::fmt::Display,

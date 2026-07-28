@@ -3,6 +3,7 @@ use std::str::FromStr;
 
 use rand_chacha::ChaCha8Rng;
 use rand_core::{Rng, SeedableRng};
+use thiserror::Error;
 
 /// User-provided seed for a deterministic random stream.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -65,19 +66,20 @@ impl FromStr for Seed {
 }
 
 /// Random seed parsing failure.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+#[error("failed to parse random seed from `{string}`")]
 pub struct ParseSeedError {
     /// String random seed was parsed from.
     string: String,
 }
 
-impl fmt::Display for ParseSeedError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "failed to parse random seed from `{}`", self.string)
+impl ParseSeedError {
+    /// Returns the invalid seed input.
+    #[must_use]
+    pub fn input(&self) -> &str {
+        &self.string
     }
 }
-
-impl std::error::Error for ParseSeedError {}
 
 /// Deterministic random-stream algorithm.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -140,43 +142,30 @@ impl fmt::Display for ReplayToken {
 }
 
 /// Error returned when parsing a replay token.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+#[non_exhaustive]
 pub enum ParseReplayTokenError {
     /// The algorithm/seed separator is missing.
+    #[error("`{string}` is missing `:` separator")]
     MissingSeparator {
         /// String replay token was parsed from.
         string: String,
     },
 
     /// The algorithm identifier is not supported.
+    #[error("`{algo}` algorithm is not supported by VVM randomization")]
     UnsupportedAlgorithm {
         /// String algorithm was parsed from.
         algo: String,
     },
 
     /// The hexadecimal seed is malformed.
+    #[error("`{seed}` is not a valid seed value")]
     InvalidSeed {
         /// String seed was parsed from.
         seed: String,
     },
 }
-
-impl fmt::Display for ParseReplayTokenError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match *self {
-            Self::MissingSeparator { ref string } => {
-                write!(f, "`{string}` is missing `:` separator")
-            }
-            Self::UnsupportedAlgorithm { ref algo } => write!(
-                f,
-                "`{algo}` algorithm is not supported by VVM randomization"
-            ),
-            Self::InvalidSeed { ref seed } => write!(f, "`{seed}` is not a valid seed value"),
-        }
-    }
-}
-
-impl std::error::Error for ParseReplayTokenError {}
 
 impl FromStr for ReplayToken {
     type Err = ParseReplayTokenError;

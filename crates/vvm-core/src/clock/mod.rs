@@ -3,7 +3,11 @@ use crate::{CycleTiming, Dut, TimeStep};
 /// Independently timed clock scheduling primitives.
 pub mod scheduler;
 
-pub use scheduler::{ClockConfigurationError, ClockScheduler};
+/// Clock scheduler configuration errors.
+mod error;
+
+pub use error::ClockConfigurationError;
+pub use scheduler::ClockScheduler;
 
 /// Drive the inactive and active phases of a synchronous DUT clock.
 ///

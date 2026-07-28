@@ -84,16 +84,10 @@ impl TimeStep {
 }
 
 /// Error returned when constructing a zero time step.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
+#[error("simulation time step must be non-zero")]
 pub struct InvalidTimeStep;
-
-impl fmt::Display for InvalidTimeStep {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("simulation time step must be non-zero")
-    }
-}
-
-impl std::error::Error for InvalidTimeStep {}
 
 /// Timing configuration for one complete synchronous clock cycle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

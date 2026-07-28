@@ -1,4 +1,4 @@
-use vvm::coverage::{Bin, CoverageBuildError, Coverpoint, Cross2};
+use vvm::coverage::{Bin, BuildError, Coverpoint, Cross2};
 use vvm::testbench::ObservedCycle;
 
 use crate::verification::{CounterObservation, CounterStimulus};
@@ -38,9 +38,7 @@ pub struct CounterCoverage {
 }
 
 /// Builds the operation coverpoint.
-fn operation_coverpoint(
-    name: &'static str,
-) -> Result<Coverpoint<CounterOperation>, CoverageBuildError> {
+fn operation_coverpoint(name: &'static str) -> Result<Coverpoint<CounterOperation>, BuildError> {
     Coverpoint::builder(name)
         .bin(Bin::value("hold", CounterOperation::Hold))
         .bin(Bin::value("count", CounterOperation::Count))
@@ -50,7 +48,7 @@ fn operation_coverpoint(
 }
 
 /// Builds the count-region coverpoint.
-fn count_region_coverpoint(name: &'static str) -> Result<Coverpoint<u8>, CoverageBuildError> {
+fn count_region_coverpoint(name: &'static str) -> Result<Coverpoint<u8>, BuildError> {
     Coverpoint::builder(name)
         .bin(Bin::value("zero", 0_u8))
         .bin(Bin::inclusive_range("low", 1_u8, 15_u8))
@@ -61,7 +59,7 @@ fn count_region_coverpoint(name: &'static str) -> Result<Coverpoint<u8>, Coverag
 }
 
 /// Builds the output parity coverpoint.
-fn parity_coverpoint(name: &'static str) -> Result<Coverpoint<bool>, CoverageBuildError> {
+fn parity_coverpoint(name: &'static str) -> Result<Coverpoint<bool>, BuildError> {
     Coverpoint::builder(name)
         .bin(Bin::value("even", false))
         .bin(Bin::value("odd", true))

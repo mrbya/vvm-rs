@@ -1,9 +1,11 @@
 //! Unpacked-array indexing helpers.
 
-use std::fmt;
+use thiserror::Error;
 
 /// Error returned when an HDL unpacked-array index is outside its declared range.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Error)]
+#[non_exhaustive]
+#[error("HDL unpacked-array index {index} is outside [{left}:{right}]")]
 pub struct UnpackedArrayIndexError {
     /// Requested HDL index.
     index: i64,
@@ -36,18 +38,6 @@ impl UnpackedArrayIndexError {
         self.right
     }
 }
-
-impl fmt::Display for UnpackedArrayIndexError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            formatter,
-            "HDL unpacked-array index {} is outside [{}:{}]",
-            self.index, self.left, self.right
-        )
-    }
-}
-
-impl std::error::Error for UnpackedArrayIndexError {}
 
 /// Converts an HDL unpacked-array index into a zero-based declaration-order ordinal.
 ///

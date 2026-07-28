@@ -1,7 +1,7 @@
 use thiserror::Error;
-use vvm::coverage::CoverageDefinitionError;
+use vvm::coverage::DefinitionError;
 use vvm::random::{RandomContext, ReplayToken, ReplayableSequence};
-use vvm::testbench::{InvalidFailureLimit, Mismatch, ReferenceModel, TestResult};
+use vvm::testbench::{FailureLimitError, Mismatch, ReferenceModel, TestResult};
 use vvm::{Clock, Drive, Sample};
 
 use crate::counter::CounterError;
@@ -19,11 +19,11 @@ pub enum Error {
 
     /// Invalid failure-policy configuration.
     #[error(transparent)]
-    FailurePolicy(#[from] InvalidFailureLimit),
+    FailurePolicy(#[from] FailureLimitError),
 
     /// Coverage definition construction failure.
     #[error(transparent)]
-    CoverageDefinition(#[from] CoverageDefinitionError),
+    CoverageDefinition(#[from] DefinitionError),
 }
 
 /// Counter simulation result.

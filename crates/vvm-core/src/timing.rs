@@ -11,6 +11,7 @@ use crate::{Dut, SimulationTime, TimeStep, TimedDut};
 
 /// Operation performed by a timing scheduler.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum TimingStage {
     /// Initial DUT evaluation.
     Initialize,
@@ -37,27 +38,34 @@ impl std::fmt::Display for TimingStage {
 }
 
 /// Error returned by [`TimingScheduler`].
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
 pub enum TimingSchedulerError<E> {
     /// Initialization was requested more than once.
+    #[error("timing scheduler has already been initialized")]
     AlreadyInitialized,
     /// An operation requiring initialization was called too early.
+    #[error("timing scheduler has not been initialized")]
     NotInitialized,
     /// A DUT operation failed.
+    #[error("timing scheduler failed while {stage} at {time}: {source}")]
     Dut {
         /// Scheduler stage.
         stage: TimingStage,
         /// DUT time associated with the failure.
         time: SimulationTime,
         /// Underlying DUT error.
+        #[source]
         source: E,
     },
     /// The DUT reported pending work but no next time.
+    #[error("timed DUT reported a pending event but no next time slot at {time}")]
     MissingTimeSlot {
         /// Current DUT time.
         time: SimulationTime,
     },
     /// The DUT reported an event earlier than the current time.
+    #[error("timed DUT reported event time {next} before current time {current}")]
     TimeSlotInPast {
         /// Current DUT time.
         current: SimulationTime,
@@ -65,11 +73,13 @@ pub enum TimingSchedulerError<E> {
         next: SimulationTime,
     },
     /// The DUT reported the current time as the next slot.
+    #[error("timed DUT reported non-advancing event time {time}")]
     NonAdvancingTimeSlot {
         /// Current and reported time.
         time: SimulationTime,
     },
     /// The configured total delayed-slot limit was reached.
+    #[error("timing scheduler reached its {limit}-slot limit at {time} while events remained")]
     TimeSlotLimitReached {
         /// Maximum total number of delayed slots.
         limit: u64,
@@ -77,6 +87,7 @@ pub enum TimingSchedulerError<E> {
         time: SimulationTime,
     },
     /// Scheduler counters could not be incremented safely.
+    #[error("timing scheduler statistics overflowed at {time}")]
     StatisticsOverflow {
         /// DUT time associated with overflow.
         time: SimulationTime,
@@ -101,69 +112,18 @@ impl<E> TimingSchedulerError<E> {
             _ => None,
         }
     }
-}
 
-impl<E> std::fmt::Display for TimingSchedulerError<E>
-where
-    E: std::fmt::Display,
-{
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    /// Returns the relevant scheduler time when the error has one.
+    #[must_use]
+    pub const fn time(&self) -> Option<SimulationTime> {
         match *self {
-            Self::AlreadyInitialized => {
-                formatter.write_str("timing scheduler has already been initialized")
-            }
-            Self::NotInitialized => {
-                formatter.write_str("timing scheduler has not been initialized")
-            }
-            Self::Dut {
-                ref stage,
-                ref time,
-                ref source,
-            } => {
-                write!(
-                    formatter,
-                    "timing scheduler failed while {stage} at {time}: {source}"
-                )
-            }
-            Self::MissingTimeSlot { ref time } => write!(
-                formatter,
-                "timed DUT reported a pending event but no next time slot at {time}"
-            ),
-            Self::TimeSlotInPast {
-                ref current,
-                ref next,
-            } => write!(
-                formatter,
-                "timed DUT reported event time {next} before current time {current}"
-            ),
-            Self::NonAdvancingTimeSlot { ref time } => {
-                write!(
-                    formatter,
-                    "timed DUT reported non-advancing event time {time}"
-                )
-            }
-            Self::TimeSlotLimitReached { limit, ref time } => write!(
-                formatter,
-                "timing scheduler reached its {limit}-slot limit at {time} while events remained"
-            ),
-            Self::StatisticsOverflow { ref time } => {
-                write!(
-                    formatter,
-                    "timing scheduler statistics overflowed at {time}"
-                )
-            }
-        }
-    }
-}
-
-impl<E> std::error::Error for TimingSchedulerError<E>
-where
-    E: std::error::Error + 'static,
-{
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match *self {
-            Self::Dut { ref source, .. } => Some(source),
-            _ => None,
+            Self::Dut { time, .. }
+            | Self::MissingTimeSlot { time }
+            | Self::NonAdvancingTimeSlot { time }
+            | Self::TimeSlotLimitReached { time, .. }
+            | Self::StatisticsOverflow { time } => Some(time),
+            Self::TimeSlotInPast { current, .. } => Some(current),
+            Self::AlreadyInitialized | Self::NotInitialized => None,
         }
     }
 }

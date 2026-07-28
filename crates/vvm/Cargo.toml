@@ -23,6 +23,7 @@ workspace = true
 vvm-core.workspace = true
 vvm-macros.workspace = true
 cxx.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

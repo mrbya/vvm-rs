@@ -133,7 +133,7 @@ pub use packed::{
     extract_unsigned, insert_packed, insert_signed, insert_signed_packed, insert_unsigned,
 };
 pub use random::{
-    ParseReplayTokenError, RandomAlgorithm, RandomContext, Randomize, ReplayToken,
+    ParseReplayTokenError, ParseSeedError, RandomAlgorithm, RandomContext, Randomize, ReplayToken,
     ReplayableSequence, Seed,
 };
 pub use reference_model::ReferenceModel;

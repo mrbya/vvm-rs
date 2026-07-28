@@ -1,6 +1,6 @@
 use std::num::{NonZeroU64, ParseIntError};
 
-use vvm::timing::{TimingEvent, TimingSchedulerError};
+use vvm::timing::{SchedulerError, TimingEvent};
 
 use crate::delayed_sequence::DelayedSequenceError;
 
@@ -16,7 +16,7 @@ pub enum Error {
 
     /// Timing scheduler operation failed.
     #[error(transparent)]
-    Timing(#[from] TimingSchedulerError<DelayedSequenceError>),
+    Timing(#[from] SchedulerError<DelayedSequenceError>),
 
     /// Trace filesystem operation failed.
     #[error(transparent)]

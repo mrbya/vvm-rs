@@ -1,5 +1,3 @@
-use std::fmt;
-
 /// Compares an expected result against an observed result.
 pub trait Scoreboard<E, O> {
     /// Error returned when comparison fails.
@@ -20,7 +18,8 @@ pub trait Scoreboard<E, O> {
 pub struct ExactScoreboard;
 
 /// Exact comparison failure.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("scoreboard mismatch: expected {expected:?}, observed {observed:?}")]
 pub struct Mismatch<E, O> {
     /// Expected value.
     expected: E,
@@ -47,27 +46,6 @@ impl<E, O> Mismatch<E, O> {
     pub fn into_parts(self) -> (E, O) {
         (self.expected, self.observed)
     }
-}
-
-impl<E, O> fmt::Display for Mismatch<E, O>
-where
-    E: fmt::Debug,
-    O: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "scoreboard mismatch: expected {:?}, observed {:?}",
-            self.expected, self.observed
-        )
-    }
-}
-
-impl<E, O> std::error::Error for Mismatch<E, O>
-where
-    E: fmt::Debug,
-    O: fmt::Debug,
-{
 }
 
 impl<T> Scoreboard<T, T> for ExactScoreboard

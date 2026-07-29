@@ -92,6 +92,7 @@ impl BusContention {
 }
 
 impl fmt::Display for BusContention {
+    /// Formats the exact contended-bit mask for user-facing diagnostics.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             formatter,
@@ -118,6 +119,7 @@ pub const fn resolve_bus(
 ) -> Result<BusResolution, BusContention> {
     let overlap = dut.enable() & external.enable();
     let differing_values = dut.value() ^ external.value();
+    // Only conflicting bits that both sides actively drive are contention.
     let contention = overlap & differing_values;
 
     if contention != 0 {
@@ -181,18 +183,21 @@ pub enum SettleError {
 }
 
 impl From<crate::tri_state_bus::TriStateBusError> for SettleError {
+    /// Wraps a generated-DUT failure in the settling error domain.
     fn from(error: crate::tri_state_bus::TriStateBusError) -> Self {
         Self::Dut(error)
     }
 }
 
 impl From<BusContention> for SettleError {
+    /// Wraps deterministic resolution contention in the settling error domain.
     fn from(error: BusContention) -> Self {
         Self::Contention(error)
     }
 }
 
 impl fmt::Display for SettleError {
+    /// Formats stable diagnostics for each settling failure category.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             Self::Dut(error) => write!(formatter, "tri-state DUT operation failed: {error}"),
@@ -214,6 +219,7 @@ impl fmt::Display for SettleError {
 }
 
 impl std::error::Error for SettleError {
+    /// Returns the generated-DUT or contention source when one exists.
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match *self {
             Self::Dut(ref error) => Some(error),
@@ -242,6 +248,8 @@ pub fn settle_bus(
     }
 
     for evaluation in 1..=max_evaluations {
+        // Evaluate first: the DUT proposal can depend combinationally on the
+        // resolved value presented during the preceding iteration.
         dut.eval()?;
 
         let state = dut.data()?;
@@ -255,6 +263,8 @@ pub fn settle_bus(
             });
         }
 
+        // A changed resolved input needs another evaluation before declaring
+        // convergence; the limit keeps feedback loops bounded.
         dut.set_data_input(resolution.value())?;
     }
 
@@ -264,6 +274,7 @@ pub fn settle_bus(
 }
 
 #[cfg(test)]
+/// Unit checks for the deterministic push-pull policy.
 mod tests {
     use super::{BusDriver, resolve_bus};
 

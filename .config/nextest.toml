@@ -1,0 +1,7 @@
+# Native fixture tests deliberately build copied consumer projects with isolated
+# Cargo targets. A clean Verilator/C++ compile can exceed the generic 60-second
+# slow-test threshold on constrained CI workers, without indicating a hang.
+
+[[profile.default.overrides]]
+filter = 'test(native_)'
+slow-timeout = { period = "180s", terminate-after = 2 }

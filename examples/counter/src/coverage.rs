@@ -90,6 +90,7 @@ const fn parity_for(cycle: ObservedCycle<'_, CounterStimulus, CounterObservation
 }
 
 #[cfg(test)]
+/// Coverage-definition regression checks.
 mod tests {
     use vvm::coverage::{CoverageGroup, CoverageGroupVisitor, CoverageItemRef};
 
@@ -109,6 +110,7 @@ mod tests {
 
     #[test]
     fn group_visitation_order_is_stable() -> Result<(), Box<dyn std::error::Error>> {
+        /// Collects visited coverage-item names for deterministic-order checks.
         struct Names(Vec<String>);
         impl CoverageGroupVisitor for Names {
             fn visit(&mut self, item: CoverageItemRef<'_>) {

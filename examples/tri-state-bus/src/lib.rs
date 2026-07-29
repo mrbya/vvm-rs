@@ -1,14 +1,18 @@
 //! Caller-owned tri-state bus resolution example.
 
+// Include the generated wrapper rather than exposing CXX or Verilator details.
 #[cfg(test)]
 vvm::include_dut!(tri_state_bus);
 
+/// Caller-owned inout resolution and settling policy.
 #[cfg(test)]
 mod resolution;
 
+/// Typed generated-DUT drive and observation definitions.
 #[cfg(test)]
 mod verification;
 
+/// Vertical inout-resolution integration scenarios.
 #[cfg(test)]
 mod tests {
     use std::error::Error;
@@ -27,8 +31,10 @@ mod tests {
         external: BusDriver,
         floating_value: u8,
     ) -> Result<(crate::resolution::SettleRun, BusObservation), Box<dyn Error>> {
+        // First apply DUT-owned controls; external resolution happens in Rust.
         controls.drive(dut)?;
 
+        // Settling repeatedly evaluates the feedback path at one logical time.
         let run = settle_bus(dut, external, floating_value, 8)?;
         let observation = BusObservation::sample(dut)?;
 

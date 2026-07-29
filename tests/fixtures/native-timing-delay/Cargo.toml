@@ -1,0 +1,18 @@
+[package]
+name = "vvm-native-fixture-timing-delay"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.87"
+publish = false
+build = "build.rs"
+description = "VVM timing-enabled delayed-event verification example"
+
+[dev-dependencies]
+tempfile = "3"
+thiserror = "2"
+vvm = { package = "vvm-rs", path = "__VVM_PATH__" }
+
+[build-dependencies]
+vvm-build = { path = "__VVM_BUILD_PATH__" }
+
+[workspace]

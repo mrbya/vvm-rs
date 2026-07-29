@@ -42,14 +42,25 @@ test-fixtures *FLAGS:
 # Run tests that require Verilator and native C++ compilation.
 test-native *FLAGS:
     cargo nextest run --all-features -p vvm-rs --test integration_tests {{FLAGS}}
-    cargo nextest run --all-features --workspace --exclude vvm-rs --exclude cargo-vvm --exclude vvm-core --exclude vvm-build --exclude vvm-macros {{FLAGS}}
+    @just test-native-fixtures {{FLAGS}}
+    @just test-examples {{FLAGS}}
+
+# Run maintained user-facing native examples.
+test-examples *FLAGS:
+    cargo nextest run --all-features -p vvm-example-counter -p vvm-example-sync-fifo -p vvm-example-timed-uart -p vvm-example-async-fifo -p vvm-example-tri-state-bus {{FLAGS}}
+
+# Run copied, isolated native HDL fixture workspaces.
+test-native-fixtures *FLAGS:
+    cargo nextest run --all-features -p vvm-rs --test fixtures -E 'test(native_)' {{FLAGS}}
 
 # Run the release-facing native workflows.
 test-e2e *FLAGS:
-    cargo nextest run --all-features -p vvm-example-counter -p vvm-example-multi-clock -p vvm-example-timing-delay -p vvm-example-tri-state-bus {{FLAGS}}
+    @just test-examples {{FLAGS}}
     cargo nextest run --all-features -p vvm-rs --test fixtures -E 'test(clean_consumer_generates_and_executes_a_dut)' {{FLAGS}}
     cargo nextest run --all-features -p cargo-vvm --test cli -E 'test(coverage_command_writes_merged_and_rendered_counter_reports)' {{FLAGS}}
     cargo nextest run --all-features -p cargo-vvm --test cli -E 'test(coverage_command_preserves_test_failure_after_writing_counter_reports)' {{FLAGS}}
+    @just functional-coverage-fifo
+    @just functional-coverage-async-fifo
 
 # Verify the publishable crate archives without contacting crates.io.
 test-package *FLAGS:
@@ -84,6 +95,30 @@ functional-coverage-example OUTPUT='target/vvm-functional-coverage':
 
     rm -rf "{{OUTPUT}}"
     cargo run -p cargo-vvm -- coverage --output "{{OUTPUT}}" --name counter -- test -p vvm-example-counter counter_
+
+# Runs the synchronous FIFO functional-coverage workflow.
+functional-coverage-fifo OUTPUT='target/vvm-sync-fifo-coverage':
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    rm -rf "{{OUTPUT}}"
+    cargo run -p cargo-vvm -- coverage --output "{{OUTPUT}}" --name sync-fifo -- test -p vvm-example-sync-fifo fifo_
+
+# Runs the asynchronous FIFO functional-coverage workflow.
+functional-coverage-async-fifo OUTPUT='target/vvm-async-fifo-coverage':
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    rm -rf "{{OUTPUT}}"
+    cargo run -p cargo-vvm -- coverage --output "{{OUTPUT}}" --name async-fifo -- test -p vvm-example-async-fifo async_fifo_random
+
+# Runs the timed UART functional-coverage workflow.
+functional-coverage-timed-uart OUTPUT='target/vvm-timed-uart-coverage':
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    rm -rf "{{OUTPUT}}"
+    cargo run -p cargo-vvm -- coverage --output "{{OUTPUT}}" --name timed-uart -- test -p vvm-example-timed-uart uart_random_frames
 
 # Produces retained text, JSON, Cobertura, and HTML coverage artifacts.
 test-cov-ci *FLAGS:

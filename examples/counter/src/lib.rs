@@ -14,6 +14,7 @@ mod test_cases;
 mod verification;
 
 #[cfg(test)]
+/// End-to-end counter integration checks.
 mod tests {
     use std::path::Path;
 

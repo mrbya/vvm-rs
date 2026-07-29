@@ -177,7 +177,7 @@ Removed. Shared ABI support should only return once concrete cross-DUT native fu
 | 9 | Public facade | Complete |
 | 10 | Tracing, reporting, and standard test harness | Complete |
 | 11 | Wider HDL feature support and Rust-native coverage | Complete |
-| 12 | Pre-release cleanup and polish | Planned |
+| 12 | Pre-release cleanup and polish | In progress (12.4 example curation underway) |
 
 ---
 
@@ -2332,11 +2332,11 @@ Make `examples/` a collection of understandable real verification use cases rath
 
 ### Example inventory
 
-* [ ] Inventory every current example.
-* [ ] Record the VVM or HDL feature it exists to exercise.
-* [ ] Identify examples that are primarily type-shape or code-generation fixtures.
-* [ ] Identify duplicate examples that teach no additional workflow.
-* [ ] Identify missing realistic use cases.
+* [x] Inventory every current example.
+* [x] Record the VVM or HDL feature it exists to exercise.
+* [x] Identify examples that are primarily type-shape or code-generation fixtures.
+* [x] Identify duplicate examples that teach no additional workflow.
+* [x] Identify missing realistic use cases.
 
 ### Reclassification
 
@@ -2359,10 +2359,10 @@ unpacked arrays
 single-purpose type mappings
 ```
 
-* [ ] Preserve their integration coverage after moving them.
-* [ ] Keep fixture names descriptive.
-* [ ] Do not expose fixture packages as recommended examples.
-* [ ] Keep fixtures buildable independently where useful.
+* [x] Preserve their integration coverage after moving them.
+* [x] Keep fixture names descriptive.
+* [x] Do not expose fixture packages as recommended examples.
+* [x] Keep fixtures buildable independently where useful.
 
 ### User-facing example ladder
 
@@ -2385,9 +2385,9 @@ functional coverage
 cargo-vvm reporting
 ```
 
-* [ ] Keep it minimal enough for a first-time user.
-* [ ] Ensure its README follows the stabilized API.
-* [ ] Include expected commands and output.
+* [x] Keep it minimal enough for a first-time user.
+* [x] Ensure its README follows the stabilized API.
+* [x] Include expected commands and output.
 
 #### Synchronous FIFO
 
@@ -2403,9 +2403,9 @@ longer randomized sequences
 functional coverage
 ```
 
-* [ ] Provide meaningful normal and error scenarios.
-* [ ] Include occupancy and operation crosses.
-* [ ] Include deterministic replay.
+* [x] Provide meaningful normal and error scenarios.
+* [x] Include occupancy and operation crosses.
+* [x] Include deterministic replay.
 
 #### Protocol or timing example
 
@@ -2419,18 +2419,18 @@ nontrivial observations
 functional coverage
 ```
 
-* [ ] Keep the RTL understandable.
-* [ ] Document timing assumptions.
-* [ ] Avoid turning the example into a full protocol verification framework.
+* [x] Keep the RTL understandable.
+* [x] Document timing assumptions.
+* [x] Avoid turning the example into a full protocol verification framework.
 
 #### Multi-clock example
 
 Replace or expand the synthetic multi-clock case with an asynchronous FIFO or another understandable CDC design.
 
-* [ ] Demonstrate independent clocks and phase relationships.
-* [ ] Demonstrate deterministic same-time ordering.
-* [ ] Include meaningful verification goals.
-* [ ] Clearly state that the example is not a formal CDC proof.
+* [x] Demonstrate independent clocks and phase relationships.
+* [x] Demonstrate deterministic same-time ordering.
+* [x] Include meaningful verification goals.
+* [x] Clearly state that the example is not a formal CDC proof.
 
 #### Bus-peripheral example
 
@@ -2456,21 +2456,21 @@ coverage workflow where relevant
 known limitations
 ```
 
-* [ ] Keep example code idiomatic and reviewed as public documentation.
-* [ ] Avoid unexplained helper machinery.
-* [ ] Ensure examples use only public supported APIs.
-* [ ] Run every example in CI.
-* [ ] Keep example output deterministic where practical.
+* [x] Keep example code idiomatic and reviewed as public documentation.
+* [x] Avoid unexplained helper machinery.
+* [x] Ensure examples use only public supported APIs.
+* [x] Run every example in CI.
+* [x] Keep example output deterministic where practical.
 
 ### Acceptance criteria
 
-* [ ] `examples/` contains only projects intended for users to study.
-* [ ] Narrow code-generation cases live under fixtures.
-* [ ] Counter remains a clear beginner workflow.
-* [ ] At least one realistic sequential design is documented.
-* [ ] At least one meaningful timing or multi-clock design is documented.
-* [ ] Every retained example has complete user-facing documentation.
-* [ ] Every example runs in CI.
+* [x] `examples/` contains only projects intended for users to study.
+* [x] Narrow code-generation cases live under fixtures.
+* [x] Counter remains a clear beginner workflow.
+* [x] At least one realistic sequential design is documented.
+* [x] At least one meaningful timing or multi-clock design is documented.
+* [x] Every retained example has complete user-facing documentation.
+* [x] Every example runs in CI.
 
 ---
 

@@ -6,15 +6,10 @@ members = [
     "crates/vvm-core",
     "crates/vvm-macros",
     "examples/counter",
-    "examples/multi-clock",
-    "examples/packed-array",
-    "examples/packed-enum",
-    "examples/packed-struct",
-    "examples/signed-adder",
-    "examples/timing-delay",
+    "examples/sync-fifo",
+    "examples/timed-uart",
+    "examples/async-fifo",
     "examples/tri-state-bus",
-    "examples/wide-transform",
-    "examples/unpacked-array",
 ]
 resolver = "2"
 

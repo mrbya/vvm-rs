@@ -76,6 +76,7 @@ fn counter_random(context: &mut TestContext) -> Result<CounterTestResult> {
 }
 
 #[cfg(test)]
+/// Registered counter-test descriptor checks.
 mod tests {
     use super::__vvm_test_descriptor_counter_smoke;
 

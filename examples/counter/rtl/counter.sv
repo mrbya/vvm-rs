@@ -1,3 +1,4 @@
+// Minimal active-low-reset counter used by the beginner verification example.
 module counter (
     input  logic       clk,
     input  logic       reset_n,

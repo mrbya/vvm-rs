@@ -62,10 +62,22 @@ native-current-verilator:
     - case "$(verilator --version)" in "Verilator 5.048"*) ;; *) exit 1 ;; esac
     - just test-native
 
+native-fixtures:
+  stage: test-native
+  image: registry.gitlab.com/byacrates/vvm-rs:verilator-5.050
+  script:
+    - just test-native-fixtures
+
+user-facing-examples:
+  stage: test-native
+  image: registry.gitlab.com/byacrates/vvm-rs:verilator-5.050
+  script:
+    - just test-examples
+
 end-to-end:
   stage: test-e2e
   image: registry.gitlab.com/byacrates/vvm-rs:verilator-5.050
-  needs: ["native-current-verilator"]
+  needs: ["native-current-verilator", "native-fixtures", "user-facing-examples"]
   script:
     - just test-e2e
 

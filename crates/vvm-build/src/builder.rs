@@ -215,7 +215,7 @@ impl DutBuilder {
     /// positive delayed events explicitly; it is compatible with VCD tracing.
     /// Ordinary `vvm::testbench::Testbench` execution does not drain internal delayed
     /// events automatically. Zero-delay (`#0`) scheduling remains unsupported.
-    /// See `examples/timing-delay` for the complete vertical reference.
+    /// See `examples/timed-uart` for the complete vertical reference.
     ///
     /// # Examples
     ///

@@ -2,6 +2,7 @@
 
 use vvm_build::{BuildResult, DutBuilder, TraceOptions};
 
+/// Generates and compiles the trace-capable split-inout wrapper.
 fn main() -> BuildResult<()> {
     DutBuilder::new("tri_state_bus")
         .top_module("tri_state_bus")

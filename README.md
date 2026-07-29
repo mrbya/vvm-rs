@@ -15,6 +15,7 @@ VVM provides strongly typed Rust testbenches, generated DUT bridges, and normal 
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Examples](#examples)
 - [Bidirectional Ports](#bidirectional-ports)
 - [Timing-enabled Models](#timing-enabled-models)
 - [Functional Coverage](#functional-coverage)
@@ -35,7 +36,9 @@ VVM wraps Verilator-generated models in a Rust-first verification workflow.
 
 At build time, `vvm-build` runs Verilator, generates the Rust/C++ bridge, and compiles the native support code needed for a DUT wrapper. At test time, `vvm` provides typed stimulus driving, output sampling, clock control, reference models, scoreboards, deterministic randomization, tracing, and a `#[vvm::test]` attribute that integrates directly with `cargo test` and `cargo nextest run`.
 
-The working reference for public usage in this repository is `examples/counter`.
+The working reference for public usage starts with `examples/counter`. The
+[example ladder](examples/README.md) progresses through a synchronous FIFO,
+timed UART, asynchronous FIFO, and specialist tri-state bus.
 
 ## Features
 
@@ -218,6 +221,14 @@ cargo test counter_smoke
 
 For unit-style VVM tests, keep them inside an explicit `#[cfg(test)]` module as shown above. Integration tests under `tests/` are already test-only and do not need an additional `#[cfg(test)]`.
 
+## Examples
+
+The curated user-facing examples are documented in
+[`examples/README.md`](examples/README.md). Start with the
+[counter](examples/counter/README.md), then study the synchronous FIFO, timed
+UART, asynchronous FIFO, and tri-state bus in that order. Narrow generated-port
+regressions are isolated native fixtures, not recommended examples.
+
 ## Bidirectional Ports
 
 VVM supports plain packed-scalar top-level `inout` ports. Generated wrappers
@@ -257,8 +268,8 @@ boundaries.
 Timing mode: Verilator schedules internal delayed HDL processes.
 
 The two schedulers are intentionally separate. See
-[`examples/timing-delay`](examples/timing-delay) for the complete build,
-stepping, tracing, and finalization example.
+[`examples/timed-uart`](examples/timed-uart) for timing, protocol
+reconstruction, tracing, and explicit finalization.
 
 ## Functional Coverage
 
@@ -427,8 +438,9 @@ no coverage.
 - `vvm-build`: Verilator invocation, metadata handling, code generation, and native bridge compilation.
 - `vvm-macros`: derives for drive/sample/clock plus `#[vvm::test]`.
 - `vvm-example-counter`: minimal cycle-driven verification.
-- `vvm-example-multi-clock`: independently timed externally driven clocks.
-- `vvm-example-timing-delay`: internally scheduled HDL delays.
+- `vvm-example-sync-fifo`: realistic one-clock queue verification.
+- `vvm-example-timed-uart`: behavioral timing and protocol reconstruction.
+- `vvm-example-async-fifo`: independently scheduled clock workflow.
 - `vvm-example-tri-state-bus`: caller-owned top-level inout resolution.
 
 ## Development

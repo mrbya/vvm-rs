@@ -35,6 +35,8 @@ impl DutDriverControl {
 #[vvm(dut = crate::tri_state_bus::TriStateBus)]
 pub struct BusObservation {
     /// Complete generated inout state.
+    // VVM exposes split input, enable, and value components; it does not impose
+    // an electrical resolution policy.
     #[vvm(port)]
     data: vvm::dut::InoutState<u8>,
 

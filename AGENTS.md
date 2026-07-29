@@ -4,7 +4,7 @@
 
 - Rust 2024 workspace (MSRV 1.87) for Verilator-backed verification; building the example crates and native integration requires Verilator plus a C++ toolchain.
 - `crates/vvm` is the public facade (`vvm-rs` package, `vvm` library); `vvm-core` owns runtime/testbench primitives, `vvm-build` runs Verilator and generates/compiles bridges from consumer `build.rs`, and `vvm-macros` owns derives and `#[vvm::test]`.
-- `examples/counter` is the reference end-to-end DUT integration. Other `examples/*` exercise RTL port shapes and are workspace members.
+- `examples/README.md` is the public learning ladder: counter, synchronous FIFO, timed UART, asynchronous FIFO, and tri-state bus. Native generated-port regressions live under `tests/fixtures/native-*`; see `docs/dev/example-strategy.md`.
 - Generated DUT source is included from `OUT_DIR`; keep `DutBuilder::new("name")` and `vvm::include_dut!(name)` aligned.
 
 ## Commands
@@ -13,7 +13,7 @@
 - Run `just init` once to install contributor tooling, including nightly Rust, nextest, coverage, udeps, audit, Markdown TOC, and pre-commit.
 - Format with `just fmt` or check without edits using `just fmt --check`; formatting explicitly uses `cargo +nightly fmt --all`.
 - Run linting with `just check -- -D warnings`; it checks all workspace targets, tests, examples, and features.
-- Use `just test-fast` for pure-Rust unit, integration, UI, and fixture tests; use `just test-native`, `just test-e2e`, and `just test-package` for their corresponding boundaries. `just test-all` runs every category. The authoritative placement and execution policy is `docs/dev/testing-strategy.md`.
+- Use `just test-fast` for pure-Rust unit, integration, UI, and fixture tests; use `just test-examples`, `just test-native-fixtures`, `just test-native`, `just test-e2e`, and `just test-package` for their corresponding boundaries. `just test-all` runs every category. The authoritative placement and execution policy is `docs/dev/testing-strategy.md`.
 - `just ci` is the CI-equivalent, non-mutating verification: format check, lint with warnings denied, `cargo +nightly udeps`, audit, every test category, doctests, and coverage. It writes coverage reports under `coverage/`.
 - The pre-commit hook runs `just ci` for Rust/TOML/justfile changes. README changes also run `just index`, which rewrites the README TOC.
 

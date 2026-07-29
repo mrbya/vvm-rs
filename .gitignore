@@ -14,6 +14,7 @@
 /release
 */**/*.log
 */**/*.vcd
+*.profraw
 
 # Docs
 /docs-page

@@ -1,3 +1,4 @@
+// Split inout model: Rust resolves data before it is sampled by the DUT.
 module tri_state_bus (
     input logic [7:0] drive_enable,
     input logic [7:0] drive_value,

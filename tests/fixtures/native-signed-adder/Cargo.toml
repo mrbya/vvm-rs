@@ -1,0 +1,17 @@
+
+[package]
+name = "vvm-native-fixture-signed-adder"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.87"
+publish = false
+build = "build.rs"
+description = "Minimal VVM integration example with signed ports"
+
+[dev-dependencies]
+vvm = { package = "vvm-rs", path = "__VVM_PATH__" }
+
+[build-dependencies]
+vvm-build = { path = "__VVM_BUILD_PATH__" }
+
+[workspace]

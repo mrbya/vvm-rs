@@ -955,6 +955,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "vvm-example-async-fifo"
+version = "0.1.0-alpha.1"
+dependencies = [
+ "thiserror",
+ "vvm-build",
+ "vvm-rs",
+]
+
+[[package]]
 name = "vvm-example-counter"
 version = "0.1.0-alpha.1"
 dependencies = [
@@ -965,7 +974,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "vvm-example-multi-clock"
+name = "vvm-example-sync-fifo"
 version = "0.1.0-alpha.1"
 dependencies = [
  "thiserror",
@@ -974,39 +983,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "vvm-example-packed-array"
-version = "0.1.0-alpha.1"
-dependencies = [
- "vvm-build",
- "vvm-rs",
-]
-
-[[package]]
-name = "vvm-example-packed-enum"
-version = "0.1.0-alpha.1"
-dependencies = [
- "vvm-build",
- "vvm-rs",
-]
-
-[[package]]
-name = "vvm-example-packed-struct"
-version = "0.1.0-alpha.1"
-dependencies = [
- "vvm-build",
- "vvm-rs",
-]
-
-[[package]]
-name = "vvm-example-signed-adder"
-version = "0.1.0-alpha.1"
-dependencies = [
- "vvm-build",
- "vvm-rs",
-]
-
-[[package]]
-name = "vvm-example-timing-delay"
+name = "vvm-example-timed-uart"
 version = "0.1.0-alpha.1"
 dependencies = [
  "tempfile",
@@ -1020,22 +997,6 @@ name = "vvm-example-tri-state-bus"
 version = "0.1.0-alpha.1"
 dependencies = [
  "tempfile",
- "vvm-build",
- "vvm-rs",
-]
-
-[[package]]
-name = "vvm-example-unpacked-array"
-version = "0.1.0-alpha.1"
-dependencies = [
- "vvm-build",
- "vvm-rs",
-]
-
-[[package]]
-name = "vvm-example-wide-transform"
-version = "0.1.0-alpha.1"
-dependencies = [
  "vvm-build",
  "vvm-rs",
 ]

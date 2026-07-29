@@ -151,6 +151,77 @@ fn clean_consumer_generates_and_executes_a_dut() -> Result<(), Box<dyn std::erro
     Ok(())
 }
 
+#[test]
+fn native_packed_array_fixture_preserves_generated_port_regression()
+-> Result<(), Box<dyn std::error::Error>> {
+    run_native_fixture("native-packed-array")
+}
+
+#[test]
+fn native_packed_enum_fixture_preserves_generated_port_regression()
+-> Result<(), Box<dyn std::error::Error>> {
+    run_native_fixture("native-packed-enum")
+}
+
+#[test]
+fn native_packed_struct_fixture_preserves_generated_port_regression()
+-> Result<(), Box<dyn std::error::Error>> {
+    run_native_fixture("native-packed-struct")
+}
+
+#[test]
+fn native_multi_clock_fixture_preserves_generated_port_regression()
+-> Result<(), Box<dyn std::error::Error>> {
+    run_native_fixture("native-multi-clock-counter")
+}
+
+#[test]
+fn native_signed_adder_fixture_preserves_generated_port_regression()
+-> Result<(), Box<dyn std::error::Error>> {
+    run_native_fixture("native-signed-adder")
+}
+
+#[test]
+fn native_timing_delay_fixture_preserves_generated_port_regression()
+-> Result<(), Box<dyn std::error::Error>> {
+    run_native_fixture("native-timing-delay")
+}
+
+#[test]
+fn native_unpacked_array_fixture_preserves_generated_port_regression()
+-> Result<(), Box<dyn std::error::Error>> {
+    run_native_fixture("native-unpacked-array")
+}
+
+#[test]
+fn native_wide_transform_fixture_preserves_generated_port_regression()
+-> Result<(), Box<dyn std::error::Error>> {
+    run_native_fixture("native-wide-transform")
+}
+
+fn run_native_fixture(fixture_name: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let fixture = workspace_root()?.join("tests/fixtures").join(fixture_name);
+    let temporary_workspace = tempfile::tempdir()?;
+    let consumer_root = temporary_workspace.path().join(fixture_name);
+
+    copy_fixture_tree(&fixture, &consumer_root)?;
+    configure_build_dependencies(&consumer_root)?;
+
+    let target_dir = temporary_workspace.path().join("target");
+    let trace_dir = temporary_workspace.path().join("trace");
+    let coverage_dir = temporary_workspace.path().join("coverage");
+    let output = Command::new("cargo")
+        .arg("test")
+        .arg("--manifest-path")
+        .arg(consumer_root.join("Cargo.toml"))
+        .env("CARGO_TARGET_DIR", &target_dir)
+        .env("VVM_TRACE_DIR", &trace_dir)
+        .env("VVM_COVERAGE_DIR", &coverage_dir)
+        .output()?;
+
+    assert_command_success(fixture_name, &output)
+}
+
 fn package_and_extract(
     package: &str,
     target_dir: &Path,

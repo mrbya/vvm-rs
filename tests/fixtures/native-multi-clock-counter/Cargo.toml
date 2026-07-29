@@ -1,0 +1,16 @@
+[package]
+name = "vvm-native-fixture-multi-clock-counter"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.87"
+publish = false
+build = "build.rs"
+description = "Synthetic multi-clock scheduling regression fixture"
+
+[dev-dependencies]
+vvm = { package = "vvm-rs", path = "__VVM_PATH__" }
+
+[build-dependencies]
+vvm-build = { path = "__VVM_BUILD_PATH__" }
+
+[workspace]

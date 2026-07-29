@@ -123,6 +123,7 @@ impl ReferenceModel<CounterStimulus> for CounterReferenceModel {
     }
 }
 
+/// Deliberately incorrect model used by the ignored failure demonstration.
 #[derive(Debug, Default)]
 pub struct FailingReferenceModel {
     count: u8,
@@ -227,6 +228,7 @@ impl Iterator for RandomCounterSequence {
 }
 
 #[cfg(test)]
+/// Counter verification helper checks.
 mod tests {
     use vvm::testbench::{CheckFailure, ExactScoreboard, ReferenceModel, Scoreboard, Testbench};
 

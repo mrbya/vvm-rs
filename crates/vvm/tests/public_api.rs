@@ -8,6 +8,77 @@ use vvm::timing::{
     SchedulerError, SimulationTime, TimeStep, TimingEvent, TimingRun, TimingScheduler, TimingStage,
 };
 
+const MANUAL_REPLAY: vvm::random::ReplayToken =
+    vvm::random::ReplayToken::new(vvm::random::Seed::new(0x55));
+
+struct ManualCoverage {
+    instance: vvm::coverage::CoverageGroupInstance,
+    value: vvm::coverage::Coverpoint<u8>,
+}
+
+impl vvm::coverage::CoverageGroup for ManualCoverage {
+    fn instance(&self) -> &vvm::coverage::CoverageGroupInstance {
+        &self.instance
+    }
+
+    fn visit_items(&self, visitor: &mut dyn vvm::coverage::CoverageGroupVisitor) {
+        visitor.visit(vvm::coverage::CoverageItemRef::coverpoint(&self.value));
+    }
+}
+
+/// Returns a completed result from a manually driven test with coverage.
+#[vvm::test(replay(default = MANUAL_REPLAY), coverage)]
+fn manual_result_with_coverage(
+    context: &mut vvm::test::TestContext,
+) -> Result<TestResult<(), String, String>, String> {
+    let mut value = vvm::coverage::Coverpoint::builder("value")
+        .bin(vvm::coverage::Bin::value("one", 1_u8))
+        .build()
+        .map_err(|error| error.to_string())?;
+    value.sample(&1).map_err(|error| error.to_string())?;
+
+    let coverage = ManualCoverage {
+        instance: vvm::coverage::CoverageGroupInstance::new("manual", "dut.manual")
+            .map_err(|error| error.to_string())?,
+        value,
+    };
+    context
+        .capture_coverage(&coverage)
+        .map_err(|error| error.to_string())?;
+
+    Ok(TestResult::completed(
+        SimulationTime::ZERO,
+        SimulationTime::from_ticks(5),
+        context.config().replay_token(),
+    ))
+}
+
+#[test]
+fn facade_manual_result_supports_replay_and_coverage() -> Result<(), Box<dyn std::error::Error>> {
+    let run =
+        __vvm_test_descriptor_manual_result_with_coverage.run(&vvm::test::TestRunConfig::new())?;
+    let coverage = run.coverage().ok_or("coverage was not captured")?;
+
+    assert!(run.passed());
+    assert_eq!(run.outcome().replay_token(), Some(MANUAL_REPLAY));
+    assert_eq!(
+        run.outcome()
+            .statistics()
+            .map(vvm::test::TestStatistics::cycles),
+        Some(0)
+    );
+    assert_eq!(coverage.groups().len(), 1);
+    assert_eq!(
+        coverage
+            .groups()
+            .first()
+            .map(vvm::coverage::snapshot::CoverageGroupSnapshot::instance_path),
+        Some("dut.manual")
+    );
+
+    Ok(())
+}
+
 #[test]
 fn facade_exports_canonical_error_names() {
     use vvm::coverage::artifact::{IoOperation, PersistenceError};

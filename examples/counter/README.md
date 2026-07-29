@@ -1,5 +1,48 @@
 # Counter Example
 
+## Purpose
+
+Start here. The counter is the smallest complete VVM workflow: generated DUT,
+typed transactions, one clock, a reference model, exact scoreboard, tracing,
+replayable random traffic, and per-test functional coverage.
+
+## Run The Smoke Test
+
+```bash
+cargo test -p vvm-example-counter counter_smoke
+VVM_TRACE_DIR=target/counter-traces cargo test -p vvm-example-counter counter_smoke
+```
+
+The smoke test reports seven successful checks and writes a VCD when tracing is
+enabled. `counter_random` uses `VVM_REPLAY` before `VVM_SEED` and `VVM_CYCLES`.
+
+```text
+reset_n, enable --> [ 8-bit counter ] --> count
+                       ^
+                       +-- clk
+```
+
+## Project Layout
+
+```text
+counter/
+├── build.rs
+├── rtl/counter.sv
+└── src/{lib,verification,test_cases,coverage}.rs
+```
+
+## Intentional Failure
+
+`counter_fail` is ignored by default and deliberately uses an incorrect model.
+Run it with `cargo test -p vvm-example-counter counter_fail -- --ignored` to
+inspect expected/observed values, cycle, time, trace, and retained coverage.
+
+## Limitations And Next Step
+
+The counter is intentionally one-clock and has no flow control. Continue with
+the [synchronous FIFO](../sync-fifo/README.md) for a queue model and boundary
+acceptance behavior.
+
 ## Counter DUT
 
 `reset_n` is active low. Reset drives `count` to zero; a deasserted reset with

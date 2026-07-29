@@ -72,7 +72,8 @@ names within each listed module have the category shown in that row.
 | `crates/cargo-vvm/src/**/*.rs` test modules | `cargo-vvm` | Unit | CLI parsing, command validation, orchestration helpers | No | No | Low | Add public binary contracts under `tests/` |
 | `crates/vvm-macros/src/**/*.rs` test modules | `vvm-macros` | Unit | Token parsing and expansion invariants | No | No | Low | Retain |
 | `crates/vvm-macros/tests/trybuild.rs` and `tests/ui/**` | `vvm-macros` | Compile-time | Public derive and attribute expansion/diagnostics | No | `trybuild` | Medium | Preserve reviewed snapshots |
-| `examples/*/src/{verification,test_cases,resolution,coverage}.rs` | Example crates | End-to-end or local unit | Native workflows and example-local reference models | Yes except pure helpers | No | Medium | Extract only infrastructure regressions; defer curation to 12.4 |
+| `examples/{counter,sync-fifo,timed-uart,async-fifo,tri-state-bus}/src/**` | Example crates | End-to-end or local unit | Public verification workflows and reference models | Yes except pure helpers | No | Medium | Retain as curated learning ladder |
+| `tests/fixtures/native-*/` | `vvm` fixture harness | Fixture workspace | Generated type shapes and timing regressions | Yes | Yes | High | Copy, rewrite public paths, and run with isolated outputs |
 | `crates/vvm-build/tests/fixtures/codegen/**` | `vvm-build` | Golden fixture | Generated bridge/wrapper regression inputs | No | No | Low | Do not regenerate casually |
 | `crates/vvm-build/tests/fixtures/verilator/5.048/**` | `vvm-build` | Golden fixture | Versioned Verilator metadata normalization | No | No | Low | Do not regenerate or reformat casually |
 
@@ -84,6 +85,9 @@ the declared dependency placeholders, set a unique `CARGO_TARGET_DIR`, and
 print complete stdout/stderr when Cargo fails. Fixture manifests must never use
 workspace-relative paths after rewriting. Native fixtures belong in a clearly
 named `native-*` directory and are run only by native or end-to-end recipes.
+They run as separate nextest cases so fixture builds can proceed in parallel;
+their scoped 180-second slow threshold accounts for clean isolated Verilator
+and C++ compilation on constrained CI workers.
 
 `pure-consumer` validates that an external project can depend on the facade
 alone. `build-consumer` performs a clean Rust-CXX-Verilator build through its
@@ -100,8 +104,12 @@ same isolation rules.
 | `just test-integration` | Public pure-Rust crate contracts |
 | `just test-ui` | `trybuild` pass/fail suites |
 | `just test-fixtures` | Pure clean consumer fixtures |
+| `just test-examples` | Curated user-facing native examples |
+| `just test-native-fixtures` | Copied isolated native HDL fixtures |
+| `just functional-coverage-fifo` | FIFO per-test artifacts, merge, and reports |
+| `just functional-coverage-async-fifo` | Asynchronous FIFO per-test artifacts, merge, and reports |
 | `just test-fast` | Unit, integration, UI, and fixture suites |
-| `just test-native` | Verilator/C++ dependent workspace tests |
+| `just test-native` | Native crate tests plus curated examples and copied HDL fixtures |
 | `just test-e2e` | Counter, timing, multi-clock, and inout workflows |
 | `just test-package` | Local publishable crate archives without registry access |
 | `just test-all` | Every test category |

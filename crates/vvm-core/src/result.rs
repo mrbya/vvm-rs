@@ -297,6 +297,20 @@ pub struct TestResult<S, F, E> {
 impl<S, F, E> TestResult<S, F, E> {
     /// Creates an empty test result.
     pub(crate) const fn new(start_time: SimulationTime, replay_token: Option<ReplayToken>) -> Self {
+        Self::completed(start_time, start_time, replay_token)
+    }
+
+    /// Creates a successful result for a manually driven simulation.
+    ///
+    /// Direct tests that use a timing scheduler or multiple clock domains can
+    /// return this result through `#[vvm::test]` after completing their own
+    /// driving, checking, and DUT finalization.
+    #[must_use]
+    pub const fn completed(
+        start_time: SimulationTime,
+        final_time: SimulationTime,
+        replay_token: Option<ReplayToken>,
+    ) -> Self {
         Self {
             cycles: 0,
             checks: 0,
@@ -305,7 +319,7 @@ impl<S, F, E> TestResult<S, F, E> {
             finalization_error: None,
             stopped_by_failure_policy: false,
             start_time,
-            final_time: start_time,
+            final_time,
             replay_token,
         }
     }
@@ -518,6 +532,26 @@ mod tests {
                 Some("peripheral".to_owned()),
                 "drive failed",
             )
+        );
+    }
+
+    #[test]
+    fn completed_manual_result_preserves_times_and_replay() {
+        let replay = ReplayToken::new(Seed::new(9));
+        let result = TestResult::<(), String, String>::completed(
+            SimulationTime::from_ticks(3),
+            SimulationTime::from_ticks(12),
+            Some(replay),
+        );
+        let outcome = crate::TestOutcome::from_result(&result);
+
+        assert!(result.passed());
+        assert_eq!(result.start_time(), SimulationTime::from_ticks(3));
+        assert_eq!(result.final_time(), SimulationTime::from_ticks(12));
+        assert_eq!(outcome.replay_token(), Some(replay));
+        assert_eq!(
+            outcome.statistics().map(crate::TestStatistics::cycles),
+            Some(0)
         );
     }
 }

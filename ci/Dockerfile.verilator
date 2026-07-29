@@ -20,10 +20,10 @@ RUN test -n "$VERILATOR_VERSION" && test -n "$VERILATOR_SHA256" && \
 
 WORKDIR /tmp
 
-RUN cargo install --locked just --version 1.40.0 && \
-    cargo install --locked cargo-nextest --version 0.9.114 && \
-    cargo install --locked cargo-llvm-cov --version 0.8.7 && \
-    cargo install --locked cargo-mutants --version 27.1.0
+RUN cargo install --locked just --version 1.53.0 && \
+    cargo install --locked cargo-nextest --version 0.9.109 && \
+    cargo install cargo-llvm-cov && \
+    cargo install --locked cargo-mutants --version 26.0.0
 
 RUN wget --output-document verilator.tar.gz \
         "https://github.com/verilator/verilator/archive/refs/tags/v${VERILATOR_VERSION}.tar.gz" && \

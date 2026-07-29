@@ -59,7 +59,7 @@ native-current-verilator:
   image: registry.gitlab.com/byacrates/vvm-rs:verilator-5.050
   script:
     - verilator --version
-    - case "$(verilator --version)" in "Verilator 5.048"*) ;; *) exit 1 ;; esac
+    - case "$(verilator --version)" in "Verilator 5.050"*) ;; *) exit 1 ;; esac
     - just test-native
 
 native-fixtures:

@@ -8,7 +8,7 @@ rm -rf public target/docs-api
 mdbook build docs/book
 mkdir -p public/api
 cp -a target/book/. public/
-RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features -p vvm-rs -p vvm-build -p vvm-core -p vvm-macros --target-dir target/docs-api
+RUSTDOCFLAGS="-D warnings --default-theme ayu" cargo doc --no-deps --all-features -p vvm-rs -p vvm-build -p vvm-core -p vvm-macros --target-dir target/docs-api
 cp -a target/docs-api/doc/. public/api/
 printf '%s\n' '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>VVM API reference</title></head><body><h1>VVM API reference</h1><ul><li><a href="vvm/">vvm</a></li><li><a href="vvm_build/">vvm-build</a></li><li><a href="vvm_core/">vvm-core</a></li><li><a href="vvm_macros/">vvm-macros</a></li></ul><p><a href="../">Project book</a></p></body></html>' > public/api/index.html
 

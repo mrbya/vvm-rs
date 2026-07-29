@@ -193,7 +193,7 @@ docs-site:
 # Serve the assembled site locally.
 docs-serve:
     @just docs-site
-    http-server public
+    http-server -i public
     # mdbook serve docs/book -d ../../public
 
 # Remove assembled documentation outputs.

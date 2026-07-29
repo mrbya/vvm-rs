@@ -2,7 +2,7 @@
 
 ## API reference
 
-The public API reference is published with this book: [vvm](../api/vvm/index.html), [vvm-build](../api/vvm_build/index.html), [vvm-core](../api/vvm_core/index.hmtl), and [vvm-macros](../api/vvm_macros/index.html). It contains exact signatures, errors, invariants, source navigation, and API examples.
+The public API reference is published with this book: [vvm](../api/vvm/index.html), [vvm-build](../api/vvm_build/index.html), [vvm-core](../api/vvm_core/index.html), and [vvm-macros](../api/vvm_macros/index.html). It contains exact signatures, errors, invariants, source navigation, and API examples.
 
 ## Compatibility
 

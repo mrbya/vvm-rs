@@ -12,6 +12,7 @@ stages:
   - coverage
   - package
   - docs
+  - pages
   - extended
 
 cache:
@@ -104,11 +105,56 @@ package-consumer:
   script:
     - cargo test --locked --all-features -p vvm-rs --test fixtures packaged_consumer_builds_from_extracted_crate_archives
 
-doctests:
+documentation-tests:
   stage: docs
   image: rust:1-bookworm
   script:
-    - cargo test --locked --workspace --doc
+    - cargo install mdbook --version 0.5.3 --locked
+    - just docs-test
+    - just docs-api
+    - just docs-links
+
+documentation-site:
+  stage: docs
+  image: rust:1-bookworm
+  script:
+    - cargo install mdbook --version 0.5.3 --locked
+    - export MDBOOK_BOOK__OUTPUT__HTML__SITE_URL="${CI_PAGES_URL}/"
+    - just docs-site
+  artifacts:
+    when: always
+    paths:
+      - public/
+
+deploy-pages:
+  stage: pages
+  image: alpine:3.21
+  needs:
+    - job: documentation-site
+      artifacts: true
+  script:
+    - test -s public/index.html
+    - test -s public/api/vvm/index.html
+  pages:
+    publish: public
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+pages-smoke:
+  stage: pages
+  image: alpine:3.21
+  needs:
+    - job: documentation-site
+      artifacts: true
+  script:
+    - test -s public/index.html
+    - test -s public/getting-started.html
+    - test -s public/api/index.html
+    - test -s public/api/vvm/index.html
+    - test -s public/api/vvm_build/index.html
+    - test -s public/api/vvm_core/index.html
+    - test -s public/api/vvm_macros/index.html
+    - test -s public/cargo-vvm.html
 
 mutation:
   stage: extended

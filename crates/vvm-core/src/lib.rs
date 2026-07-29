@@ -1,4 +1,10 @@
 //! Pure Rust verification primitives for VVM.
+//!
+//! This crate owns framework runtime traits, clocks, testbench execution,
+//! timing, replay, diagnostics, and coverage without depending on Verilator
+//! or CXX. Most users should begin with the `vvm` facade. Direct use is for
+//! advanced framework integrations; public contracts are documented at
+//! <https://byacrates.gitlab.io/vvm-rs/api/vvm_core/>.
 
 #![allow(clippy::module_name_repetitions)]
 // clippy WARN level lints

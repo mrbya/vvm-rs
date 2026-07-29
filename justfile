@@ -158,9 +158,47 @@ build *FLAGS:
 clean:
     cargo clean
 
-# Generate documentation. Add '-- open' to open the docs in a web page.
-docs *FLAGS:
-    cargo doc --no-deps --all-features --document-private-items --workspace {{FLAGS}}
+# Build the complete documentation site.
+docs:
+    @just docs-site
+
+# Build the mdBook guide only.
+docs-book:
+    mdbook build docs/book
+
+# Build the public API reference without private items.
+docs-api:
+    RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features -p vvm-rs -p vvm-build -p vvm-core -p vvm-macros
+
+# Build maintainer-only API documentation with private items.
+docs-internal:
+    RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features --document-private-items -p vvm-rs -p vvm-build -p vvm-core -p vvm-macros
+
+# Run documentation examples and build checks.
+docs-test:
+    @just doctest
+    @just docs-book
+
+# Validate generated-site entry points and local documentation links.
+docs-links:
+    @just docs-site
+    test -s public/getting-started.html
+    test -s public/coverage.html
+    test -s public/cargo-vvm.html
+
+# Assemble the book and public Rust API site.
+docs-site:
+    bash scripts/docs-site.sh
+
+# Serve the assembled site locally.
+docs-serve:
+    @just docs-site
+    http-server public
+    # mdbook serve docs/book -d ../../public
+
+# Remove assembled documentation outputs.
+docs-clean:
+    rm -rf public target/book target/docs-api
 
 # Run Criterion benchmark suite.
 benchmark *FLAGS:
@@ -276,6 +314,8 @@ init:
     cargo audit -V || cargo binstall cargo-audit --no-confirm
     echo # installing markdown-toc
     npm list -g markdown-toc || npm install -g markdown-toc
+    echo # installing pinned documentation builder
+    mdbook --version | grep -F "mdbook v0.5.3" || cargo install mdbook --version 0.5.3 --locked
     echo # installing git hooks
     pre-commit --version || pip install pre-commit
     pre-commit install || echo "failed to install git hooks!" 1>&2

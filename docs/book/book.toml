@@ -1,0 +1,20 @@
+[book]
+authors = ["VVM-rs contributors"]
+language = "en"
+src = "src"
+title = "VVM-rs"
+
+[build]
+build-dir = "../../target/book"
+create-missing = false
+
+[output.html]
+additional-css = ["custom.css"]
+git-repository-url = "https://gitlab.com/byacrates/vvm-rs"
+edit-url-template = "https://gitlab.com/byacrates/vvm-rs/-/edit/master/{path}"
+site-url = "/"
+search.enable = true
+
+[output.html.playground]
+runnable = false
+line-numbers = true

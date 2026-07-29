@@ -10,6 +10,8 @@ license.workspace       = true
 keywords.workspace      = true
 categories.workspace    = true
 description             = "VVM build-time Verilator and bridge support"
+readme                  = "README.md"
+documentation           = "https://byacrates.gitlab.io/vvm-rs/api/vvm_build/"
 
 [dependencies]
 cxx-build.workspace = true

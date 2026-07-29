@@ -10,7 +10,8 @@ license.workspace       = true
 keywords.workspace      = true
 categories.workspace    = true
 description             = "Verilator Verification Methodology for Rust"
-readme                  = "../../README.md"
+readme                  = "README.md"
+documentation           = "https://byacrates.gitlab.io/vvm-rs/api/vvm/"
 
 [lib]
 name = "vvm"

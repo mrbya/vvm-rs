@@ -1,4 +1,10 @@
 //! Build-time Verilator and bridge generation support for VVM.
+//!
+//! Add this crate to `[build-dependencies]` and configure [`DutBuilder`] from
+//! a consumer `build.rs`. It invokes Verilator, normalizes its metadata,
+//! generates the native adapter and Rust wrapper, and compiles the bridge.
+//! The consumer includes the result with `vvm::include_dut!`. See the guide at
+//! <https://byacrates.gitlab.io/vvm-rs/user-guide.html> for complete setup.
 
 #![allow(clippy::module_name_repetitions)]
 // clippy WARN level lints

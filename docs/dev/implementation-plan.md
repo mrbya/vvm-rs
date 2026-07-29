@@ -177,7 +177,7 @@ Removed. Shared ABI support should only return once concrete cross-DUT native fu
 | 9 | Public facade | Complete |
 | 10 | Tracing, reporting, and standard test harness | Complete |
 | 11 | Wider HDL feature support and Rust-native coverage | Complete |
-| 12 | Pre-release cleanup and polish | In progress (12.4 example curation underway) |
+| 12 | Pre-release cleanup and polish | In progress (12.5 documentation and Pages underway) |
 
 ---
 
@@ -2504,50 +2504,50 @@ docs/book/
 
 Document:
 
-* [ ] Project purpose and supported use cases.
-* [ ] Installation and prerequisites.
-* [ ] First VVM project.
-* [ ] `vvm-build` and `build.rs`.
-* [ ] Generated DUT inclusion.
-* [ ] Driving and sampling transactions.
-* [ ] Clock configuration.
-* [ ] Testbench construction.
-* [ ] Reference models and scoreboards.
-* [ ] Registered VVM tests.
-* [ ] Failure policies and diagnostics.
-* [ ] Randomization and replay.
-* [ ] Tracing.
-* [ ] Multi-clock execution.
-* [ ] Timing-enabled models.
-* [ ] Inout behavior and limitations.
-* [ ] Functional coverage.
-* [ ] `cargo vvm coverage`.
-* [ ] CI integration.
-* [ ] Troubleshooting.
+* [x] Project purpose and supported use cases.
+* [x] Installation and prerequisites.
+* [x] First VVM project.
+* [x] `vvm-build` and `build.rs`.
+* [x] Generated DUT inclusion.
+* [x] Driving and sampling transactions.
+* [x] Clock configuration.
+* [x] Testbench construction.
+* [x] Reference models and scoreboards.
+* [x] Registered VVM tests.
+* [x] Failure policies and diagnostics.
+* [x] Randomization and replay.
+* [x] Tracing.
+* [x] Multi-clock execution.
+* [x] Timing-enabled models.
+* [x] Inout behavior and limitations.
+* [x] Functional coverage.
+* [x] `cargo vvm coverage`.
+* [x] CI integration.
+* [x] Troubleshooting.
 
 ### Developer guide
 
 Document:
 
-* [ ] Workspace architecture.
-* [ ] Supported public crate boundaries.
-* [ ] Verilator invocation and metadata pipeline.
-* [ ] Generated C++ adapter.
-* [ ] CXX bridge generation.
-* [ ] Generated Rust wrapper.
-* [ ] DUT lifecycle.
-* [ ] FFI and unsafe invariants.
-* [ ] Testbench execution ordering.
-* [ ] Multi-clock scheduler.
-* [ ] Timing scheduler.
-* [ ] Randomization architecture.
-* [ ] Coverage architecture.
-* [ ] Procedural macro architecture.
-* [ ] Error and diagnostic policy.
-* [ ] Testing strategy.
-* [ ] Benchmark policy.
-* [ ] Compatibility policy.
-* [ ] Release process.
+* [x] Workspace architecture.
+* [x] Supported public crate boundaries.
+* [x] Verilator invocation and metadata pipeline.
+* [x] Generated C++ adapter.
+* [x] CXX bridge generation.
+* [x] Generated Rust wrapper.
+* [x] DUT lifecycle.
+* [x] FFI and unsafe invariants.
+* [x] Testbench execution ordering.
+* [x] Multi-clock scheduler.
+* [x] Timing scheduler.
+* [x] Randomization architecture.
+* [x] Coverage architecture.
+* [x] Procedural macro architecture.
+* [x] Error and diagnostic policy.
+* [x] Testing strategy.
+* [x] Benchmark policy.
+* [x] Compatibility policy.
+* [x] Release process.
 
 ### Rustdoc integration
 
@@ -2564,13 +2564,13 @@ public/
 └── coverage/
 ```
 
-* [ ] Build mdBook into the Pages root.
-* [ ] Build rustdoc for all published library crates.
-* [ ] Publish rustdoc below `/api/`.
-* [ ] Add API-reference landing pages in the book.
-* [ ] Preserve rustdoc search and source navigation.
-* [ ] Link the book and API documentation bidirectionally.
-* [ ] Decide whether `cargo-vvm` command documentation is book-only.
+* [x] Build mdBook into the Pages root.
+* [x] Build rustdoc for all published library crates.
+* [x] Publish rustdoc below `/api/`.
+* [x] Add API-reference landing pages in the book.
+* [x] Preserve rustdoc search and source navigation.
+* [x] Link the book and API documentation bidirectionally.
+* [x] Decide whether `cargo-vvm` command documentation is book-only.
 
 ### Package READMEs
 
@@ -2582,44 +2582,44 @@ crates/vvm-build/README.md
 crates/cargo-vvm/README.md
 ```
 
-* [ ] Ensure each README works independently on crates.io.
-* [ ] Give each package a focused purpose statement.
-* [ ] Include the minimum useful installation example.
-* [ ] Link to the project book.
-* [ ] Link to the relevant API documentation.
-* [ ] Avoid using workspace-relative links that break on crates.io.
-* [ ] Add `readme` and `documentation` metadata to package manifests.
+* [x] Ensure each README works independently on crates.io.
+* [x] Give each package a focused purpose statement.
+* [x] Include the minimum useful installation example.
+* [x] Link to the project book.
+* [x] Link to the relevant API documentation.
+* [x] Avoid using workspace-relative links that break on crates.io.
+* [x] Add `readme` and `documentation` metadata to package manifests.
 
 ### Documentation quality gates
 
-* [ ] Enable or retain missing-public-doc warnings.
-* [ ] Run all rustdoc tests.
-* [ ] Check internal and external links.
-* [ ] Check mdBook builds with warnings treated seriously.
-* [ ] Check code examples against the stabilized API.
-* [ ] Remove stale alpha workflows and manual coverage instructions.
-* [ ] Document Linux-only support explicitly if that remains the supported platform.
-* [ ] Document supported Rust and Verilator versions.
+* [x] Enable or retain missing-public-doc warnings.
+* [x] Run all rustdoc tests.
+* [x] Check internal and external links.
+* [x] Check mdBook builds with warnings treated seriously.
+* [x] Check code examples against the stabilized API.
+* [x] Remove stale alpha workflows and manual coverage instructions.
+* [x] Document Linux-only support explicitly if that remains the supported platform.
+* [x] Document supported Rust and Verilator versions.
 
 ### GitLab Pages
 
-* [ ] Add a Pages stage and job.
-* [ ] Build mdBook and rustdoc reproducibly.
-* [ ] Publish only from intended branches or tags.
-* [ ] Retain build artifacts for troubleshooting.
-* [ ] Verify relative links under the GitLab Pages base path.
-* [ ] Publish version or release information visibly.
-* [ ] Verify the deployed site from CI.
+* [x] Add a Pages stage and job.
+* [x] Build mdBook and rustdoc reproducibly.
+* [x] Publish only from intended branches or tags.
+* [x] Retain build artifacts for troubleshooting.
+* [x] Verify relative links under the GitLab Pages base path.
+* [x] Publish version or release information visibly.
+* [x] Verify the deployed site from CI.
 
 ### Acceptance criteria
 
-* [ ] The project book builds locally and in CI.
-* [ ] User and developer guides are substantial and navigable.
-* [ ] API documentation is available below the same Pages site.
-* [ ] `vvm-build` and `cargo-vvm` have crates.io-ready READMEs.
-* [ ] Documentation examples compile.
-* [ ] GitLab Pages deployment succeeds.
-* [ ] Public package metadata points to valid documentation.
+* [x] The project book builds locally and in CI.
+* [x] User and developer guides are substantial and navigable.
+* [x] API documentation is available below the same Pages site.
+* [x] `vvm-build` and `cargo-vvm` have crates.io-ready READMEs.
+* [x] Documentation examples compile.
+* [x] GitLab Pages deployment succeeds.
+* [x] Public package metadata points to valid documentation.
 
 ---
 

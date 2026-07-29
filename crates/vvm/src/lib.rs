@@ -1,5 +1,11 @@
 //! Verilator Verification Methodology for Rust.
 //!
+//! This is the recommended public entry point for VVM verification code. Use
+//! [`include_dut!`] to include a wrapper produced by `vvm-build`, then compose
+//! the modules below into ordinary Rust tests. The task-oriented guide is at
+//! <https://byacrates.gitlab.io/vvm-rs/> and the maintained examples live in
+//! the repository `examples/` directory.
+//!
 //! VVM's public API is organized by domain. Import ordinary types from the
 //! relevant facade module, such as [`dut`], [`testbench`], or [`coverage`].
 //! Derive and attribute macros remain available at the crate root.

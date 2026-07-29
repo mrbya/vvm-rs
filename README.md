@@ -3,6 +3,11 @@
 Rust verification framework for Verilator-generated RTL models, including
 internally scheduled HDL delays.
 
+## Documentation
+
+The task-oriented [project book](https://byacrates.gitlab.io/vvm-rs/) is the
+authoritative guide. Start with [getting started](https://byacrates.gitlab.io/vvm-rs/getting-started.html), then use the [API reference](https://byacrates.gitlab.io/vvm-rs/api/), [example ladder](https://byacrates.gitlab.io/vvm-rs/examples.html), [cargo-vvm guide](https://byacrates.gitlab.io/vvm-rs/cargo-vvm.html), [developer guide](https://byacrates.gitlab.io/vvm-rs/developer-guide.html), and [contributing guide](https://byacrates.gitlab.io/vvm-rs/contributing.html). Detailed workflows below are retained during alpha transition; the book is the canonical location for new documentation.
+
 VVM provides strongly typed Rust testbenches, generated DUT bridges, and normal Cargo-based test execution for Verilated designs.
 
 > [!WARNING]

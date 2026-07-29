@@ -8,6 +8,8 @@ homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 description = "Cargo subcommand for VVM functional coverage orchestration"
+readme = "README.md"
+documentation = "https://byacrates.gitlab.io/vvm-rs/cargo-vvm.html"
 publish = false
 
 [[bin]]

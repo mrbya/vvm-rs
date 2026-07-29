@@ -35,11 +35,13 @@ fn coverage_command_writes_merged_and_rendered_counter_reports()
 -> Result<(), Box<dyn std::error::Error>> {
     let directory = tempdir()?;
     let output = directory.path().join("coverage");
+    let target_dir = directory.path().join("target");
     let workspace = workspace_root()?;
     let mut command = Command::cargo_bin("cargo-vvm")?;
 
     command
         .current_dir(workspace)
+        .env("CARGO_TARGET_DIR", target_dir)
         .args(["coverage", "--output"])
         .arg(&output)
         .args([
@@ -68,11 +70,13 @@ fn coverage_command_preserves_test_failure_after_writing_counter_reports()
 -> Result<(), Box<dyn std::error::Error>> {
     let directory = tempdir()?;
     let output = directory.path().join("coverage");
+    let target_dir = directory.path().join("target");
     let workspace = workspace_root()?;
     let mut command = Command::cargo_bin("cargo-vvm")?;
 
     command
         .current_dir(workspace)
+        .env("CARGO_TARGET_DIR", target_dir)
         .args(["coverage", "--output"])
         .arg(&output)
         .args([

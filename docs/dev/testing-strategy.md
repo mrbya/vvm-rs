@@ -85,9 +85,10 @@ the declared dependency placeholders, set a unique `CARGO_TARGET_DIR`, and
 print complete stdout/stderr when Cargo fails. Fixture manifests must never use
 workspace-relative paths after rewriting. Native fixtures belong in a clearly
 named `native-*` directory and are run only by native or end-to-end recipes.
-They run as separate nextest cases so fixture builds can proceed in parallel;
-their scoped 180-second slow threshold accounts for clean isolated Verilator
-and C++ compilation on constrained CI workers.
+They run as separate nextest cases with bounded process-level concurrency; this
+prevents their nested Cargo, Verilator, and C++ builds from oversubscribing
+constrained workers. Their scoped 180-second slow threshold accounts for clean
+isolated native compilation.
 
 `pure-consumer` validates that an external project can depend on the facade
 alone. `build-consumer` performs a clean Rust-CXX-Verilator build through its

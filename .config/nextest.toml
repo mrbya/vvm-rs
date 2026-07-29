@@ -1,6 +1,13 @@
-# Native fixture tests deliberately build copied consumer projects with isolated
-# Cargo targets. A clean Verilator/C++ compile can exceed the generic 60-second
-# slow-test threshold on constrained CI workers, without indicating a hang.
+# Tests in this group start clean Cargo builds, which may themselves invoke
+# Verilator and C++ compilation. Bound their process-level concurrency so they
+# do not oversubscribe constrained workers and starve unrelated test binaries.
+
+[test-groups]
+external-builds = { max-threads = 2 }
+
+[[profile.default.overrides]]
+filter = 'test(native_) or test(clean_consumer_generates_and_executes_a_dut) or test(coverage_command_writes_merged_and_rendered_counter_reports) or test(coverage_command_preserves_test_failure_after_writing_counter_reports) or test(derive_ui)'
+test-group = "external-builds"
 
 [[profile.default.overrides]]
 filter = 'test(native_)'

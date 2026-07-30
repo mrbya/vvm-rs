@@ -1,9 +1,38 @@
 # Contributing
 
-Run `just init` once to install nightly formatting and documentation tooling, nextest, LLVM coverage, udeps, audit, Markdown TOC, and pre-commit. Primary commands are `just fmt --check`, `just check -- -D warnings`, `just test-fast`, `just test-native`, `just test-examples`, and `just ci`.
+This page is the user-facing contributor entry point and preserves the long-lived
+`contributing.html` path.
 
-Use curated examples for user workflows and isolated fixtures for narrow generated-port regressions. Preserve fixture golden data and the test-category boundaries described in the [testing strategy](../../dev/testing-strategy.md). Documentation changes must keep rustdoc contracts precise, use tested example sources for generated-DUT snippets, and run `just docs-test` and `just docs-links`.
+## First-time Setup
 
-The documentation site is built by `just docs-site`; `just docs-serve` serves it locally. `just docs-internal` is maintainer-only private-item rustdoc and is never deployed. External link checks are intentionally scheduled or default-branch work because they depend on remote availability.
+```bash
+cargo install just
+just init
+```
 
-Contributors must retain MSRV 1.87.0, the Linux native-support statement, and the Verilator 5.000 minimum / 5.050 tested claims unless CI evidence and the compatibility documentation change together. Benchmark workflows use `just benchmark`; releases and publication policy remain controlled by the roadmap.
+`just init` installs the tools used by repository checks, including nightly
+rustfmt, nextest, LLVM coverage, udeps, audit, mdBook, Markdown TOC, and
+pre-commit.
+
+## Common Commands
+
+| Command | Purpose |
+| --- | --- |
+| `just fmt --check` | formatting check |
+| `just check -- -D warnings` | lint all targets, examples, and tests |
+| `just test-fast` | pure-Rust unit, integration, UI, and fixture suites |
+| `just test-native` | native tests, examples, and native fixtures |
+| `just test-all` | every test category |
+| `just docs-test` | doctests plus mdBook build |
+| `just docs-links` | assembled site plus local entry-point checks |
+| `just ci` | repository CI-equivalent gate |
+
+## Workflow Expectations
+
+- Use curated examples for public learning workflows.
+- Use `tests/fixtures/` for narrow generated-port and native regression cases.
+- Keep docs, rustdoc, READMEs, examples, and compatibility claims aligned.
+- Do not weaken lint or validation checks to make a documentation change pass.
+
+Use the rest of the development section for the full contributor guide, command
+surface, testing model, documentation maintenance policy, and release workflow.

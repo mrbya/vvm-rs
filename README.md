@@ -1,98 +1,61 @@
 # VVM
 
-Rust verification framework for Verilator-generated RTL models, including
-internally scheduled HDL delays.
+Rust-first verification for Verilator-generated HDL models.
 
-## Documentation
-
-The task-oriented [project book](https://byacrates.gitlab.io/vvm-rs/) is the
-authoritative guide. Start with [getting started](https://byacrates.gitlab.io/vvm-rs/getting-started.html), then use the [API reference](https://byacrates.gitlab.io/vvm-rs/api/), [example ladder](https://byacrates.gitlab.io/vvm-rs/examples.html), [cargo-vvm guide](https://byacrates.gitlab.io/vvm-rs/cargo-vvm.html), [developer guide](https://byacrates.gitlab.io/vvm-rs/developer-guide.html), and [contributing guide](https://byacrates.gitlab.io/vvm-rs/contributing.html). Detailed workflows below are retained during alpha transition; the book is the canonical location for new documentation.
-
-VVM provides strongly typed Rust testbenches, generated DUT bridges, and normal Cargo-based test execution for Verilated designs.
+VVM gives a Rust crate a generated DUT wrapper, typed drive/sample APIs,
+testbench composition, replayable randomization, waveform tracing, timing-mode
+support for delayed HDL events, and Rust-native functional coverage.
 
 > [!WARNING]
-> VVM is currently an early alpha. The core workflow is usable, but public APIs may change before the first stable release.
+> VVM is an early alpha. The core workflow is real and CI-tested, but public APIs
+> may still change before the first stable release.
 
-<!-- toc -->
+## What Is VVM?
 
-- [What is VVM?](#what-is-vvm)
-- [Features](#features)
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Examples](#examples)
-- [Bidirectional Ports](#bidirectional-ports)
-- [Timing-enabled Models](#timing-enabled-models)
-- [Functional Coverage](#functional-coverage)
-- [Running VVM Tests](#running-vvm-tests)
-- [Test Configuration](#test-configuration)
-- [Workspace Crates](#workspace-crates)
-- [Development](#development)
-- [Documentation](#documentation)
-- [Project Status](#project-status)
-- [Similar Projects / Inspiration](#similar-projects--inspiration)
-- [License](#license)
+VVM wraps Verilator-generated simulation models of RTL designs in a Rust verification workflow.
 
-<!-- tocstop -->
+VVM is for engineers who want typed verification logic in ordinary Rust tests.
+It is not a four-state simulator, a UVM compatibility layer, or a CDC proof
+tool.
 
-## What is VVM?
+## Why VVM?
 
-VVM wraps Verilator-generated models in a Rust-first verification workflow.
+- Keep verification code in normal Rust crates and normal Cargo workflows.
+- Use typed transactions, models, scoreboards, and coverage instead of ad hoc
+  stringly scripts.
+- Reproduce randomized failures with replay tokens.
+- Use the same public workflow from the smallest counter example through timed,
+  multi-clock, and inout-oriented examples.
 
-At build time, `vvm-build` runs Verilator, generates the Rust/C++ bridge, and compiles the native support code needed for a DUT wrapper. At test time, `vvm` provides typed stimulus driving, output sampling, clock control, reference models, scoreboards, deterministic randomization, tracing, and a `#[vvm::test]` attribute that integrates directly with `cargo test` and `cargo nextest run`.
+## Current Status
 
-The working reference for public usage starts with `examples/counter`. The
-[example ladder](examples/README.md) progresses through a synchronous FIFO,
-timed UART, asynchronous FIFO, and specialist tri-state bus.
+- Linux-focused native verification support.
+- Two-state Verilator behavior: Rust-visible ports do not carry HDL `X` or `Z`.
+- Timing mode supports delayed future slots, not same-time or `#0` scheduling.
 
 ## Features
 
-- Verilator model integration through `vvm-build` build-script APIs.
-- Generated Rust/C++ DUT bridge code for supported Verilator designs.
-- Strongly typed DUT driving and sampling via `Drive` and `Sample` derives.
-- Typed clock abstractions via the `Clock` derive.
-- Reusable typed testbench composition through `Testbench`.
-- Ordinary iterator-based or replayable stimulus sequences.
-- Stateful reference models and exact-equality scoreboards.
-- Configurable failure policies with retained mismatch diagnostics.
-- Explicit simulation time and cycle timing.
-- Timing-enabled Verilator models through a typed build option.
-- Explicit delayed-event processing through `TimedDut` and `TimingScheduler`.
-- Manual delayed-slot stepping and bounded run-until-idle execution.
-- Deterministic randomization with replay tokens.
-- Structured pass/fail outcomes and detailed reports.
-- VCD waveform tracing for trace-capable tests.
-- `#[vvm::test]` for standard Rust test generation.
-- Native `cargo test` and `cargo nextest run` execution.
-- Standard Rust filtering, package selection, parallelism, and `#[ignore]` handling.
-- Environment-based test configuration with replay, cycle, trace, and coverage overrides.
-- Explicit Rust-native functional coverage with typed coverpoints and bins.
+- Verilator-backed generated DUT wrappers.
+- `Drive`, `Sample`, and `Clock` derives.
+- `Testbench`, reference models, and scoreboards.
+- Replayable randomization.
+- VCD tracing.
+- Timing-mode scheduling for delayed HDL behavior.
+- Deterministic multi-clock workflows.
+- Caller-owned inout resolution.
+- Rust-native functional coverage and offline reporting.
 
 ## Requirements
 
-To build and run VVM-based tests for Verilated DUTs, the currently verified requirements are:
-
-- Rust `1.87.0` or newer.
-- A working C++ toolchain.
+- Rust 1.87.0 or newer.
 - Verilator.
+- A working Linux C++ toolchain.
 
-Timing-enabled models require a C++ compiler with coroutine support. Ordinary
-non-timing models retain the existing C++17 compilation path.
-
-Additional contributor tooling used by this repository is installed by `just init`. That includes nightly Rust for formatting and dependency linting, `cargo-nextest`, `cargo-llvm-cov`, `cargo-udeps`, `cargo-audit`, `markdown-toc`, and `pre-commit`.
-
-The CI Docker image also installs tools such as `clang`, `llvm`, `cmake`, `ninja`, `make`, `pkgconf`, and `npm`. Those are part of the repository's development and CI environment; they are not all required for ordinary VVM consumers.
+Timing-enabled models additionally need coroutine-capable C++ support.
 
 ## Installation
 
-VVM is primarily a library. Install `cargo-vvm` for suite-level functional coverage orchestration:
-
-```console
-cargo install cargo-vvm
-cargo vvm coverage
-```
-
-For a test-focused layout, use `vvm` as a development dependency and `vvm-build` in `build.rs`:
+Most users add the facade crate as `vvm` and use `vvm-build` in `build.rs`:
 
 ```toml
 [dev-dependencies]
@@ -102,17 +65,20 @@ vvm = { package = "vvm-rs", version = "0.1.0-alpha.1" }
 vvm-build = "0.1.0-alpha.1"
 ```
 
-During pre-release evaluation, a temporary Git dependency also works:
+Install `cargo-vvm` when you want suite-level functional-coverage merge and
+reporting:
 
-```toml
-[dev-dependencies]
-vvm = { package = "vvm-rs", git = "https://gitlab.com/byacrates/vvm-rs.git" }
-
-[build-dependencies]
-vvm-build = { git = "https://gitlab.com/byacrates/vvm-rs.git" }
+```bash
+cargo install cargo-vvm
 ```
 
-## Quick Start
+## Crate layout
+
+- `vvm-build` runs Verilator during `build.rs`, generates rust-to-c++ bridges, and compiles rust-native native wrappers.
+- `vvm` is the public VVM library entrypoint.
+- `cargo-vvm` is a cargo utility cli tool to manage functional coverage artifacts and reports.
+
+## Quickstart
 
 Minimal project example:
 
@@ -164,7 +130,7 @@ fn main() -> BuildResult<()> {
 
 ```rust
 #[cfg(test)]
-mod vvm_tests {
+mod tests {
     use vvm::prelude::*;
 
     vvm::include_dut!(counter);
@@ -172,12 +138,11 @@ mod vvm_tests {
     use crate::counter::{Counter, CounterError};
 
     /// Stimulus definition.
-    #[derive(Clone, Copy, Debug, Drive)]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Drive)]
     #[vvm(dut = Counter)]
-    struct CounterStimulus {
+    struct Stimulus {
         #[vvm(port)]
         reset_n: bool,
-
         #[vvm(port)]
         enable: bool,
     }
@@ -185,12 +150,12 @@ mod vvm_tests {
     /// Sample definition.
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Sample)]
     #[vvm(dut = Counter)]
-    struct CounterObservation {
+    struct Observation {
         #[vvm(port)]
         count: u8,
     }
 
-    /// Clocking signal setup.
+    /// Clocking signal definition.
     #[derive(Clone, Copy, Debug, Default, Clock)]
     #[vvm(dut = Counter, clock = "clk")]
     struct CounterClock;
@@ -218,279 +183,53 @@ mod vvm_tests {
 }
 ```
 
-Run the test with Cargo:
-
-```console
-cargo test counter_smoke
-```
-
-For unit-style VVM tests, keep them inside an explicit `#[cfg(test)]` module as shown above. Integration tests under `tests/` are already test-only and do not need an additional `#[cfg(test)]`.
-
-## Examples
-
-The curated user-facing examples are documented in
-[`examples/README.md`](examples/README.md). Start with the
-[counter](examples/counter/README.md), then study the synchronous FIFO, timed
-UART, asynchronous FIFO, and tri-state bus in that order. Narrow generated-port
-regressions are isolated native fixtures, not recommended examples.
-
-## Bidirectional Ports
-
-VVM supports plain packed-scalar top-level `inout` ports. Generated wrappers
-separate the caller-presented input from the DUT's `output_enable` mask and
-`output_value` proposal through `set_<port>_input`, `<port>_input()`,
-`<port>_output_enable()`, `<port>_output_value()`, and `<port>()` returning
-`InoutState`.
-
-Resolution remains caller-owned: combine DUT and external enable/value
-proposals, choose an explicit floating-bit policy, and write successful values
-through `set_<port>_input`. Verilator execution is two-state, so Rust does not
-receive `X` or `Z` values. See [`examples/tri-state-bus`](examples/tri-state-bus)
-for bounded settling, exact contention detection, and VCD tracing.
-
-## Timing-enabled Models
-
-Timing mode builds a model that exposes internally scheduled HDL delays:
-
-```rust
-DutBuilder::new("delayed_sequence")
-    .top_module("delayed_sequence")
-    .source("rtl/delayed_sequence.sv")
-    .timing()
-    .build()
-```
-
-Run its finite delayed-event queue explicitly:
-
-```rust
-let mut scheduler = TimingScheduler::new();
-let run = scheduler.run_until_idle(&mut dut, max_slots)?;
-```
-
-Cycle mode: Rust schedules external input-clock transitions and transaction
-boundaries.
-
-Timing mode: Verilator schedules internal delayed HDL processes.
-
-The two schedulers are intentionally separate. See
-[`examples/timed-uart`](examples/timed-uart) for timing, protocol
-reconstruction, tracing, and explicit finalization.
-
-## Functional Coverage
-
-VVM provides Rust-native functional coverage through typed coverpoints, bins,
-and explicit two-way crosses. Normal, ignore, and illegal bins support exact
-values, value sets, and inclusive ranges. Crosses consume successful
-coverpoint samples, combine only normal-bin identities in deterministic
-row-major order, and skip ignored or unmatched axes. Coverage remains an exact
-integer ratio. Tests that capture coverage through a `TestContext` persist one
-schema-v1 JSON artifact after the test runs; see
-[`docs/coverage-json-v1.md`](docs/coverage-json-v1.md) for the file contract.
-
-For normal transaction-oriented coverage, derive a model, attach its validated
-instance, and run it through the testbench:
-
-```rust
-#[derive(vvm::Coverage)]
-#[vvm(definition = "decoder", revision = 1, stimulus = Stimulus, observation = Observation)]
-struct DecoderCoverage { /* annotated Coverpoint and Cross2 fields */ }
-
-// #[vvm::test(coverage)] fn covered(context: &mut vvm::TestContext) { ... }
-// Testbench::new(dut).with_coverage(DecoderCoverage::new("dut.decoder")?).run_covered(context);
-```
-
-`run_covered` samples successful observations at the normal observer point and
-captures complete or partial coverage without hiding simulation or scoreboard
-results. Manual `CoverageGroup`, `capture_coverage`, and `run_with_observer`
-remain available for advanced models. See
-[`docs/coverage-ergonomics.md`](docs/coverage-ergonomics.md) and the
-[`docs/coverage-orchestration.md`](docs/coverage-orchestration.md) for the
-suite-level workflow.
-[`counter example`](examples/counter/README.md) for the full ergonomic flow.
-
-Per-test artifacts can be merged explicitly after tests complete:
-
-```rust
-let merged = vvm::CoverageMerge::from_files(
-    vvm::CoverageMergePolicy::passed_only(),
-    artifact_paths,
-)?;
-merged.write_to("target/coverage/combined.vvmcov-merged.json")?;
-```
-
-Merging is offline, deterministic, and never updates shared test-runtime
-state. See [`docs/coverage-merging.md`](docs/coverage-merging.md).
-
-Reporting consumes the resulting merge explicitly:
-
-```text
-per-test *.vvmcov.json
-    ↓
-CoverageMerge
-    ↓
-*.vvmcov-merged.json
-    ├── *.vvmcov.txt
-    ├── *.vvmcov.html
-    └── GitLab metric line
-```
-
-```rust
-let report = vvm::CoverageReport::new(&merged);
-std::fs::write("coverage.vvmcov.txt", report.to_text())?;
-std::fs::write("coverage.vvmcov.html", report.to_html())?;
-println!("{}", report.gitlab_metric());
-```
-
-See [`docs/coverage-reporting.md`](docs/coverage-reporting.md) for options,
-fixed-point percentages, HTML behavior, and GitLab integration.
-
-The counter example provides the complete executable workflow:
+Run tests with normal Cargo commands:
 
 ```bash
-just functional-coverage-example
-```
-
-```text
-target/vvm-functional-coverage/
-├── artifacts/
-├── counter.vvmcov-merged.json
-├── counter.vvmcov.txt
-└── counter.vvmcov.html
-```
-
-See [`examples/counter/README.md`](examples/counter/README.md) for the typed
-coverage model, manual commands, and GitLab job.
-
-## Running VVM Tests
-
-VVM tests are ordinary Rust tests.
-
-Typical workflows:
-
-```console
 cargo test
-cargo test counter
-cargo test counter_random
-cargo test --workspace
+# or
 cargo nextest run
-cargo nextest run -p <package>
 ```
 
-Cargo and nextest own:
+## Example Ladder
 
-- test discovery;
-- package and workspace selection;
-- name filtering;
-- parallel execution;
-- ignored-test handling;
-- standard summaries and reporting.
-
-`cargo-nextest` is optional. If it is installed, VVM tests work with it directly.
-
-## Test Configuration
-
-VVM uses environment variables for global test configuration:
-
-- `VVM_SEED`
-- `VVM_REPLAY`
-- `VVM_CYCLES`
-- `VVM_TRACE_DIR`
-- `VVM_COVERAGE_DIR`
-
-Examples:
-
-```console
-VVM_SEED=0x1234 cargo test counter_random
-
-VVM_CYCLES=100000 cargo test counter_random
-
-VVM_REPLAY=chacha8-v1:0123456789abcdef \
-    cargo test counter_random
-
-VVM_TRACE_DIR=target/vvm-traces \
-    cargo test counter_smoke
-
-VVM_COVERAGE_DIR=target/vvm-coverage-artifacts \
-    cargo test decoder_random
-```
-
-Replay precedence for replay-capable tests is:
-
-1. `VVM_REPLAY`
-2. `VVM_SEED`
-3. Descriptor default replay token
-4. Generated replay token
-
-Capability behavior:
-
-- replay overrides affect replay-capable tests;
-- cycle overrides affect tests declaring cycle support;
-- trace configuration affects tests declaring trace support.
-
-If `VVM_TRACE_DIR` is not set, trace-capable tests write VCDs under a generated per-run directory rooted at `target/vvm-trace/`.
-
-Tests that capture coverage write a separate `.vvmcov.json` artifact per test
-under `VVM_COVERAGE_DIR`, or under a generated per-run directory rooted at
-`target/vvm-coverage/` when it is unset. The bridge attempts this write after
-the test body, including when the test has failed, and reports persistence
-errors through the test result. No artifact is written when the test captures
-no coverage.
-
-## Workspace Crates
-
-- `vvm-rs` / `vvm`: public facade crate used by verification code.
-- `vvm-core`: runtime verification primitives, outcomes, timing, replay, and testbench execution.
-- `vvm-build`: Verilator invocation, metadata handling, code generation, and native bridge compilation.
-- `vvm-macros`: derives for drive/sample/clock plus `#[vvm::test]`.
-- `vvm-example-counter`: minimal cycle-driven verification.
-- `vvm-example-sync-fifo`: realistic one-clock queue verification.
-- `vvm-example-timed-uart`: behavioral timing and protocol reconstruction.
-- `vvm-example-async-fifo`: independently scheduled clock workflow.
-- `vvm-example-tri-state-bus`: caller-owned top-level inout resolution.
+- `examples/counter`: first complete workflow.
+- `examples/sync-fifo`: queue model and boundary behavior.
+- `examples/timed-uart`: timing scheduler and protocol reconstruction.
+- `examples/async-fifo`: deterministic multi-clock workflow.
+- `examples/tri-state-bus`: caller-owned inout resolution.
 
 ## Development
 
-The repository uses `just` recipes as the primary contributor interface.
+Repository contributors should start with:
 
-First-time setup:
-
-```console
+```bash
 cargo install just
 just init
 ```
 
 Common commands:
 
-```console
+```bash
 just fmt --check
 just check -- -D warnings
-just test
-just doctest
+just test-fast
+just test-native
+just docs-test
 just ci
 ```
 
-`just ci` is the repository's CI-equivalent verification command.
-
 ## Documentation
 
-Generate local API docs with:
+- Project book: <https://byacrates.gitlab.io/vvm-rs/>
+- Quick start: <https://byacrates.gitlab.io/vvm-rs/quick-start.html>
+- API reference: <https://byacrates.gitlab.io/vvm-rs/api/>
+- Example ladder: <https://byacrates.gitlab.io/vvm-rs/examples.html>
 
-```console
-cargo doc --workspace --no-deps --open
-```
+## Similar Projects And Inspiration
 
-## Project Status
-
-`0.1.0-alpha.1` is the first public alpha release for this workspace.
-
-- The current core workflow is implemented and verified in CI.
-- Public APIs may still change during alpha.
-- Development continues beyond the initial MVP.
-- Practical feedback and real verification examples are especially useful at this stage.
-
-## Similar Projects / Inspiration
-
-VVM is heavily inspired by [UVM](https://www.accellera.org/downloads/standards/uvm) and is a reboot of the original [VVM](docs/dev/reference-projects/vvm) reference project preserved in this repository.
+VVM is heavily inspired by UVM-style verification structure and by the original
+VVM reference project preserved under `docs/dev/reference-projects/vvm/`.
 
 ## License
 

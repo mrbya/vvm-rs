@@ -1,13 +1,18 @@
-# cargo-vvm
+# cargo-vvm Overview
 
-`cargo-vvm` is the coverage orchestration command. It remains documented in this book rather than rustdoc because it is binary-only.
+This page preserves the long-lived `cargo-vvm.html` path and now serves as the
+entry point to the full `cargo-vvm` guide.
 
-Install from the repository during alpha evaluation with `cargo install --path crates/cargo-vvm --locked`. Run a child command after `coverage`, for example:
+`cargo-vvm` is the binary that orchestrates offline functional-coverage merge and
+report generation around a child Cargo test command.
 
-```text
-cargo vvm coverage --output target/vvm-coverage --name counter -- test -p vvm-example-counter counter_
-```
+Use the following chapters for the full workflow:
 
-The command collects per-test artifacts, writes a deterministic merged JSON document, text report, and self-contained HTML report below the selected output directory. Output must be a dedicated directory; retries are not supported because an ambiguous child retry would corrupt provenance. Child test failure is preserved after reporting where artifacts exist. Reporting failure is a distinct command failure, and a no-artifact run is reported rather than silently treated as coverage.
-
-Choose passed-only, all-completed, or explicit merge policy as required by the CLI. Bin detail controls report verbosity. Provenance and fingerprints are retained to diagnose incompatible definitions. The final text line is compatible with the GitLab coverage regex used by this repository.
+- [Installation](cargo-vvm/installation.md)
+- [Workflow](cargo-vvm/workflow.md)
+- [Command Reference](cargo-vvm/command-reference.md)
+- [Output Layout](cargo-vvm/output-layout.md)
+- [Merge Policies](cargo-vvm/merge-policies.md)
+- [Failure Semantics](cargo-vvm/failure-semantics.md)
+- [GitLab CI](cargo-vvm/gitlab.md)
+- [Troubleshooting](cargo-vvm/troubleshooting.md)

@@ -3,9 +3,9 @@ id: TASK-12
 title: Write core user guide
 status: Done
 assignee:
-  - OpenCode
+  - '@OpenCode'
 created_date: '2026-07-29 14:12'
-updated_date: '2026-07-29 14:21'
+updated_date: '2026-07-30 10:22'
 labels: []
 milestone: m-0
 dependencies: []
@@ -27,11 +27,21 @@ Document normal VVM DUT integration, testbench authoring, test discovery, and su
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-Document normal DUT integration, transaction traits, testbench ordering, and Cargo test discovery from current public APIs.
+1. Replace the current summary-style core user guide with concept chapters for the verification workflow, DUT wrappers, transactions, sequences, reference models, scoreboards, clocks, and failures/results.
+2. Add workflow chapters that connect the conceptual model to ordinary user tasks such as project setup, including the DUT, driving, sampling, building a testbench, and registering tests.
+3. Explain the complete verification data flow from stimulus sequence through drive, evaluation, sample, model prediction, scoreboard checks, coverage observation, and reported result.
+4. Use counter and synchronous-FIFO sources as the primary examples for basic cycle-driven workflows.
+5. Ensure no major normal-workflow concept remains documented only in rustdoc or example READMEs.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Reopened during milestone 12.5 completion audit. The current core user guide summarizes the workflow but does not yet provide the full conceptual and workflow documentation promised by the task acceptance criteria.
+<!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-Added the core user-guide material for DutBuilder, generated inclusion, Drive, Sample, clocks, testbenches, models, scoreboards, and standard Rust test discovery. Book build passes.
+Replaced the old summary-style user guide with a concept-and-workflow path built from `concepts/*.md` and `guide/*.md`. Documented the full cycle-driven verification workflow, including generated wrappers, transactions, sequences, reference models, scoreboards, clocks, failures/results, project setup, driving, sampling, testbench construction, test registration, and runtime configuration. The normal user workflow is now explained at book level instead of being implied mainly by rustdoc and example source.
 <!-- SECTION:FINAL_SUMMARY:END -->

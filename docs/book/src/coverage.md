@@ -1,9 +1,23 @@
-# Functional coverage
+# Functional Coverage Overview
 
-VVM functional coverage is Rust-native and explicit. It is distinct from source-line coverage: source coverage remains a CI artifact, while this `/coverage/` namespace documents transaction intent.
+This page preserves the long-lived `coverage.html` path and now serves as the
+entry point to the full coverage section.
 
-`Coverpoint<T>` uses normal, ignore, and illegal `Bin`s for exact values, value sets, and inclusive ranges. Illegal bins take precedence, then ignore bins, then normal bins; all matching bins in the selected category are recorded. `Cross2` consumes normal-bin identities only, creates deterministic row-major cross bins, and skips ignored or unmatched axes. Typed models use `#[derive(vvm::Coverage)]`, `ObservedCycle`, and a `TestContext`; sampling occurs after a successful observation and does not drive or evaluate the DUT.
+VVM functional coverage is explicit, typed, and Rust-native. It is not a line
+coverage tool. The goal is to record which meaningful behaviors your tests
+exercised, not just which source lines executed.
 
-Each completed capture writes an immutable schema-v1 `.vvmcov.json` artifact with provenance and a structural definition fingerprint. Sessions preserve per-test state. `CoverageMerge` merges compatible artifacts by instance path under an explicit status policy; passed-only is the default, sums are checked, and output ordering is deterministic. `CoverageReport` produces deterministic text, self-contained HTML, uncovered-bin detail, and the final GitLab metric line.
+Use this section in order when you are learning the feature:
 
-Use `cargo vvm coverage` for the offline workflow. It preserves the child test status, reports its own failures separately, and handles no-artifact runs explicitly. The versioned artifact contract remains available at [schema v1](../../coverage-json-v1.md); legacy coverage files remain compatibility references.
+1. [Bins](coverage/bins.md)
+2. [Coverpoints](coverage/coverpoints.md)
+3. [Typed Models](coverage/typed-models.md)
+4. [Crosses](coverage/crosses.md)
+5. [Sampling](coverage/sampling.md)
+6. [Sessions And Artifacts](coverage/sessions-and-artifacts.md)
+7. [Merging](coverage/merging.md)
+8. [Reporting](coverage/reporting.md)
+9. [CI](coverage/ci.md)
+
+The versioned schema contract remains directly available at
+[`docs/coverage-json-v1.md`](../../coverage-json-v1.md).

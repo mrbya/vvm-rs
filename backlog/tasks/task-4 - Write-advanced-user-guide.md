@@ -3,9 +3,9 @@ id: TASK-4
 title: Write advanced user guide
 status: Done
 assignee:
-  - OpenCode
+  - '@OpenCode'
 created_date: '2026-07-29 14:12'
-updated_date: '2026-07-29 14:21'
+updated_date: '2026-07-30 10:22'
 labels: []
 milestone: m-0
 dependencies: []
@@ -27,11 +27,21 @@ Document failures diagnostics replay tracing multi-clock timing inout limitation
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-Document advanced runtime configuration, diagnostics, scheduler separation, timing, inout constraints, CI, and troubleshooting.
+1. Expand advanced workflow chapters for randomization/replay, waveform tracing, multi-clock execution, timing-enabled models, bidirectional ports, CI expectations, and troubleshooting.
+2. Ground replay, tracing, and multi-clock chapters in the counter, async-FIFO, and timed-UART examples.
+3. Document exact limitations for same-time timing behavior, two-state Verilator semantics, CDC scope, and unsupported HDL shapes in the relevant advanced chapters with a central limitations reference.
+4. Add troubleshooting entries for common advanced failures such as timing scheduler limits, trace setup issues, no-artifact coverage runs, and inout contention.
+5. Validate the advanced chapters through the maintained examples and documentation builds.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Reopened during milestone 12.5 completion audit. The current advanced guide is materially too shallow for its acceptance criteria: replay, tracing, multi-clock, timing, inout, limitations, CI, and troubleshooting still need source-backed, chapter-level treatment.
+<!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-Added advanced user guidance for policies, diagnostics, replay, tracing, multi-clock execution, timing scheduling, inout resolution, two-state limitations, CI, and troubleshooting. Book build passes.
+Expanded the advanced user path with dedicated guides for randomization/replay, waveform tracing, multi-clock execution, timing-enabled models, bidirectional ports, and troubleshooting. These chapters now document the explicit scheduler split, two-state behavior, inout caller-owned resolution, and the advanced failure modes that users hit in the timed UART, async FIFO, and tri-state bus workflows. Validated the advanced chapters through the example and repository-wide validation runs.
 <!-- SECTION:FINAL_SUMMARY:END -->

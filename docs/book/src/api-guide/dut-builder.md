@@ -3,6 +3,9 @@
 `vvm_build::DutBuilder` is the build-time API that turns HDL sources into a
 generated Rust wrapper plus its native bridge.
 
+Use it when you need the exact method names and option groupings after you already
+understand the [Build Script](../guide/build-script.md) workflow.
+
 The key user-facing responsibilities are:
 
 - choose a logical DUT name;
@@ -26,3 +29,4 @@ Important outputs and failures:
 Rustdoc:
 
 - [`vvm_build`](../api/vvm_build/index.html)
+- [`DutBuilder`](../api/vvm_build/struct.DutBuilder.html)

@@ -27,6 +27,10 @@ tool.
 - Use the same public workflow from the smallest counter example through timed,
   multi-clock, and inout-oriented examples.
 
+For a fuller comparison against commercial simulators, vendor tools, cocotb, and
+raw Verilator+C++, start with the book chapter:
+<https://byacrates.gitlab.io/vvm-rs/why-vvm.html>
+
 ## Current Status
 
 - Linux-focused native verification support.
@@ -80,7 +84,11 @@ cargo install cargo-vvm
 
 ## Quickstart
 
-Minimal project example:
+The full from-scratch walkthrough lives in the book:
+
+- <https://byacrates.gitlab.io/vvm-rs/quick-start.html>
+
+The minimal project shape is:
 
 ```text
 counter-verification/
@@ -92,96 +100,23 @@ counter-verification/
     └── lib.rs      # vvm rust testbench and test setup
 ```
 
-`rtl/counter.sv`:
-```systemverilog
-module counter (
-    input  logic       clk,
-    input  logic       reset_n,
-    input  logic       enable,
-    output logic [7:0] count
-);
-
-always_ff @(posedge clk or negedge reset_n) begin
-    if (!reset_n) begin
-        count <= '0;
-    end else if (enable) begin
-        count <= count + 1'b1;
-    end
-end
-
-endmodule
-```
-
-`build.rs`:
+The common build-time step is a small `build.rs` such as:
 
 ```rust
 use vvm_build::{BuildResult, DutBuilder, TraceOptions};
 
 fn main() -> BuildResult<()> {
-    DutBuilder::new("counter")
-        .top_module("counter")
-        .source("rtl/counter.sv")
+    DutBuilder::new("event_counter")
+        .top_module("event_counter")
+        .source("rtl/event_counter.sv")
         .trace(TraceOptions::vcd())
         .build()
 }
 ```
 
-`src/lib.rs`:
-
-```rust
-#[cfg(test)]
-mod tests {
-    use vvm::prelude::*;
-
-    vvm::include_dut!(counter);
-
-    use crate::counter::{Counter, CounterError};
-
-    /// Stimulus definition.
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Drive)]
-    #[vvm(dut = Counter)]
-    struct Stimulus {
-        #[vvm(port)]
-        reset_n: bool,
-        #[vvm(port)]
-        enable: bool,
-    }
-
-    /// Sample definition.
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Sample)]
-    #[vvm(dut = Counter)]
-    struct Observation {
-        #[vvm(port)]
-        count: u8,
-    }
-
-    /// Clocking signal definition.
-    #[derive(Clone, Copy, Debug, Default, Clock)]
-    #[vvm(dut = Counter, clock = "clk")]
-    struct CounterClock;
-
-    /// Test result type alias.
-    type CounterTestResult = TestResult<
-        CounterStimulus,
-        Mismatch<CounterObservation, CounterObservation>,
-        CounterError,
-    >;
-
-    /// Counter smoke verification.
-    #[vvm::test(trace)]
-    fn counter_smoke(config: &vvm::TestRunConfig) -> Result<CounterTestResult, counter::CounterError> {
-        let mut dut = Counter::new()?;
-
-        config.configure_trace(&mut dut)?;
-
-        Ok(
-            Testbench::new(dut)
-                // Add a sequence, reference model, scoreboard, and clock.
-                .run::<CounterObservation>(),
-        )
-    }
-}
-```
+The complete HDL, generated-wrapper inclusion, typed stimulus and observation,
+reference model, scoreboard, and registered test are in the Quick Start chapter
+instead of being partially duplicated here.
 
 Run tests with normal Cargo commands:
 
@@ -193,7 +128,7 @@ cargo nextest run
 
 ## Example Ladder
 
-- `examples/counter`: first complete workflow.
+- `examples/counter`: first larger case study after the Quick Start.
 - `examples/sync-fifo`: queue model and boundary behavior.
 - `examples/timed-uart`: timing scheduler and protocol reconstruction.
 - `examples/async-fifo`: deterministic multi-clock workflow.

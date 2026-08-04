@@ -177,7 +177,7 @@ Removed. Shared ABI support should only return once concrete cross-DUT native fu
 | 9 | Public facade | Complete |
 | 10 | Tracing, reporting, and standard test harness | Complete |
 | 11 | Wider HDL feature support and Rust-native coverage | Complete |
-| 12 | Pre-release cleanup and polish | In progress (12.5 documentation and Pages underway) |
+| 12 | Pre-release cleanup and polish | In progress (12.5 documentation and Pages complete; 12.6+ remain) |
 
 ---
 
@@ -2490,14 +2490,23 @@ docs/book/
 └── src/
     ├── SUMMARY.md
     ├── introduction.md
-    ├── getting-started/
-    ├── user-guide/
+    ├── why-vvm.md
+    ├── how-vvm-fits-into-hdl-verification.md
+    ├── how-vvm-works.md
+    ├── rust-essentials-for-hdl-engineers.md
+    ├── installation.md
+    ├── quick-start.md
+    ├── getting-started.md
+    ├── user-guide.md
+    ├── concepts/
+    ├── guide/
     ├── coverage/
     ├── cargo-vvm/
     ├── examples/
     ├── reference/
-    ├── developer-guide/
-    └── contributing/
+    ├── developer-guide.md
+    ├── contributing.md
+    └── development/
 ```
 
 ### User guide

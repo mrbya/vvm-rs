@@ -1,0 +1,16 @@
+[workspace]
+
+[package]
+name = "vvm-docs-quick-start"
+version = "0.0.0"
+edition = "2024"
+publish = false
+build = "build.rs"
+
+# ANCHOR: dependencies
+[dev-dependencies]
+vvm = { package = "vvm-rs", path = "__VVM_PATH__" }
+
+[build-dependencies]
+vvm-build = { path = "__VVM_BUILD_PATH__" }
+# ANCHOR_END: dependencies

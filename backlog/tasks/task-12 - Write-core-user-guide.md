@@ -5,9 +5,9 @@ status: Done
 assignee:
   - '@OpenCode'
 created_date: '2026-07-29 14:12'
-updated_date: '2026-07-30 10:22'
+updated_date: '2026-07-30 17:33'
 labels: []
-milestone: m-0
+milestone: m-1
 dependencies: []
 ---
 
@@ -27,21 +27,25 @@ Document normal VVM DUT integration, testbench authoring, test discovery, and su
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-1. Replace the current summary-style core user guide with concept chapters for the verification workflow, DUT wrappers, transactions, sequences, reference models, scoreboards, clocks, and failures/results.
-2. Add workflow chapters that connect the conceptual model to ordinary user tasks such as project setup, including the DUT, driving, sampling, building a testbench, and registering tests.
-3. Explain the complete verification data flow from stimulus sequence through drive, evaluation, sample, model prediction, scoreboard checks, coverage observation, and reported result.
-4. Use counter and synchronous-FIFO sources as the primary examples for basic cycle-driven workflows.
-5. Ensure no major normal-workflow concept remains documented only in rustdoc or example READMEs.
+1. Rewrite the core workflow chapters so each one teaches a generalized pattern directly instead of deferring to curated examples.
+2. Reuse the independent docs quick-start fixture for source-backed snippets covering setup, build, inclusion, typed drive/sample, clocking, sequence, model, scoreboard, and registered test assembly.
+3. Explain Cargo and Rust concepts only where they are needed for the verification workflow, with HDL-oriented language and cross-links to Rust essentials.
+4. Add common mistakes, lifecycle notes, and diagnostics to each major chapter so readers can apply the workflow without source-code archaeology.
+5. Validate the rewritten chapters through mdBook build and the documentation fixture test before finalizing the task.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 Reopened during milestone 12.5 completion audit. The current core user guide summarizes the workflow but does not yet provide the full conceptual and workflow documentation promised by the task acceptance criteria.
+
+Reopened because multiple core workflow chapters remain too terse to meet the user-centred teaching requirement. Project Setup, Build Script, Including the DUT, Driving Inputs, Sampling Outputs, Creating a Testbench, Registering Tests, and Configuring Tests all need substantial generalized instruction.
+
+Replaced the summary-only core workflow chapters with source-backed chapters for project setup, build scripts, generated-wrapper inclusion, typed driving and sampling, testbench assembly, test registration, and run-time configuration. The new chapters reuse the independent docs quick-start fixture so the code shown in the book is compiled exactly as documented.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-Replaced the old summary-style user guide with a concept-and-workflow path built from `concepts/*.md` and `guide/*.md`. Documented the full cycle-driven verification workflow, including generated wrappers, transactions, sequences, reference models, scoreboards, clocks, failures/results, project setup, driving, sampling, testbench construction, test registration, and runtime configuration. The normal user workflow is now explained at book level instead of being implied mainly by rustdoc and example source.
+Completed the core user-guide rewrite. Expanded `guide/project-setup.md`, `guide/build-script.md`, `guide/including-the-dut.md`, `guide/driving-inputs.md`, `guide/sampling-outputs.md`, `guide/creating-a-testbench.md`, `guide/registering-tests.md`, and `guide/configuring-tests.md` into generalized instructional chapters that explain the workflow directly for HDL engineers rather than sending readers into curated examples first. Added HDL-oriented explanations of Cargo and Rust concepts where needed, documented common mistakes and lifecycle behaviour, and backed the major code snippets with the tested docs quick-start fixture. Validated the rewritten core path with mdBook build and the dedicated fixture tests.
 <!-- SECTION:FINAL_SUMMARY:END -->

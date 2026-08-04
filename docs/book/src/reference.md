@@ -1,6 +1,7 @@
 # Reference Overview
 
-The reference section is where the practical lookup material lives.
+The Reference section answers: "What are the exact values, limits, mappings, and
+operational rules?"
 
 Use it for:
 
@@ -14,3 +15,6 @@ Use it for:
 
 Rustdoc remains the exact API contract. This section exists for the operational
 rules around that API.
+
+If you need workflow instruction, go back to the [Guide](user-guide.md). If you
+need the conceptual model, use [Concepts](concepts/overview.md).

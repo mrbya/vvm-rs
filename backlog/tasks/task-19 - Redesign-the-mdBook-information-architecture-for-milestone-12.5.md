@@ -5,9 +5,9 @@ status: Done
 assignee:
   - '@OpenCode'
 created_date: '2026-07-30 09:27'
-updated_date: '2026-07-30 10:22'
+updated_date: '2026-07-30 17:33'
 labels: []
-milestone: m-0
+milestone: Milestone 12.5 — User-centred documentation rewrite
 dependencies: []
 priority: high
 ---
@@ -30,21 +30,25 @@ Replace the current flat mdBook structure with a hierarchical navigation model t
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-1. Create the new section directories under `docs/book/src/` and replace the flat `SUMMARY.md` with hierarchical navigation covering orientation, concepts, workflows, API guidance, coverage, cargo-vvm, examples, reference, and development material.
-2. Replace the current single-page overview chapters with either substantive content chapters or short compatibility-pointer pages only where preserving published links remains practical.
-3. Update cross-links so the book, README surfaces, and package READMEs point to the new canonical paths.
-4. Keep every chapter referenced by `SUMMARY.md` substantial by coordinating content migration with the related user, API, reference, example, coverage, and development tasks.
-5. Validate the final structure with `just docs-book` and `just docs-links` after the content pass is complete.
+1. Rewrite the front of the book around an HDL-user learning journey: Introduction, Why VVM, How VVM Fits Into HDL Verification, How VVM Works, Rust Essentials For HDL Engineers, Installation, and Quick Start.
+2. Update `SUMMARY.md` so visible navigation reflects that learning journey before concepts, guides, API guide, examples, reference, and development material.
+3. Repurpose compatibility pages such as `getting-started.md` and `user-guide.md` so they remain useful landing pages or hidden compatibility pointers without exposing milestone or migration history.
+4. Update section landing pages and cross-links so examples are explicitly framed as case studies rather than the primary teaching path.
+5. Validate the structural rewrite with mdBook build and link checks after the related content chapters are in place.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 The information-architecture task is the active umbrella while the book is restructured and all new chapter paths are created. Related content tasks now have recorded plans and will be finalized against the resulting hierarchy.
+
+Reopened because the navigation still exposes process-oriented overview pages and does not yet provide the required early-book learning journey of Introduction, Why VVM, HDL workflow fit, runtime model, Rust essentials, Installation, and Quick Start.
+
+Added the missing early-book learning journey chapters (`why-vvm.md`, `how-vvm-fits-into-hdl-verification.md`, `how-vvm-works.md`, and `rust-essentials-for-hdl-engineers.md`), updated `SUMMARY.md`, and repurposed the long-lived landing pages so they no longer expose milestone or migration history.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-Replaced the flat mdBook with a hierarchical `SUMMARY.md` and new `concepts/`, `guide/`, `api-guide/`, `coverage/`, `cargo-vvm/`, `examples/`, `reference/`, and `development/` sections. Preserved practical legacy published entry points by keeping `getting-started.md`, `user-guide.md`, `coverage.md`, `cargo-vvm.md`, `examples.md`, `reference.md`, `developer-guide.md`, and `contributing.md` as substantive overview pages rather than breaking those URLs. Updated cross-links to the new structure and validated the result with `just docs-book` and `just docs-links`.
+Completed the final information-architecture pass for milestone 12.5. The visible front of the book now follows an HDL-user learning path through Introduction, Why VVM, HDL workflow fit, runtime model, Rust essentials, Installation, and Quick Start before the deeper concepts, guide, API, example, reference, and development sections. Updated `SUMMARY.md`, repurposed compatibility landing pages such as `getting-started.md` and `user-guide.md` into useful navigational pages, and removed user-facing process-history language from the navigation path. Validated the resulting structure with mdBook build, docs-site assembly, and docs-links checks.
 <!-- SECTION:FINAL_SUMMARY:END -->

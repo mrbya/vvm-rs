@@ -152,6 +152,60 @@ fn clean_consumer_generates_and_executes_a_dut() -> Result<(), Box<dyn std::erro
 }
 
 #[test]
+fn documentation_quick_start_fixture_builds_and_runs() -> Result<(), Box<dyn std::error::Error>> {
+    let fixture = workspace_root()?.join("tests/fixtures/docs-quick-start");
+    let temporary_workspace = tempfile::tempdir()?;
+    let consumer_root = temporary_workspace.path().join("docs-quick-start");
+
+    copy_fixture_tree(&fixture, &consumer_root)?;
+    configure_build_dependencies(&consumer_root)?;
+
+    let target_dir = temporary_workspace.path().join("target");
+    let trace_dir = temporary_workspace.path().join("trace");
+    let output = Command::new("cargo")
+        .arg("test")
+        .arg("--manifest-path")
+        .arg(consumer_root.join("Cargo.toml"))
+        .env("CARGO_TARGET_DIR", &target_dir)
+        .env("VVM_TRACE_DIR", &trace_dir)
+        .output()?;
+
+    assert_command_success("documentation quick-start fixture", &output)?;
+    assert!(
+        target_dir.is_dir(),
+        "quick-start fixture did not isolate its target directory"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn documentation_inout_fixture_builds_and_runs() -> Result<(), Box<dyn std::error::Error>> {
+    let fixture = workspace_root()?.join("tests/fixtures/docs-inout-line");
+    let temporary_workspace = tempfile::tempdir()?;
+    let consumer_root = temporary_workspace.path().join("docs-inout-line");
+
+    copy_fixture_tree(&fixture, &consumer_root)?;
+    configure_build_dependencies(&consumer_root)?;
+
+    let target_dir = temporary_workspace.path().join("target");
+    let output = Command::new("cargo")
+        .arg("test")
+        .arg("--manifest-path")
+        .arg(consumer_root.join("Cargo.toml"))
+        .env("CARGO_TARGET_DIR", &target_dir)
+        .output()?;
+
+    assert_command_success("documentation inout fixture", &output)?;
+    assert!(
+        target_dir.is_dir(),
+        "inout fixture did not isolate its target directory"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn native_packed_array_fixture_preserves_generated_port_regression()
 -> Result<(), Box<dyn std::error::Error>> {
     run_native_fixture("native-packed-array")

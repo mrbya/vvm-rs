@@ -1,19 +1,48 @@
 # Bidirectional Ports
 
-Top-level `inout` ports are exposed as split two-state components. VVM gives you
-the raw pieces needed to implement a policy; it does not invent the policy for
-you.
+VVM exposes top-level `inout` ports as split two-state components. The caller
+owns the electrical policy.
 
-That means the caller owns:
+## Minimal Generalized Example
 
-- how floating bits should resolve;
-- how contention is diagnosed;
-- whether a bus uses push-pull, open-drain, or another policy;
-- whether a design needs a bounded settling loop.
+The fixture observes the full inout state:
 
-The tri-state bus example is the reference workflow here. It shows how to turn
-generated `input`, `output_enable`, and `output_value` pieces into a deterministic
-Rust-owned resolution step.
+```rust
+{{#include ../../../../tests/fixtures/docs-inout-line/src/lib.rs:observation}}
+```
 
-Remember the two-state limitation: Rust never receives native HDL `X` or `Z`
-values from this integration.
+And resolves the line in Rust:
+
+```rust
+{{#include ../../../../tests/fixtures/docs-inout-line/src/lib.rs:resolution}}
+```
+
+## What The Generated Wrapper Gives You
+
+For an inout such as `line`, the generated wrapper exposes the presented input,
+the DUT output-enable state, and the DUT output value. VVM does not choose how to
+resolve contention or floating behaviour for you.
+
+## What You Must Decide
+
+- what floating means in your environment;
+- how contention should be diagnosed;
+- whether the interface is push-pull, open-drain, or something more specialized;
+- whether a bounded settling loop is needed.
+
+## Two-state Boundary
+
+At the Rust boundary, this integration is two-state. `X` and `Z` are not carried
+through as native runtime values.
+
+## Common Mistakes
+
+- assuming VVM silently resolves the bus for you;
+- forgetting to feed the resolved input value back into the DUT;
+- interpreting a two-state boundary as a four-state electrical model.
+
+## Related Material
+
+- [Inout API Guide](../api-guide/inout.md)
+- [Generated Types Reference](../reference/generated-types.md)
+- [Tri-state bus case study](../examples/tri-state-bus.md)

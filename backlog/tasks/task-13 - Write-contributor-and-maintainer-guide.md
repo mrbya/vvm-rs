@@ -5,9 +5,9 @@ status: Done
 assignee:
   - '@OpenCode'
 created_date: '2026-07-29 14:12'
-updated_date: '2026-07-30 10:22'
+updated_date: '2026-07-30 17:33'
 labels: []
-milestone: m-0
+milestone: m-1
 dependencies: []
 ---
 

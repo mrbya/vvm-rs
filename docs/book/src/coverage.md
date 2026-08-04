@@ -1,11 +1,13 @@
 # Functional Coverage Overview
 
-This page preserves the long-lived `coverage.html` path and now serves as the
-entry point to the full coverage section.
+This page serves as the entry point to the full functional-coverage section.
 
 VVM functional coverage is explicit, typed, and Rust-native. It is not a line
 coverage tool. The goal is to record which meaningful behaviors your tests
 exercised, not just which source lines executed.
+
+Start here only after you are already comfortable with the basic cycle-driven
+testbench flow.
 
 Use this section in order when you are learning the feature:
 

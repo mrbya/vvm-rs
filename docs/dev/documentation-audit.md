@@ -125,6 +125,117 @@ after the rewrite:
 - The current example chapter does not tell readers what files to study or what
   to read next.
 
+## Page-By-Page Public Book Inventory
+
+The following inventory records the public book state validated during the final
+user-centred rewrite pass. Depth labels are relative to the final milestone 12.5
+ goals: `substantial`, `partial`, or `sparse`.
+
+### Orientation And Landing Pages
+
+| Page | Intended audience | Current purpose | Current depth | Example dependence | Internal-process leakage | Missing background | Missing code | Missing diagnostics | Planned action |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `introduction.md` | New users | Brief product overview | Partial | Low | None | Why VVM exists, ecosystem fit, and learning path sequencing are under-explained | n/a | Alpha limitations are listed but not connected to usage choices | Keep concise, but pair with dedicated Why/Fit/How chapters |
+| `installation.md` | New users, contributors | Prerequisites and setup | Partial | Low | None | Cargo and Verilator roles need clearer HDL-user framing | Low | First-installation failure guidance needs stronger linkage | Expand targeted explanations and cross-links |
+| `quick-start.md` | First-time users | First end-to-end workflow | Partial | High | None | Independent project creation, generated-file model, and runtime phases are missing | High; key code is elided or delegated to `examples/counter` | Result interpretation and trace troubleshooting are too narrow | Replace with independent tested fixture and complete source-backed walkthrough |
+| `getting-started.md` | New users following old URL | Compatibility landing page | Sparse | Medium | Yes; mentions milestone split and old structure | Learning path value, prerequisites, and outcomes are not taught | n/a | n/a | Repurpose into useful landing page without implementation history |
+| `user-guide.md` | Users entering the guide section | Guide overview | Sparse | Low | None | Section purpose and learning progression are under-explained | n/a | n/a | Rewrite as a useful guide landing page or reduce to compatibility pointer |
+| `coverage.md` | Users discovering coverage | Coverage section overview | Partial | Medium | None | Coverage mental model and when to adopt it are too brief | Low | Failure and artifact expectations are brief | Expand as landing page that frames the coverage section |
+| `cargo-vvm.md` | CI users | cargo-vvm section overview | Partial | Medium | None | Why to use cargo-vvm versus direct commands is brief | n/a | Failure-semantics path is too terse | Expand as landing page tied to artifact workflow |
+| `examples.md` | Users seeking case studies | Examples section overview | Partial | High | None | Examples-as-case-studies role versus guide role is not explicit | n/a | n/a | Reframe examples as supporting case studies |
+| `reference.md` | Users seeking exact values | Reference overview | Sparse | Low | None | Section contract versus Guide/API Guide is not explicit | n/a | n/a | Rewrite as section contract and index |
+
+### Concepts
+
+| Page | Intended audience | Current purpose | Current depth | Example dependence | Internal-process leakage | Missing background | Missing code | Missing diagnostics | Planned action |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `concepts/overview.md` | New users | Concepts landing page | Sparse | Low | None | Concepts section role is too brief | n/a | n/a | Expand as a true conceptual map |
+| `concepts/verification-workflow.md` | New users | High-level verification cycle | Partial | Medium | None | Runtime phases are present but not yet introduced as the book's core mental model | Low | Low | Promote to authoritative runtime mental-model chapter |
+| `concepts/dut-and-wrapper.md` | New users | DUT wrapper concept | Partial | Medium | None | Build-time generation and wrapper ownership are too brief | Low | Low | Expand and cross-link to build/inclusion guides |
+| `concepts/transactions.md` | HDL users new to Rust | Stimulus and observation concepts | Partial | Medium | None | Mapping between semantic transactions and raw ports needs stronger explanation | Low | Low | Expand with clearer HDL-oriented framing |
+| `concepts/sequences.md` | Users writing tests | Sequence concept | Sparse | Medium | None | Iterator concept for HDL users is too brief | Low | Low | Expand around deterministic stimulus streams |
+| `concepts/reference-models.md` | Verification engineers | Model concept | Sparse | Medium | None | Model ownership and abstraction boundary need more explanation | Low | Low | Expand with workflow-centered explanation |
+| `concepts/scoreboards.md` | Verification engineers | Comparison concept | Sparse | Medium | None | Failure retention and scoreboard policy are under-explained | Low | Low | Expand with mismatch and policy framing |
+| `concepts/clocks-and-time.md` | Users entering advanced timing | Clock and time concepts | Partial | Medium | None | Cycle-driven versus event-driven split needs stronger explanation | Low | Low | Expand and align with runtime chapters |
+| `concepts/failures-and-results.md` | Users reading reports | Result model | Partial | Medium | None | What failures look like in practice is only lightly taught | Low | Medium | Expand using real result/report interpretation |
+
+### Guide Chapters
+
+| Page | Intended audience | Current purpose | Current depth | Example dependence | Internal-process leakage | Missing background | Missing code | Missing diagnostics | Planned action |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `guide/project-setup.md` | New users | Crate layout and dependency setup | Sparse | Low | None | Cargo roles, crate choice, generated-output behavior, and rebuild tracking are missing | High | High | Rewrite as full setup chapter |
+| `guide/build-script.md` | New users | `build.rs` workflow | Sparse | Medium | None | What Cargo runs and what `DutBuilder` owns are under-explained | High | High | Rewrite with declarative patterns and options |
+| `guide/including-the-dut.md` | New users | Generated wrapper inclusion | Sparse | Medium | None | `OUT_DIR`, naming, and debug workflow are under-explained | High | High | Rewrite with generalized code and errors |
+| `guide/driving-inputs.md` | Users writing stimulus | `Drive` usage | Sparse | Medium | None | Semantic transactions versus raw ports is under-explained | High | High | Rewrite with generalized transactions and compile-time diagnostics |
+| `guide/sampling-outputs.md` | Users writing observations | `Sample` usage | Sparse | Medium | None | Observation semantics and raw-versus-derived data are under-explained | High | High | Rewrite with generalized observation examples |
+| `guide/creating-a-testbench.md` | Users assembling runs | `Testbench` workflow | Sparse | High | None | Ownership, typestate progression, and failure lifecycle are under-explained | High | High | Rewrite as central chapter with full runtime cycle |
+| `guide/registering-tests.md` | Users exposing tests to Cargo | `#[vvm::test]` usage | Sparse | Medium | None | Relationship to `#[test]`, nextest, capabilities, and filtering are under-explained | High | High | Rewrite with complete generalized tests |
+| `guide/configuring-tests.md` | Users configuring execution | Runtime config | Sparse | Medium | None | Descriptor defaults, env precedence, and reproducibility need more context | High | High | Rewrite with concrete invocations and environment tables |
+| `guide/randomization-and-replay.md` | Intermediate users | Deterministic pseudo-random workflow | Partial | High | None | Replay guarantees and sequence-design advice are too brief | Medium | Medium | Rewrite with generalized randomized stream and CI reproduction flow |
+| `guide/waveform-tracing.md` | Intermediate users | Trace workflow | Sparse | Medium | None | Build-time enablement versus run-time enablement is too brief | Medium | Medium | Rewrite with lifecycle, performance, and troubleshooting |
+| `guide/multi-clock.md` | Advanced users | Multi-clock execution | Sparse | High | None | Deterministic same-time ordering and scheduler guarantees are under-explained | Medium | Medium | Rewrite with generalized dual-domain pattern before async FIFO case study |
+| `guide/timing-models.md` | Advanced users | Event-driven timing mode | Sparse | High | None | TimedDut, coroutine requirement, and timing limits are under-explained | Medium | Medium | Rewrite with generalized delayed-output fixture |
+| `guide/bidirectional-ports.md` | Advanced users | Inout workflow | Sparse | High | None | Caller-owned resolution policy and two-state implications are under-explained | Medium | Medium | Rewrite with generalized line-resolution example before tri-state case study |
+| `guide/troubleshooting.md` | All users | Common failure recovery | Partial | Medium | None | Failures are listed but not always linked to lifecycle phase or likely cause | Low | Medium | Expand around build, run, trace, timing, inout, and coverage diagnostics |
+
+### API Guide
+
+| Page | Intended audience | Current purpose | Current depth | Example dependence | Internal-process leakage | Missing background | Missing code | Missing diagnostics | Planned action |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `api-guide/overview.md` | Advanced users | API guide landing page | Sparse | Low | None | Section contract versus Guide and Reference is not explicit | n/a | n/a | Expand as section map |
+| `api-guide/facade-and-prelude.md` | Users mapping modules | Facade imports | Partial | Medium | None | Canonical import strategy and crate boundaries need stronger workflow framing | Low | Low | Expand and align with README surfaces |
+| `api-guide/dut-builder.md` | Build-script authors | `DutBuilder` API summary | Partial | Medium | None | Option interactions and output effects need clearer tables | Medium | Medium | Expand and align with build guide |
+| `api-guide/drive-and-sample.md` | Users of derives | Derive API summary | Partial | Medium | None | Supported shapes and common macro diagnostics are too brief | Medium | Medium | Expand and coordinate with guide chapters |
+| `api-guide/clocks.md` | Users of clock helpers | Clock API summary | Partial | Medium | None | Single-clock versus scheduler workflow needs clearer separation | Low | Low | Expand with workflow map |
+| `api-guide/testbench.md` | Users of runtime builder | Testbench API summary | Partial | Medium | None | Run methods, observers, and result types need fuller context | Low | Medium | Expand after guide rewrite |
+| `api-guide/models-and-scoreboards.md` | Advanced users | Model and scoreboard API summary | Sparse | Medium | None | Trait contracts and common patterns are too brief | Low | Medium | Expand and link exact rustdoc |
+| `api-guide/test-attribute.md` | Users of `#[vvm::test]` | Attribute syntax summary | Partial | Medium | None | Accepted signatures and capability effects are still terse | Medium | Medium | Expand after guide rewrite |
+| `api-guide/configuration-and-context.md` | Users of config/context APIs | Config API summary | Sparse | Medium | None | `TestRunConfig` and `TestContext` roles need stronger differentiation | Medium | Medium | Expand with lifecycle tables |
+| `api-guide/randomization.md` | Advanced users | Random API summary | Partial | Medium | None | Sequence contracts and replay reconstruction are brief | Medium | Medium | Expand and align with guide |
+| `api-guide/tracing.md` | Advanced users | Trace API summary | Partial | Medium | None | Trace-capable DUT contract and report interaction are too brief | Medium | Medium | Expand |
+| `api-guide/schedulers.md` | Advanced users | Timing scheduler summary | Sparse | Medium | None | Clock scheduler versus timing scheduler split needs clearer coverage | Medium | Medium | Expand |
+| `api-guide/inout.md` | Advanced users | Inout API summary | Partial | High | None | Generated accessors and resolution contract need clearer general explanation | Medium | Medium | Expand and pair with generalized fixture |
+| `api-guide/coverage.md` | Users of coverage APIs | Coverage API summary | Partial | Medium | None | Manual versus derived coverage and CLI relationship are brief | Medium | Medium | Expand |
+| `api-guide/reports.md` | Users reading output | Reporting APIs | Sparse | Low | None | Result reporting surfaces are too brief | Low | Medium | Expand |
+| `api-guide/errors.md` | Advanced users | Public error taxonomy | Partial | Low | None | Error grouping by lifecycle phase is missing | Low | Medium | Expand |
+
+### Coverage, Examples, cargo-vvm, And Reference Pages
+
+| Page | Intended audience | Current purpose | Current depth | Example dependence | Internal-process leakage | Missing background | Missing code | Missing diagnostics | Planned action |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `coverage/bins.md` | Coverage authors | Bin design | Partial | High | None | General design advice is overshadowed by example framing | Medium | Medium | Generalize, then keep examples as case studies |
+| `coverage/coverpoints.md` | Coverage authors | Coverpoint construction | Sparse | Medium | None | Mental model and practical heuristics are too brief | Medium | Medium | Expand |
+| `coverage/typed-models.md` | Coverage authors | Derive-based coverage | Sparse | Medium | None | Supported shapes and naming strategy need detail | Medium | Medium | Expand |
+| `coverage/crosses.md` | Coverage authors | Cross coverage | Sparse | Medium | None | Why and when to cross is too brief | Medium | Medium | Expand |
+| `coverage/sampling.md` | Coverage authors | Sampling lifecycle | Sparse | Medium | None | Lifecycle hooks and failure behavior need fuller treatment | Medium | Medium | Expand |
+| `coverage/sessions-and-artifacts.md` | CI users | Artifact persistence | Sparse | Medium | None | Session identity and file roles are under-explained | Low | Medium | Expand |
+| `coverage/schema.md` | Advanced users | File schema reference | Sparse | Low | None | Exact field meanings are brief | Low | Low | Expand as reference |
+| `coverage/merging.md` | CI users | Merge behavior | Sparse | Medium | None | Merge compatibility and failure cases need more explanation | Low | Medium | Expand |
+| `coverage/reporting.md` | CI users | Reports | Sparse | Medium | None | Human versus machine outputs are brief | Low | Medium | Expand |
+| `coverage/ci.md` | CI users | CI workflow | Sparse | High | None | End-to-end artifact flow is too brief | Low | Medium | Expand |
+| `examples/counter.md` | New users | Counter case study | Partial | High | None | Must become supporting case study rather than primary tutorial | Low | Low | Retain as case study after Quick Start rewrite |
+| `examples/sync-fifo.md` | Intermediate users | FIFO case study | Partial | High | None | Stronger mapping to guide concepts is needed | Low | Low | Tighten case-study role |
+| `examples/timed-uart.md` | Advanced users | Timed UART case study | Partial | High | None | Needs clearer link back to timing concepts | Low | Low | Tighten case-study role |
+| `examples/async-fifo.md` | Advanced users | Async FIFO case study | Partial | High | None | Needs clearer link back to multi-clock concepts | Low | Low | Tighten case-study role |
+| `examples/tri-state-bus.md` | Advanced users | Inout case study | Partial | High | None | Needs clearer link back to generalized inout explanation | Low | Low | Tighten case-study role |
+| `cargo-vvm/installation.md` | CI users | Install command | Partial | Low | None | Workflow context is brief | n/a | Low | Expand slightly |
+| `cargo-vvm/workflow.md` | CI users | Coverage workflow | Partial | Medium | None | Output stages and failure propagation need more context | Low | Medium | Expand |
+| `cargo-vvm/command-reference.md` | CI users | Exact CLI syntax | Partial | Low | None | Flags are present but not always motivated | n/a | Low | Expand reference framing |
+| `cargo-vvm/output-layout.md` | CI users | Artifact layout | Partial | Low | None | File roles are too brief | n/a | Low | Expand |
+| `cargo-vvm/merge-policies.md` | CI users | Merge rules | Partial | Low | None | Real decision guidance is brief | n/a | Low | Expand |
+| `cargo-vvm/failure-semantics.md` | CI users | Exit-code behavior | Partial | Low | None | CI interpretation examples are brief | n/a | Low | Expand |
+| `cargo-vvm/gitlab.md` | GitLab CI users | GitLab recipe | Partial | Medium | None | How it relates to generic workflow needs more framing | Low | Low | Keep but better contextualize |
+| `cargo-vvm/troubleshooting.md` | CI users | CLI troubleshooting | Partial | Medium | None | Symptom-to-cause mapping is brief | Low | Medium | Expand |
+| `reference/configuration.md` | Users seeking exact config values | Configuration defaults | Sparse | Low | None | Descriptor/runtime/environment split is incomplete | Low | Medium | Expand tables |
+| `reference/environment-variables.md` | Users seeking exact env values | Environment-variable reference | Sparse | Low | None | Accepted values, precedence, and invalid forms are incomplete | Low | Medium | Expand tables |
+| `reference/generated-types.md` | Users mapping HDL to Rust | Type mapping reference | Partial | Medium | None | Mapping completeness and unsupported shapes are incomplete | Medium | Medium | Expand with fixture-backed tables |
+| `reference/execution-order.md` | Advanced users | Observable execution order | Sparse | Low | None | Cycle versus timing order and failure ordering need exact detail | Low | Medium | Expand |
+| `reference/artifact-layout.md` | Users locating outputs | Artifact layout | Sparse | Low | None | Book, API, trace, and coverage artifact locations need fuller coverage | Low | Low | Expand |
+| `reference/compatibility.md` | Users checking support | Compatibility summary | Sparse | Low | None | Must defer to one authoritative limitations/support page | n/a | n/a | Merge into stronger limitations/support path |
+| `reference/diagnostics.md` | Users reading failures | Diagnostic output reference | Sparse | Low | None | Build/test/report diagnostic shapes are brief | Low | Medium | Expand |
+| `reference/terminology.md` | New and advanced users | Canonical term list | Sparse | Low | None | Several key terms need stronger first-use definitions in chapters too | n/a | n/a | Expand and cross-link |
+| `reference/limitations.md` | All users | Central limitations page | Sparse | Low | None | Good direction, but support policy and exact limits are too brief | n/a | Medium | Expand into authoritative support-and-limitations page |
+
 ## Future Information Architecture
 
 The rewrite will move the book to this section-level structure:

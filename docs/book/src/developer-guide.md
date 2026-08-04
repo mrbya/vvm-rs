@@ -1,9 +1,6 @@
 # Development Overview
 
-This page preserves the long-lived `developer-guide.html` path and now serves as
-the entry point to the full development section.
-
-Use the development chapters when you need to answer questions such as:
+These chapters are aimed at developers and answer questions such as:
 
 - which crate owns a change;
 - how the build and code-generation pipeline works;

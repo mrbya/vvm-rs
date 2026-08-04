@@ -1,11 +1,19 @@
 # Quick Start
 
-This quick start walks through the maintained counter example workflow. It uses
-real VVM code and real example sources, not pseudocode.
+This quick start showcases the creation of a small VVM project from scratch.
+
+Let's design and verify a tiny event counter that would work like this:
+
+- has a `clk`, `reset_n` and `event_pulse` single bit logical inputs;
+- a `total` output showing the counter total count;
+- reset clears the counter total;
+- each asserted event pulse increments the total on the next rising edge of
+  `clk`;
+- the output `total` shows the accumulated count.
 
 ## 1. Check Prerequisites
 
-Confirm that Rust, Cargo, and Verilator are installed:
+Confirm that Rust, Cargo, and Verilator are available:
 
 ```bash
 rustc --version
@@ -13,212 +21,261 @@ cargo --version
 verilator --version
 ```
 
-## 2. Create A Verification Project
+If Verilator is not on `PATH`, see [Installation](installation.md).
 
-Create a library crate so your tests live next to the generated DUT wrapper:
+## 2. Create The Project
+
+Create a library crate so the verification code can live in normal Rust test
+modules:
 
 ```bash
-cargo new counter-verification --lib
+cargo new event-counter-verification --lib
 ```
 
-Use this layout:
+Then add `build.rs` and your HDL sources under an `rtl/` directory so the project looks like this:
 
 ```text
-counter-verification/
+event-counter-verification/
 ├── Cargo.toml
 ├── build.rs
 ├── rtl/
-│   └── counter.sv
+│   └── event_counter.sv
 └── src/
     └── lib.rs
 ```
 
-## 3. Add Dependencies
+## 3. Understand The Project Files
+
+- `Cargo.toml` declares the Rust package and its dependencies.
+- `build.rs` runs before the crate compiles and asks VVM to generate the DUT
+  wrapper.
+- `rtl/event_counter.sv` contains the HDL design under test.
+- `src/lib.rs` contains the generated-wrapper inclusion and the VVM test code.
+
+## 4. Add Dependencies
+
+Add VVM under test-only dependencies and `vvm-build` under build-time
+dependencies:
 
 ```toml
-[dev-dependencies]
-vvm = { package = "vvm-rs", version = "0.1.0-alpha.1" }
-
-[build-dependencies]
-vvm-build = "0.1.0-alpha.1"
+{{#include ../../../tests/fixtures/docs-quick-start/Cargo.toml:dependencies}}
 ```
 
-## 4. Add A Small DUT
+`vvm-rs` normally belongs under `[dev-dependencies]` because the generated DUT
+wrapper and verification code are usually compiled only for tests. `vvm-build`
+belongs under `[build-dependencies]` because Cargo runs it from `build.rs`.
 
-Use the maintained counter RTL from `examples/counter/rtl/counter.sv` or copy an
-equivalent module into `rtl/counter.sv`.
+## 5. Add RTL Design
 
-The DUT has four behaviors you care about in this quick start:
+Add HDL sources to `rtl/`:
 
-- `reset_n = 0` clears the count.
-- `enable = 1` increments the count.
-- `enable = 0` holds the current value.
-- the visible state updates on the rising edge of `clk`.
+`rtl/event_counter.sv`:
+```systemverilog
+{{#include ../../../tests/fixtures/docs-quick-start/rtl/event_counter.sv:rtl}}
+```
 
-## 5. Create `build.rs`
+The logical behaviour is simple on purpose: it lets you focus on the VVM
+workflow instead of the design complexity.
 
-The counter example build script is small enough to reuse directly:
+## 6. Write `build.rs`
+
+Add this build script:
 
 ```rust
-use vvm_build::{BuildResult, DutBuilder, TraceOptions};
-
-fn main() -> BuildResult<()> {
-    DutBuilder::new("counter")
-        .top_module("counter")
-        .source("rtl/counter.sv")
-        .trace(TraceOptions::vcd().with_depth(30))
-        .build()
-}
+{{#include ../../../tests/fixtures/docs-quick-start/build.rs:build-script}}
 ```
 
-The logical DUT name passed to `DutBuilder::new("counter")` must match the name
-used later in `vvm::include_dut!(counter)`.
+### What This Means
 
-## 6. Include The Generated DUT
+- `DutBuilder::new("event_counter")` defines the logical DUT name for our VVM-generated DUT wrapper.
+- `.top_module("event_counter")` selects the top HDL module.
+- `.source("rtl/event_counter.sv")` points Verilator at the RTL source file.
+- `.trace(...)` adds tracing capabilities to our DUT wrapper.
+- `.build()` runs the Verilator-backed generation pipeline.
 
-In `src/lib.rs`, include the generated wrapper inside a test-only module:
+The string passed to `DutBuilder::new("event_counter")` defines the name of the generated DUT wrapper module and
+must by matched by `vvm::include_dut!(...)` invocation when including the DUT in your verification code.
+
+## 7. Include The Generated DUT
+
+At the top of `src/lib.rs`, include the generated wrapper:
 
 ```rust
-#[cfg(test)]
-mod tests {
-    vvm::include_dut!(counter);
-}
+{{#include ../../../tests/fixtures/docs-quick-start/src/lib.rs:include-dut}}
 ```
 
-## 7. Define Stimulus And Observation
+This macro loads the generated code from Cargo's `OUT_DIR`. You normally do not
+edit that generated code directly.
 
-The maintained counter example defines typed inputs and outputs with derives:
+## 8. Define A Stimulus Transaction
+
+Add a struct that describes one semantic input step:
 
 ```rust
-#[derive(Debug, Clone, Copy, PartialEq, Eq, vvm::Drive)]
-#[vvm(dut = crate::counter::Counter)]
-pub struct CounterStimulus {
-    #[vvm(port)]
-    reset_n: bool,
-    #[vvm(port)]
-    enable: bool,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, vvm::Sample)]
-#[vvm(dut = crate::counter::Counter)]
-pub struct CounterObservation {
-    #[vvm(port)]
-    count: u8,
-}
+{{#include ../../../tests/fixtures/docs-quick-start/src/lib.rs:stimulus}}
 ```
 
-## 8. Define A Clock
+This transaction says what matters to the testbench:
+
+- whether reset is asserted;
+- whether an event pulse should be presented for that cycle.
+
+Its goal is not to mirror any internal HDL detail. Its goal is to describe one
+meaningful test input.
+
+## 9. Define A Observation
+
+Now define the output you want to sample after evaluation:
 
 ```rust
-#[derive(Debug, Clone, Copy, Default, vvm::Clock)]
-#[vvm(dut = crate::counter::Counter, clock = "clk")]
-pub struct CounterClock;
+{{#include ../../../tests/fixtures/docs-quick-start/src/lib.rs:observation}}
 ```
 
-## 9. Define A Sequence
+This keeps the sampled data focused on the user-visible result: in this case the total count
+count.
 
-The simplest sequence is just an iterator over typed stimulus values. The
-maintained example uses a fixed sequence that covers reset, hold, count, and
-reset again.
+## 10. Define A Clock
 
-## 10. Add A Reference Model
-
-The counter reference model tracks only the contract, not the RTL internals:
-
-- reset drives the expected count to zero;
-- enabled cycles increment it;
-- disabled cycles hold it.
-
-This is exactly the kind of small state machine a VVM `ReferenceModel` should
-implement.
-
-## 11. Add A Scoreboard
-
-Use `ExactScoreboard` when the sampled observation must match the predicted one
-exactly on every checked cycle.
-
-## 12. Register A VVM Test
-
-The maintained smoke test looks like this in structure:
+Add a clock type that tells VVM which DUT signal is the cycle clock:
 
 ```rust
-#[vvm::test(trace, coverage)]
-fn counter_smoke(context: &mut vvm::test::TestContext) -> Result<CounterTestResult> {
-    let mut dut = Counter::new()?;
-
-    context.config().configure_trace(&mut dut)?;
-
-    Ok(vvm::testbench::Testbench::new(dut)
-        .with_sequence(counter_sequence())
-        .with_reference_model(CounterReferenceModel::default())
-        .with_scoreboard(vvm::testbench::ExactScoreboard)
-        .with_clock(CounterClock)
-        .with_coverage(CounterCoverage::new("dut.counter")?)
-        .run_covered::<CounterObservation>(context))
-}
+{{#include ../../../tests/fixtures/docs-quick-start/src/lib.rs:clock}}
 ```
 
-That one function ties together stimulus, observation, clocking, model,
-scoreboard, tracing, and coverage.
+## 11. Create A Deterministic Sequence
 
-## 13. Run The Test
+For a first test, use a simple, hand-written fixed sequence:
+
+```rust
+{{#include ../../../tests/fixtures/docs-quick-start/src/lib.rs:sequence}}
+```
+
+This sequence covers:
+
+- reset assertion;
+- reset release;
+- pulses that increment the count;
+- a hold cycle with no event;
+- a final reset.
+
+## 12. Implement A Reference Model
+
+The reference model predicts what the counter should do without depending on the
+DUT implementation details:
+
+```rust
+{{#include ../../../tests/fixtures/docs-quick-start/src/lib.rs:reference-model}}
+```
+
+This is the software-side behavioural contract of the designl, in this case:
+
+- reset drives the expected total to zero;
+- an event pulse increments it;
+- otherwise the total holds.
+
+## 13. Select A Scoreboard
+
+This quick start uses `ExactScoreboard`, which means the observed and expected
+values must match exactly on every checked cycle.
+
+That is the right choice for a simple counter with one unambiguous expected
+output.
+
+## 14. Build A Testbench
+
+The testbench is assembled inside a vvm test by chaining together the
+DUT, sequence, reference model, scoreboard, and clock.
+
+## 15. Register VVM Test
+
+Add a complete VVM test:
+
+```rust
+{{#include ../../../tests/fixtures/docs-quick-start/src/lib.rs:test}}
+```
+
+This does several things at once:
+
+- `#[vvm::test(trace)]` registers the test with Cargo and declares that tracing
+  is supported.
+- `EventCounter::new()?` constructs the generated DUT wrapper.
+- `config.configure_trace(&mut dut)?` opens the trace if the run configuration
+  requests one.
+- `Testbench::new(dut)` starts the cycle-driven runner.
+- `.run::<EventCounterObservation>()` drives, clocks, samples, predicts, and
+  compares until the sequence is exhausted.
+
+## 16. Run It
+
+Run the single test with ordinary Cargo filtering:
 
 ```bash
-cargo test counter_smoke
+cargo test event_counter_smoke
 ```
 
-This remains an ordinary Rust test. The `#[vvm::test]` attribute generates the
-Rust test registration, but Cargo still owns discovery and filtering.
+VVM integrates HDL simulation tests directly into native Rust test discovery.
 
-## 14. Understand The Result
+## 17. Understand The Result
 
 A passing run means:
 
-- the DUT wrapper built successfully;
-- the sequence executed under the configured clock;
-- sampled observations matched the reference model;
-- any attached coverage was captured.
+- the Verilator-backed wrapper was generated successfully;
+- the DUT constructed successfully;
+- every sequence item was driven under the configured clock;
+- every sampled observation matched the reference-model prediction.
 
-If the test fails, the report includes cycle-aware diagnostics and, for replayable
-tests, the token needed to reproduce the failure.
+If the run fails, VVM reports a structured mismatch or simulation error instead
+of leaving you with only a raw boolean assertion.
 
-## 15. Enable Tracing
+## 18. Produce A Trace
 
-The smoke test already declares `trace`, so you only need to choose a directory:
-
-```bash
-VVM_TRACE_DIR=target/counter-traces cargo test counter_smoke
-```
-
-If `VVM_TRACE_DIR` is unset, VVM writes traces under `target/vvm-trace/`.
-
-## 16. Replay A Randomized Failure
-
-The maintained counter example includes a replayable randomized test named
-`counter_random`. You can reproduce its exact pseudo-random sequence with:
+Because the test declares `trace`, you can request a VCD file by setting a trace
+directory:
 
 ```bash
-VVM_REPLAY=chacha8-v1:0123456789abcdef cargo test counter_random
+VVM_TRACE_DIR=target/quick-start-traces cargo test event_counter_smoke
 ```
 
-`VVM_REPLAY` takes precedence over `VVM_SEED` for replay-capable tests.
+If `VVM_TRACE_DIR` is not set, VVM uses its default trace location under
+`target/vvm-trace/`.
 
-## 17. What To Read Next
+## 19. Understand What Cargo Generated
 
-- Read [Verification Workflow](concepts/verification-workflow.md) for the model
-  behind the quick start.
-- Use [Creating A Testbench](guide/creating-a-testbench.md) when you want the
-  runner phases in detail.
-- Continue to the [Counter example chapter](examples/counter.md) for the full
-  maintained example architecture.
+After the first build, Cargo and VVM have generated more than just your Rust test
+binary.
 
-## First-run Troubleshooting
+At a high level, the build produced:
+
+- Verilator-generated C++ model files;
+- metadata describing the DUT ports;
+- a generated Rust wrapper;
+- compiled test artifacts under Cargo's target directory.
+
+These generated files live under Cargo-managed output directories such as
+`target/` and `OUT_DIR`. They are build artifacts, not source files to commit.
+
+## 20. Common First-Run Problems
 
 - If `build.rs` cannot find Verilator, set `VERILATOR=/path/to/verilator`.
-- If `include_dut!(counter)` fails, confirm the logical DUT name matches the one
-  passed to `DutBuilder::new("counter")`.
-- If generated accessors do not match your expectations, check whether your HDL
-  port shape is covered by the current [Generated Types](reference/generated-types.md)
-  support.
-- If no trace appears, confirm the test declares `trace` and that the trace
+- If `include_dut!(event_counter)` fails, confirm that the logical name matches
+  `DutBuilder::new("event_counter")` exactly.
+- If a derive fails, check that every `#[vvm(port)]` field matches a generated
+  DUT port name and type.
+- If no VCD file appears, confirm that the test declares `trace` and the trace
   directory is writable.
+
+## 21. What To Read Next
+
+- Read [How VVM Works](how-vvm-works.md) if you want the runtime model behind the
+  code you just wrote.
+- Read [Project Setup](guide/project-setup.md) and
+  [Creating A Testbench](guide/creating-a-testbench.md) for the generalized
+  workflow.
+- Read [Configuring Tests](guide/configuring-tests.md) when you are ready to use
+  environment-driven trace, replay, and cycle controls.
+
+## 22. Related Case Study
+
+Once you understand the pattern above, study the maintained
+[Counter example](examples/counter.md) as a larger case study with additional
+tests, coverage, and replay-driven workflows.

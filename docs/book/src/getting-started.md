@@ -1,19 +1,33 @@
-# Getting Started Overview
+# Getting Started
 
-This page preserves the long-lived `getting-started.html` path while pointing to
-the split orientation flow introduced in milestone 12.5.
+Use this page if you are starting from the long-lived `getting-started.html`
+entry point and want the shortest path through the book.
 
-If you are new to VVM, follow these pages in order:
+## Who This Path Is For
+
+This path is for readers who already understand digital design and simulation,
+but may be new to Rust, Cargo, or the VVM-specific workflow.
+
+## Recommended Reading Order
+
+If you are new to VVM, read these chapters in order:
 
 1. [Introduction](introduction.md) for purpose, scope, and limitations.
-2. [Installation](installation.md) for prerequisites and dependency setup.
-3. [Quick Start](quick-start.md) for a complete first VVM test.
+2. [Why VVM?](why-vvm.md) for tool-positioning and trade-offs.
+3. [How VVM Fits Into HDL Verification](how-vvm-fits-into-hdl-verification.md)
+   for the build pipeline.
+4. [How VVM Works](how-vvm-works.md) for the runtime model.
+5. [Rust Essentials For HDL Engineers](rust-essentials-for-hdl-engineers.md)
+   for the minimum Rust context.
+6. [Installation](installation.md) for prerequisites and dependency setup.
+7. [Quick Start](quick-start.md) for a complete first VVM test.
 
-The old single-page getting-started material mixed all three topics together.
-The current structure keeps them separate so the quick start can stay concrete,
-the installation page can stay accurate, and the introduction can stay honest
-about maturity and support.
+## What You Will Build
 
-For the maintained first example, use the
-[`examples/counter`](https://gitlab.com/byacrates/vvm-rs/-/tree/master/examples/counter)
-package.
+The Quick Start creates a small independent verification crate from scratch. It
+shows the HDL module, `build.rs`, generated wrapper inclusion, typed stimulus and
+observation, a deterministic sequence, a reference model, a scoreboard, and a
+registered VVM test.
+
+After that, use the [Guide](user-guide.md) for task-oriented instruction and the
+[Examples](examples.md) section for larger case studies.

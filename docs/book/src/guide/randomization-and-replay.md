@@ -1,20 +1,57 @@
 # Randomization And Replay
 
-Replayable randomization is one of VVM's most practical features: randomized
-traffic stays reproducible.
+Deterministic pseudo-random testing is one of VVM's most practical workflows:
+you get variability without giving up reproducibility.
 
-The normal pattern is:
+## Generalized Pattern
 
-- define a stable default replay token in the test or example;
-- construct a `RandomContext` or replayable sequence from that token;
-- let `VVM_REPLAY` override the default when reproducing failures.
+```rust
+{{#include ../../../../tests/fixtures/docs-quick-start/src/lib.rs:replayable-sequence}}
+```
 
-Precedence for replay-capable tests is:
+And the registered test that consumes it:
+
+```rust
+{{#include ../../../../tests/fixtures/docs-quick-start/src/lib.rs:replay-test}}
+```
+
+## Mental Model
+
+The sequence owns the mapping from random bits to stimulus. That mapping is part
+of the reproducibility contract. If you change it, the same replay token can stop
+describing the same stimulus stream.
+
+## Precedence
+
+For replay-capable tests, the important precedence is:
 
 1. `VVM_REPLAY`
 2. `VVM_SEED`
 3. the default replay token declared by the test
-4. generated randomness when the API allows it
 
-The sequence itself should own how random words map to stimulus. That mapping is
-part of the reproducibility contract and should not change casually.
+Replay is the strongest reproduction control because it reconstructs the exact
+pseudo-random stream the sequence expects.
+
+## Reproducing A Failure
+
+```bash
+VVM_REPLAY=chacha8-v1:0123456789abcdef cargo test event_counter_random
+```
+
+## Useful Design Rules
+
+- keep the random-to-stimulus mapping stable;
+- force a deterministic reset preamble when the DUT needs one;
+- avoid implying a constraint solver that VVM does not provide;
+- record the replay token whenever a randomized test fails in CI.
+
+## What Replay Does Not Guarantee
+
+Replay reconstructs the pseudo-random sequence. It does not magically fix a test
+that also depends on uncontrolled external state.
+
+## Related Material
+
+- [Configuring Tests](configuring-tests.md)
+- [Randomization API Guide](../api-guide/randomization.md)
+- [Counter case study](../examples/counter.md)

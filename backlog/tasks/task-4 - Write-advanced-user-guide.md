@@ -5,9 +5,9 @@ status: Done
 assignee:
   - '@OpenCode'
 created_date: '2026-07-29 14:12'
-updated_date: '2026-07-30 10:22'
+updated_date: '2026-07-30 17:33'
 labels: []
-milestone: m-0
+milestone: m-1
 dependencies: []
 ---
 
@@ -27,21 +27,25 @@ Document failures diagnostics replay tracing multi-clock timing inout limitation
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-1. Expand advanced workflow chapters for randomization/replay, waveform tracing, multi-clock execution, timing-enabled models, bidirectional ports, CI expectations, and troubleshooting.
-2. Ground replay, tracing, and multi-clock chapters in the counter, async-FIFO, and timed-UART examples.
-3. Document exact limitations for same-time timing behavior, two-state Verilator semantics, CDC scope, and unsupported HDL shapes in the relevant advanced chapters with a central limitations reference.
-4. Add troubleshooting entries for common advanced failures such as timing scheduler limits, trace setup issues, no-artifact coverage runs, and inout contention.
-5. Validate the advanced chapters through the maintained examples and documentation builds.
+1. Rewrite the advanced execution chapters so each feature is introduced with a generalized pattern before any curated case-study link.
+2. Reuse fixture-backed sources for replay, tracing, timing, multi-clock, and inout examples, adding dedicated docs fixtures where the existing examples are too large or too example-specific.
+3. Document lifecycle, limits, environment controls, and likely failure modes for each advanced workflow in direct engineering language.
+4. Keep curated examples as later case studies that demonstrate additional system complexity rather than as the primary explanation path.
+5. Validate the rewritten advanced chapters through focused fixture tests, mdBook build, and the repository documentation commands before finalizing the task.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 Reopened during milestone 12.5 completion audit. The current advanced guide is materially too shallow for its acceptance criteria: replay, tracing, multi-clock, timing, inout, limitations, CI, and troubleshooting still need source-backed, chapter-level treatment.
+
+Reopened because advanced guide chapters still need generalized examples, lifecycle teaching, diagnostics, and limitations treatment that does not rely primarily on curated examples.
+
+Rewrote the advanced guide chapters around generalized replay, tracing, multi-clock, timing, and inout patterns. Added the dedicated `tests/fixtures/docs-inout-line/` fixture to provide a small source-backed inout example before linking readers to the larger tri-state case study.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-Expanded the advanced user path with dedicated guides for randomization/replay, waveform tracing, multi-clock execution, timing-enabled models, bidirectional ports, and troubleshooting. These chapters now document the explicit scheduler split, two-state behavior, inout caller-owned resolution, and the advanced failure modes that users hit in the timed UART, async FIFO, and tri-state bus workflows. Validated the advanced chapters through the example and repository-wide validation runs.
+Completed the advanced user-guide rewrite. Expanded the advanced chapters for randomization and replay, waveform tracing, multi-clock execution, timing-enabled models, bidirectional ports, and troubleshooting so each one now introduces the feature with a generalized pattern before linking to a curated case study. Reused the docs quick-start fixture for replay and tracing, the native multi-clock and timing fixtures for scheduler-backed examples, and added the new `tests/fixtures/docs-inout-line/` fixture for a compact source-backed inout workflow. Documented capability controls, lifecycle expectations, limitations, and common failure modes, then validated the new advanced material with fixture tests, mdBook build, and the repository validation gate.
 <!-- SECTION:FINAL_SUMMARY:END -->

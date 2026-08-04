@@ -1,6 +1,9 @@
 # Examples Overview
 
-The curated example ladder is part of the public documentation, not a side list.
+The curated examples are case studies.
+
+Use the Guide and Quick Start to learn the generalized workflow first. Then use
+these examples to see how the same patterns scale to more realistic designs.
 
 Recommended order:
 

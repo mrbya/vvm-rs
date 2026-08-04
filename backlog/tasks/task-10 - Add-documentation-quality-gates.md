@@ -5,9 +5,9 @@ status: Done
 assignee:
   - OpenCode
 created_date: '2026-07-29 14:12'
-updated_date: '2026-07-29 14:23'
+updated_date: '2026-07-30 17:33'
 labels: []
-milestone: m-0
+milestone: m-1
 dependencies: []
 ---
 
@@ -19,9 +19,9 @@ Add automated documentation compilation and generated-site link checks with boun
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Doctests book validation and link checks run locally
-- [ ] #2 Generated site and cross-link checks are enforced
-- [ ] #3 External-link policy is bounded and documented
+- [x] #1 Doctests book validation and link checks run locally
+- [x] #2 Generated site and cross-link checks are enforced
+- [x] #3 External-link policy is bounded and documented
 <!-- AC:END -->
 
 ## Implementation Plan

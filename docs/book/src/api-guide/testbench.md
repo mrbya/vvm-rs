@@ -15,6 +15,10 @@ Typical builder stages:
 The testbench owns the lifecycle ordering. That is why the workflow chapters talk
 about drive, evaluate, sample, predict, compare, and record as separate phases.
 
+Use the Guide chapter first if you need the workflow itself. Use this page when
+you need the exact surface names such as `with_sequence`, `with_replayable_sequence`,
+`with_scoreboard`, `with_clock`, `with_coverage`, `run`, and `run_covered`.
+
 Rustdoc:
 
 - [`vvm::testbench`](../api/vvm/testbench/index.html)

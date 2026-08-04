@@ -1,8 +1,12 @@
 # Summary
 
 - [Introduction](introduction.md)
-- [Quick Start](quick-start.md)
+- [Why VVM?](why-vvm.md)
+- [How VVM Fits Into HDL Verification](how-vvm-fits-into-hdl-verification.md)
+- [How VVM Works](how-vvm-works.md)
+- [Rust Essentials For HDL Engineers](rust-essentials-for-hdl-engineers.md)
 - [Installation](installation.md)
+- [Quick Start](quick-start.md)
 - [Getting Started Overview](getting-started.md)
 
 # Concepts

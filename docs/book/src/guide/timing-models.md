@@ -1,19 +1,45 @@
 # Timing-enabled Models
 
-Timing mode is for Verilator models that schedule delayed events internally.
+Timing-enabled execution is for DUTs that schedule delayed events internally.
 
-Enable it in `build.rs`, then use `TimingScheduler` on the generated timing-capable
-wrapper. This is different from cycle-driven execution:
+## Generalized Fixture
 
-- the DUT schedules its own future slots;
-- Rust advances to the next pending slot;
-- observations can be tied to absolute simulation time.
+The timing fixture uses a small delayed-output design and the public
+`TimingScheduler` API:
 
-The timed UART example is the canonical public guide because it reconstructs a
-serial frame from delayed transitions instead of forcing the design into a fake
-cycle-only structure.
+```rust
+{{#include ../../../../tests/fixtures/native-timing-delay/src/lib.rs}}
+```
 
-Current limitations remain important:
+## Mental Model
+
+Cycle-driven tests say: "apply the next clocked step."
+
+Timing-enabled tests say: "advance to the next pending HDL time slot." That is a
+different scheduler and it stays separate on purpose.
+
+## What You Need
+
+- a timing-capable generated wrapper;
+- coroutine-capable C++ support for the Verilator timing path;
+- `TimedDut` and `TimingScheduler` instead of the normal cycle-driven clock loop.
+
+## Common Operations
+
+- initialize the timing scheduler;
+- inspect whether events are pending;
+- advance to the next slot manually or run until idle;
+- observe absolute simulation time and emitted timing events;
+- finalize the DUT and close any open trace.
+
+## Important Limits
 
 - same-time and `#0` scheduling are unsupported;
-- timing and clock schedulers stay separate on purpose.
+- timing mode and ordinary clock scheduling remain separate;
+- timing support does not make the model four-state.
+
+## Related Material
+
+- [Schedulers API Guide](../api-guide/schedulers.md)
+- [Limitations](../reference/limitations.md)
+- [Timed UART case study](../examples/timed-uart.md)

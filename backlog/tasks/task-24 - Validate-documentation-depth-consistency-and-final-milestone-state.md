@@ -5,9 +5,9 @@ status: Done
 assignee:
   - '@OpenCode'
 created_date: '2026-07-30 09:27'
-updated_date: '2026-07-30 10:24'
+updated_date: '2026-07-30 17:33'
 labels: []
-milestone: m-0
+milestone: m-1
 dependencies: []
 priority: high
 ---
@@ -32,21 +32,29 @@ Perform the final documentation audit and full repository validation once the re
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-1. Run the documentation build commands, link checks, package-doc checks, site assembly checks, and source-backed example workflows after the rewrite is complete.
-2. Run the repository-wide validation commands from the `justfile`, repair any failures, and re-run until the full gate passes.
-3. Audit every milestone 12.5 task to confirm acceptance criteria, implementation plans, and final summaries are complete and truthful.
-4. Add a final milestone documentation summary and close milestone 12.5 only after the full validation pass succeeds.
-5. Produce the final user-facing report from the completed backlog and validation state rather than from partial progress.
+1. Re-run the full documentation command set after the rewrite, including book build, public and internal rustdoc, doctests, docs-site assembly, and link-entry checks.
+2. Run the dedicated documentation fixtures and the full repository validation gate, fixing any failures and rerunning until the entire command set passes.
+3. Re-audit the public book for internal-process leakage, stale placeholders, and example-first regressions after the content pass.
+4. Finalize all reopened milestone 12.5 tasks with truthful summaries and terminal states, then close the active milestone only after the rendered-book review and repository gate succeed.
+5. Produce the final report from the recorded backlog state and completed validation results.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 Final validation included the documentation command suite (`just docs-book`, `just docs-api`, `just docs-internal`, `just docs-test`, `just docs-links`, `just docs-site`), the repository validation suite (`just fmt --check`, `just check -- -D warnings`, the explicit test categories, `just test-cov-ci`, `just unused`, `just audit`, and `just ci`), and a backlog audit. During the audit, a duplicate stale `TASK-11` for GitLab Pages CI was discovered and archived because the same scope was already completed by `TASK-16`.
+
+Reopened because the final validation and milestone-closure criteria are not yet truthfully satisfied. This task cannot return to Done until the rewritten book, quick-start fixture, README alignment, rendered-book review, and full repository gate all pass.
+
+Validated the dedicated documentation fixtures (`documentation_quick_start_fixture_builds_and_runs` and `documentation_inout_fixture_builds_and_runs`), the mdBook include wiring, and the generated site entry points including `public/quick-start.html` and the public API indexes.
+
+Ran the docs-only command suite (`just docs-book`, `just docs-api`, `just docs-internal`, `just docs-test`, `just docs-site`, `just docs-links`) and the explicit site-file assertions for `public/index.html`, `public/quick-start.html`, `public/api/index.html`, `public/api/vvm/index.html`, `public/api/vvm_build/index.html`, `public/api/vvm_core/index.html`, `public/api/vvm_macros/index.html`, and `public/build-info.json`.
+
+Ran the full repository validation command set. One run of `just test-native-fixtures` failed because an isolated temporary fixture hit a transient crates.io DNS resolution error while fetching dependencies; resolved by prefetching with `cargo fetch` and rerunning from the failing step. The rerun and the remaining gate, including `just ci`, completed successfully.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-Completed the final milestone 12.5 documentation audit and validation pass. Verified the restructured book, rewritten root/package READMEs, new API guide, advanced guides, examples, reference material, and development docs against the required documentation roles and acceptance criteria. Ran `just docs-book`, `just docs-api`, `just docs-internal`, `just docs-test`, `just docs-links`, `just docs-site`, `just fmt --check`, `just check -- -D warnings`, `just test-fast`, `just test-native-fixtures`, `just test-examples`, `just test-native`, `just test-e2e`, `just test-package`, `just test-all`, `just doctest`, `just test-cov-ci`, `just unused`, `just audit`, and `just ci`. During the backlog audit, archived a duplicate stale `TASK-11` GitLab Pages CI task because its scope was already completed by `TASK-16`. After every documentation task was terminal and the validation gate passed, archived milestone `Milestone 12.5 — mdBook, rustdoc, and GitLab Pages` (m-0).
+Completed the final user-centred milestone 12.5 validation pass. Rebuilt and checked the book, public and internal rustdoc, doctests, assembled site, docs links, dedicated documentation fixtures, and the explicit published-site entry points. Re-audited the public book for process leakage and placeholder wording, then ran the full repository validation command set: `just fmt --check`, `just check -- -D warnings`, `just test-fast`, `just test-native-fixtures`, `just test-examples`, `just test-native`, `just test-e2e`, `just test-package`, `just test-all`, `just doctest`, `just test-cov-ci`, `just unused`, `just audit`, and `just ci`. During the first pass, one isolated native fixture run failed because crates.io DNS resolution temporarily failed while fetching a dependency into a temp workspace; after `cargo fetch`, the failing step and the remaining commands passed. All reopened milestone 12.5 tasks are now terminal and the milestone is ready to close.
 <!-- SECTION:FINAL_SUMMARY:END -->

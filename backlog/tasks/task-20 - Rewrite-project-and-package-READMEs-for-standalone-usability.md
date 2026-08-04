@@ -5,9 +5,9 @@ status: Done
 assignee:
   - '@OpenCode'
 created_date: '2026-07-30 09:27'
-updated_date: '2026-07-30 10:22'
+updated_date: '2026-07-30 17:33'
 labels: []
-milestone: m-0
+milestone: Milestone 12.5 — User-centred documentation rewrite
 dependencies: []
 priority: high
 ---
@@ -31,15 +31,23 @@ Rewrite the root README and the vvm-rs, vvm-build, and cargo-vvm package READMEs
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-1. Rewrite the root README as a bounded project overview with requirements, installation, a minimal complete workflow, example ladder, documentation links, development commands, and honest limitations.
-2. Rewrite `crates/vvm/README.md` as facade-crate documentation with dependency placement, generated-DUT relationship, module overview, and a compact end-to-end workflow.
-3. Rewrite `crates/vvm-build/README.md` around the normal `build.rs` workflow, name matching, source configuration, generated output, timing/tracing options, and common failures.
-4. Rewrite `crates/cargo-vvm/README.md` around the common coverage workflow, command syntax, outputs, merge policy, failure semantics, CI usage, and troubleshooting.
-5. Reconcile every detailed topic removed from the root README with the new book chapters and validate external-rendering links.
+1. Reconcile the root README and package READMEs with the final user-centred book narrative so they explain what VVM is, where it fits, and where to read more without carrying placeholder or stale example-first guidance.
+2. Remove incomplete code sketches and internal wording from README surfaces, replacing them with valid minimal patterns or links to the authoritative book chapters.
+3. Keep each package README independently useful by preserving crate-specific workflow, support notes, and links to the relevant guide chapters and rustdoc.
+4. Recheck every command and external link after the book rewrite so README surfaces remain valid in isolation.
+5. Finalize the task after the README surfaces and public book communicate the same positioning and workflow story.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Reopened because the root and package README surfaces must be realigned to the final user-centred positioning after the public book rewrite and validation pass.
+
+Removed the placeholder README quick-start code path from the root README, aligned the overview messaging with the new Why/Fit/How chapters, and kept the package READMEs crate-specific while linking to the authoritative book chapters.
+<!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-Rewrote the root `README.md` as a bounded project overview with requirements, installation, a minimal workflow, example ladder, docs links, development commands, and explicit alpha limitations. Rewrote `crates/vvm/README.md`, `crates/vvm-build/README.md`, and `crates/cargo-vvm/README.md` so each package now explains its role, common workflow, key commands or configuration, and where to find the full book and API docs. The README surfaces now align with the new book structure instead of carrying the only detailed explanations for major features.
+Completed the final README alignment pass. Updated the root README so it points readers to the authoritative from-scratch Quick Start and Why VVM positioning chapters instead of carrying a partial example-first quickstart with placeholders. Kept the root README concise but self-sufficient on purpose, requirements, crate roles, examples, docs links, and alpha limitations. Preserved crate-specific README guidance for `vvm-rs`, `vvm-build`, and `cargo-vvm` while ensuring the book now owns the detailed workflow explanations. Revalidated the README-linked documentation surfaces through the docs-site and docs-links checks.
 <!-- SECTION:FINAL_SUMMARY:END -->

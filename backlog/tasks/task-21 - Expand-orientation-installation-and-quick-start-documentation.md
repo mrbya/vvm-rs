@@ -5,9 +5,9 @@ status: Done
 assignee:
   - '@OpenCode'
 created_date: '2026-07-30 09:27'
-updated_date: '2026-07-30 10:22'
+updated_date: '2026-07-30 17:33'
 labels: []
-milestone: m-0
+milestone: m-1
 dependencies: []
 priority: high
 ---
@@ -31,15 +31,23 @@ Write a full introduction, installation path, and source-backed quick start that
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-1. Expand the introduction into an honest orientation chapter covering VVM's purpose, audience, maturity, architecture, non-goals, and current limitations.
-2. Split setup guidance into installation and quick-start chapters so prerequisites, dependency configuration, and first-project steps are explicit.
-3. Build the quick start around the maintained counter example, using real source-backed code for the DUT, `build.rs`, drive/sample/clock types, sequence, reference model, scoreboard, registered test, tracing, replay, and run commands.
-4. Add first-user troubleshooting for missing Verilator, broken include-name alignment, unsupported HDL shapes, and tracing/replay setup.
-5. Validate that every substantial snippet is sourced from maintained code or otherwise compiled.
+1. Rewrite the orientation path around Introduction, Why VVM, HDL workflow fit, runtime model, Rust essentials, Installation, and an independent Quick Start.
+2. Replace the old example-first quick start with a source-backed isolated fixture that creates a new verification crate from scratch and compiles exactly as shown.
+3. Keep the first-user path deterministic and complete: HDL, build.rs, generated wrapper inclusion, typed drive/sample/clock, sequence, reference model, scoreboard, registered test, run command, trace command, and generated-artifact explanation.
+4. Repurpose the long-lived getting-started entry page into a useful landing page with no internal milestone or migration language.
+5. Validate the rewritten path with mdBook build and the dedicated documentation fixture test before finalizing the task.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Reopened because the current Quick Start still teaches through the curated counter example instead of an independent from-scratch project and the getting-started landing page still contains internal migration language.
+
+Created the independent `tests/fixtures/docs-quick-start/` documentation fixture, rewrote `quick-start.md` around that fixture, and verified the exact project shown in the chapter by running the dedicated fixture test.
+<!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-Expanded the orientation path into `introduction.md`, `installation.md`, `quick-start.md`, and a compatibility-preserving `getting-started.md` overview. The new quick start walks a new user through prerequisites, project layout, dependencies, `build.rs`, generated-DUT inclusion, typed drive/sample/clock setup, test registration, tracing, replay, and first-run troubleshooting. The orientation chapters now explain VVM's audience, maturity, non-goals, platform support, and current limitations honestly while pointing readers to the next sections.
+Completed the user-centred orientation and quick-start rewrite. Added dedicated early-book chapters for product positioning, HDL toolchain fit, runtime mental model, and Rust essentials, then rebuilt the Quick Start around an independent `event_counter` verification crate rather than the curated counter example. Added the tested `tests/fixtures/docs-quick-start/` fixture with source anchors for `Cargo.toml`, `build.rs`, HDL, typed stimulus/observation/clock definitions, deterministic and replayable sequences, reference model, and registered tests. Repurposed `getting-started.md` into a useful landing page with no milestone or migration language. Validated the result with `mdbook build` and the dedicated fixture test.
 <!-- SECTION:FINAL_SUMMARY:END -->

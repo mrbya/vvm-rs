@@ -1,36 +1,65 @@
 # Troubleshooting
 
-## Verilator Not Found
+Use this page when a VVM workflow fails and you need to narrow the problem to the
+right phase quickly.
 
-Set `VERILATOR=/path/to/verilator` or fix your `PATH` before building the
-consumer crate.
+## Build Phase
 
-## `include_dut!` Cannot Find Generated Code
+### Verilator Not Found
 
-Check that the logical DUT name passed to `DutBuilder::new` exactly matches the
-name passed to `vvm::include_dut!`.
+Set `VERILATOR=/path/to/verilator` or fix `PATH` before building.
 
-## Generated Accessors Do Not Match The HDL Shape You Expected
+### `build.rs` Fails
 
-Check [Generated Types](../reference/generated-types.md) for supported mappings
-and known unsupported shapes.
+Check the HDL source list, top-module name, and any build-time options before you
+debug Rust test code.
 
-## Randomized Failure Is Hard To Reproduce
+### `include_dut!` Cannot Find Generated Code
 
-Use the replay token printed by the failing test through `VVM_REPLAY`, not an
-unrelated seed.
+Check that the logical DUT name in `DutBuilder::new(...)` exactly matches the
+argument passed to `vvm::include_dut!(...)`.
 
-## No Trace Or Coverage Artifact Appears
+## Compile Phase
+
+### Drive Or Sample Derives Fail
+
+Check port names, `#[vvm(port)]` mappings, and generated Rust types against the
+[Generated Types](../reference/generated-types.md) reference.
+
+### `#[vvm::test]` Fails
+
+Check the accepted function form, required rustdoc description, and declared
+capabilities in [Registering Tests](registering-tests.md).
+
+## Run Phase
+
+### Randomized Failure Is Hard To Reproduce
+
+Use the replay token through `VVM_REPLAY`, not an unrelated seed.
+
+### No Trace Or Coverage Artifact Appears
 
 Confirm that the test declared the needed capability and that the output
 directory is writable.
 
-## Timing Run Does Not Progress As Expected
+### Timing Run Does Not Progress
 
-Check whether the DUT actually scheduled future timed work. Also confirm that
-you are using timing mode, not a cycle-only build.
+Confirm that the DUT actually scheduled future timed work and that you are using
+a timing-capable build and the timing scheduler rather than the ordinary
+cycle-driven path.
 
-## Inout Behavior Looks Wrong
+### Inout Behaviour Looks Wrong
 
-Re-check your caller-owned resolution policy. Most inout problems come from the
-external policy layer, not from generated wrappers silently resolving contention.
+Re-check the caller-owned resolution policy. Most inout problems come from the
+external policy layer, not from hidden wrapper behaviour.
+
+## When To Change Tools
+
+If the problem is fundamentally about unsupported same-time timing semantics,
+four-state behaviour, or CDC proof, the right fix may be a different tool rather
+than more Rust-side code.
+
+## Related Material
+
+- [Limitations](../reference/limitations.md)
+- [Diagnostics](../reference/diagnostics.md)

@@ -5,9 +5,9 @@ status: Done
 assignee:
   - '@OpenCode'
 created_date: '2026-07-30 09:27'
-updated_date: '2026-07-30 10:22'
+updated_date: '2026-07-30 17:33'
 labels: []
-milestone: m-0
+milestone: m-1
 dependencies: []
 priority: high
 ---
@@ -31,15 +31,23 @@ Turn the curated examples into a real learning ladder inside the book and add pr
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-1. Build a reference section covering configuration, environment variables, generated type mappings, execution order, artifact layout, compatibility, diagnostics, terminology, and limitations.
-2. Use table-heavy reference pages where appropriate, especially for environment variables and configuration defaults/precedence.
-3. Document supported HDL-to-Rust mappings and unsupported shapes using the generated-port fixtures and maintained examples as backing evidence.
-4. Centralize current limitations in one chapter and align the rest of the book and README surfaces to that chapter.
-5. Add practical diagnostic examples for build failures, simulation mismatches, timing limits, coverage incompatibility, and reporting failures.
+1. Strengthen the reference and example-positioning surfaces so examples remain case studies and the practical lookup pages are authoritative.
+2. Expand configuration, environment, generated-type, execution-order, diagnostics, terminology, and limitations references to the level needed for day-to-day lookup.
+3. Keep one central support-and-limitations page and make shorter compatibility pages defer to it.
+4. Reframe example overview pages so they follow the generalized guide instead of replacing it.
+5. Validate the updated reference surfaces with mdBook build, docs link checks, and the relevant documentation fixtures before finalizing the task.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Reopened because the reference surfaces and example positioning need another pass to centralize limitations, complete tables, and ensure curated examples remain supporting case studies rather than the primary explanation path.
+
+Expanded the practical reference pages for configuration, environment variables, generated types, execution order, diagnostics, terminology, compatibility, and the centralized limitations/support policy. Also reframed `examples.md`, `coverage.md`, and `cargo-vvm.md` so those sections act as supporting learning surfaces rather than replacing the generalized guide.
+<!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-Expanded the book's examples and reference material by adding dedicated chapters for every curated example plus a `reference/` section covering configuration, environment variables, generated types, execution order, artifact layout, compatibility, diagnostics, terminology, and limitations. Centralized the authoritative limitations list in `reference/limitations.md` and added the environment-variable and execution-order material that previously lived only in the root README or scattered examples.
+Completed the practical reference and example-positioning pass. Rewrote the key `reference/` pages so configuration layers, environment variables, generated type mappings, execution order, diagnostics, terminology, compatibility, and the authoritative limitations/support policy are now usable as lookup material rather than sparse summaries. Reframed the examples, coverage, and cargo-vvm overview pages so they point readers back to the generalized workflow first and present the curated examples as supporting case studies. Validated the updated reference surfaces with mdBook build, docs-site assembly, docs-links checks, and the dedicated documentation fixtures.
 <!-- SECTION:FINAL_SUMMARY:END -->

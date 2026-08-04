@@ -50,8 +50,7 @@ cover
 finalize
 ```
 
-The exact observable order is documented in the
-[Execution Order Reference](../reference/execution-order.md).
+The exact observable order is documented in [Execution Order](execution-order.md).
 
 ## Failure Behaviour
 

@@ -20,5 +20,8 @@ approach to expose semantic status instead of only raw flags.
 
 Rustdoc:
 
+- [`Drive` derive](../api/vvm/derive.Drive.html)
+- [`Sample` derive](../api/vvm/derive.Sample.html)
+- [`vvm::dut::Drive`](../api/vvm/dut/trait.Drive.html)
+- [`vvm::dut::Sample`](../api/vvm/dut/trait.Sample.html)
 - [`vvm::dut`](../api/vvm/dut/index.html)
-- [`vvm_macros`](../api/vvm_macros/index.html)

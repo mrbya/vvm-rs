@@ -5,9 +5,9 @@ status: Done
 assignee:
   - '@OpenCode'
 created_date: '2026-07-30 09:27'
-updated_date: '2026-07-30 17:33'
+updated_date: '2026-08-04 14:52'
 labels: []
-milestone: m-1
+milestone: m-2
 dependencies: []
 priority: high
 ---
@@ -51,10 +51,12 @@ Validated the dedicated documentation fixtures (`documentation_quick_start_fixtu
 Ran the docs-only command suite (`just docs-book`, `just docs-api`, `just docs-internal`, `just docs-test`, `just docs-site`, `just docs-links`) and the explicit site-file assertions for `public/index.html`, `public/quick-start.html`, `public/api/index.html`, `public/api/vvm/index.html`, `public/api/vvm_build/index.html`, `public/api/vvm_core/index.html`, `public/api/vvm_macros/index.html`, and `public/build-info.json`.
 
 Ran the full repository validation command set. One run of `just test-native-fixtures` failed because an isolated temporary fixture hit a transient crates.io DNS resolution error while fetching dependencies; resolved by prefetching with `cargo fetch` and rerunning from the failing step. The rerun and the remaining gate, including `just ci`, completed successfully.
+
+Reopened for the final rendered-documentation review, complete validation suite, backlog audit, and milestone closure once every related task is terminal.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-Completed the final user-centred milestone 12.5 validation pass. Rebuilt and checked the book, public and internal rustdoc, doctests, assembled site, docs links, dedicated documentation fixtures, and the explicit published-site entry points. Re-audited the public book for process leakage and placeholder wording, then ran the full repository validation command set: `just fmt --check`, `just check -- -D warnings`, `just test-fast`, `just test-native-fixtures`, `just test-examples`, `just test-native`, `just test-e2e`, `just test-package`, `just test-all`, `just doctest`, `just test-cov-ci`, `just unused`, `just audit`, and `just ci`. During the first pass, one isolated native fixture run failed because crates.io DNS resolution temporarily failed while fetching a dependency into a temp workspace; after `cargo fetch`, the failing step and the remaining commands passed. All reopened milestone 12.5 tasks are now terminal and the milestone is ready to close.
+Completed the final milestone 12.5 validation and closure audit. Rebuilt and checked the book, public and internal rustdoc, doctests, assembled site, API-guide rustdoc links, compatibility redirects, and the explicit published-site entry points including `public/index.html`, `public/quick-start.html`, `public/api/index.html`, `public/api/vvm/index.html`, `public/api/vvm_build/index.html`, `public/api/vvm_core/index.html`, `public/api/vvm_macros/index.html`, and `public/build-info.json`. Ran the full repository validation command set: `just fmt --check`, `just check -- -D warnings`, `just test-fast`, `just test-native-fixtures`, `just test-examples`, `just test-native`, `just test-e2e`, `just test-package`, `just test-all`, `just doctest`, `just test-cov-ci`, `just unused`, `just audit`, and `just ci`. During validation, the new documentation quick-start coverage snippets exposed a real fixture regression; fixed the missing `#[vvm::test]` description, corrected scoreboard assertions, adjusted the covered example return type, reran the failing fixture, then reran the full gate successfully. Backlog audit confirms every task in milestone `m-2` now has a recorded plan, final summary, completed acceptance criteria, and terminal state.
 <!-- SECTION:FINAL_SUMMARY:END -->

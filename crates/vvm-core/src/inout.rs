@@ -2,8 +2,14 @@
 
 /// Raw state of one bidirectional DUT port.
 ///
-/// VVM does not resolve these components automatically. The input value is the
-/// externally resolved value currently presented to the DUT.
+/// `InoutState` is intentionally unresolved. VVM exposes the externally applied
+/// input value, the DUT output-enable mask, and the DUT-proposed output value so
+/// callers can implement their own resolution policy in ordinary Rust.
+///
+/// This is a two-state Rust-side model. If the HDL design relies on four-state
+/// electrical behavior, floating semantics, or analog contention rules, model
+/// those effects explicitly at the caller layer rather than expecting VVM to
+/// infer them.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub struct InoutState<Value, Enable = Value> {
     /// Externally resolved input currently presented to the DUT.

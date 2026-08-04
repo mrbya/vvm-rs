@@ -12,4 +12,8 @@ values available for reports instead of hiding them behind a boolean pass/fail.
 
 Rustdoc:
 
-- [`vvm::testbench`](../api/vvm/testbench/index.html)
+- [`ReferenceModel`](../api/vvm/testbench/trait.ReferenceModel.html)
+- [`Scoreboard`](../api/vvm/testbench/trait.Scoreboard.html)
+- [`ExactScoreboard`](../api/vvm/testbench/struct.ExactScoreboard.html)
+- [`Mismatch`](../api/vvm/testbench/struct.Mismatch.html)
+- [`FailurePolicy`](../api/vvm/testbench/struct.FailurePolicy.html)

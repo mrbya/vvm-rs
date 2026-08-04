@@ -5,9 +5,9 @@ status: Done
 assignee:
   - '@OpenCode'
 created_date: '2026-07-29 14:12'
-updated_date: '2026-07-30 17:33'
+updated_date: '2026-08-04 14:51'
 labels: []
-milestone: m-1
+milestone: m-2
 dependencies: []
 ---
 
@@ -19,29 +19,33 @@ Create book-only cargo-vvm command documentation covering syntax outputs policie
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [x] #1 Installation command reference and output layout are documented
-- [x] #2 Merge policy and exit behavior are explicit
-- [x] #3 GitLab coverage integration is documented
+- [x] #1 cargo-vvm appears as one substantial Guide chapter
+- [x] #2 Normal cargo-vvm usage can be understood from that one chapter
+- [x] #3 The chapter documents command restrictions outputs failures merge behavior and CI workflow
+- [x] #4 Old fragmented cargo-vvm pages are removed from normal navigation while legacy URLs remain usable where practical
+- [x] #5 Commands and examples are validated against the current CLI behavior
 <!-- AC:END -->
 
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-1. Expand the cargo-vvm book documentation into installation, workflow, command reference, output layout, merge policy, failure semantics, GitLab integration, and troubleshooting chapters.
-2. Rewrite the content around the actual CLI behavior from `crates/cargo-vvm/src/cli.rs`, orchestration code, and the maintained counter/FIFO workflows.
-3. Explain output-directory isolation, per-test artifacts, merged JSON, text/HTML reports, metric output, provenance, fingerprints, retry restrictions, child-status preservation, reporting failures, and no-artifact runs.
-4. Provide a concise command synopsis and a small GitLab CI example that match the current CLI.
-5. Validate the command descriptions against the code and the maintained coverage workflows.
+1. Audit the existing `cargo-vvm/` pages, CLI implementation, and package README to capture the real command surface and workflow details.
+2. Write one `guide/using-cargo-vvm.md` chapter that explains what the command does, when to use it, installation, the normal `cargo vvm coverage -- ...` workflow, output layout, merge policies, reporting, failure semantics, restrictions, and troubleshooting.
+3. Keep the package README and CLI terminology aligned with the new guide chapter.
+4. Preserve old `cargo-vvm` URLs through compatibility redirects or pointer pages instead of keeping a fragmented visible section.
+5. Validate the chapter against the actual CLI and the documentation/test workflows.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 Reopened during milestone 12.5 completion audit. The current cargo-vvm documentation is not yet a full workflow and command reference at the depth implied by the task acceptance criteria.
+
+Reopened for the final 12.5 refinement pass to consolidate fragmented cargo-vvm documentation into one substantial Guide chapter with practical workflow, outputs, failure semantics, and CI guidance.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-Expanded `cargo-vvm` documentation into a real command guide with installation, workflow, command reference, output layout, merge policies, failure semantics, GitLab CI usage, and troubleshooting chapters. The book now documents the actual CLI behavior from the current binary surface instead of only a short summary page, and the package README mirrors that workflow for standalone use.
+Consolidated fragmented cargo-vvm documentation into one substantial Guide chapter at `docs/book/src/guide/using-cargo-vvm.md`. The chapter now covers purpose, when to use it, installation, the normal `cargo vvm coverage -- ...` workflow, child-command restrictions, nextest retry restrictions, output-directory requirements, output tree, merge policies, fingerprints, provenance controls, bin-detail controls, failure semantics, no-artifact behavior, GitLab CI usage, troubleshooting, and the command-summary surface. Updated `crates/cargo-vvm/README.md` so its documentation links now point at the new Guide chapter and the Functional Coverage guide. Preserved old cargo-vvm URLs with compatibility redirects in `scripts/docs-site.sh`. Validation: checked against `cargo run -p cargo-vvm -- coverage --help`, plus `just docs-book`, `just docs-links`, `just test-fast`, `just test-cov-ci`, and `just ci`, all passing.
 <!-- SECTION:FINAL_SUMMARY:END -->

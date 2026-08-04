@@ -21,4 +21,13 @@ you need the exact surface names such as `with_sequence`, `with_replayable_seque
 
 Rustdoc:
 
-- [`vvm::testbench`](../api/vvm/testbench/index.html)
+- [`Testbench`](../api/vvm/testbench/struct.Testbench.html)
+- [`Testbench::with_sequence`](../api/vvm/testbench/struct.Testbench.html#method.with_sequence)
+- [`Testbench::with_replayable_sequence`](../api/vvm/testbench/struct.Testbench.html#method.with_replayable_sequence)
+- [`Testbench::with_scoreboard`](../api/vvm/testbench/struct.Testbench.html#method.with_scoreboard)
+- [`Testbench::with_clock`](../api/vvm/testbench/struct.Testbench.html#method.with_clock)
+- [`Testbench::with_coverage`](../api/vvm/testbench/struct.Testbench.html#method.with_coverage)
+- [`Testbench::run`](../api/vvm/testbench/struct.Testbench.html#method.run)
+- [`Testbench::run_covered`](../api/vvm/testbench/struct.Testbench.html#method.run_covered)
+- [`ObservedCycle`](../api/vvm/testbench/struct.ObservedCycle.html)
+- [`TestResult`](../api/vvm/testbench/struct.TestResult.html)

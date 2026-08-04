@@ -106,7 +106,13 @@ pub struct FinishedTestContext {
 
 /// Mutable execution context supplied to context-aware VVM tests.
 ///
-/// It owns the resolved execution configuration and per-test coverage session.
+/// `TestContext` owns the resolved [`TestRunConfig`], the per-test
+/// [`crate::CoverageSession`], and deferred framework diagnostics retained for
+/// the final test outcome.
+///
+/// Use this type for tests that declared capabilities such as `coverage` and
+/// need to capture coverage groups explicitly or inspect retained framework
+/// diagnostics before the run completes.
 pub struct TestContext {
     /// Resolved execution configuration.
     config: TestRunConfig,

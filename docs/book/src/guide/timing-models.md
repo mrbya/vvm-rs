@@ -41,5 +41,5 @@ different scheduler and it stays separate on purpose.
 ## Related Material
 
 - [Schedulers API Guide](../api-guide/schedulers.md)
-- [Limitations](../reference/limitations.md)
+- [Compatibility And Limitations](compatibility-and-limitations.md)
 - [Timed UART case study](../examples/timed-uart.md)

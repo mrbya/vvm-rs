@@ -8,8 +8,12 @@ vvm::include_dut!(event_counter);
 #[cfg(test)]
 mod tests {
     use vvm::random::{RandomContext, ReplayToken, ReplayableSequence, Seed};
-    use vvm::test::TestRunConfig;
-    use vvm::testbench::{ExactScoreboard, Mismatch, ReferenceModel, TestResult, Testbench};
+    use vvm::coverage::{Bin, BuildError, Coverpoint, Cross2};
+    use vvm::test::{TestContext, TestRunConfig};
+    use vvm::testbench::{
+        ExactScoreboard, Mismatch, ObservedCycle, ReferenceModel, Scoreboard, TestResult,
+        Testbench,
+    };
     use vvm::{Clock, Drive, Sample};
 
     use crate::event_counter::EventCounter;
@@ -144,6 +148,103 @@ mod tests {
     }
     // ANCHOR_END: reference-model
 
+    /// Semantic activity observed during one sampled event-counter cycle.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    enum EventCounterActivity {
+        Reset,
+        Idle,
+        Event,
+        Invalid,
+    }
+
+    // ANCHOR: coverage-model
+    #[derive(vvm::Coverage)]
+    #[vvm(
+        definition = "event_counter_coverage",
+        revision = 1,
+        stimulus = EventCounterStimulus,
+        observation = EventCounterObservation,
+    )]
+    struct EventCounterCoverage {
+        #[vvm(coverpoint(build = activity_coverpoint, sample = activity_for))]
+        activity: Coverpoint<EventCounterActivity>,
+
+        #[vvm(coverpoint(build = total_coverpoint, sample = total_for))]
+        total_region: Coverpoint<u8>,
+
+        #[vvm(cross(left = activity, right = total_region))]
+        activity_x_total: Cross2,
+    }
+
+    fn activity_coverpoint(
+        name: &'static str,
+    ) -> std::result::Result<Coverpoint<EventCounterActivity>, BuildError> {
+        Coverpoint::builder(name)
+            .bin(Bin::value("idle", EventCounterActivity::Idle))
+            .bin(Bin::value("event", EventCounterActivity::Event))
+            .ignore_bin(Bin::value("reset", EventCounterActivity::Reset))
+            .illegal_bin(Bin::value("invalid", EventCounterActivity::Invalid))
+            .build()
+    }
+
+    fn total_coverpoint(name: &'static str) -> std::result::Result<Coverpoint<u8>, BuildError> {
+        Coverpoint::builder(name)
+            .bin(Bin::value("zero", 0_u8))
+            .bin(Bin::inclusive_range("small", 1_u8, 3_u8))
+            .bin(Bin::inclusive_range("large", 4_u8, u8::MAX))
+            .build()
+    }
+
+    const fn activity_for(
+        cycle: ObservedCycle<'_, EventCounterStimulus, EventCounterObservation>,
+    ) -> EventCounterActivity {
+        if !cycle.stimulus().reset_n {
+            EventCounterActivity::Reset
+        } else if cycle.stimulus().event {
+            EventCounterActivity::Event
+        } else {
+            EventCounterActivity::Idle
+        }
+    }
+
+    const fn total_for(cycle: ObservedCycle<'_, EventCounterStimulus, EventCounterObservation>) -> u8 {
+        cycle.observed().total
+    }
+    // ANCHOR_END: coverage-model
+
+    // ANCHOR: scoreboard
+    #[test]
+    fn exact_scoreboard_compares_expected_and_observed_values() {
+        let mut scoreboard = ExactScoreboard;
+        let expected = EventCounterObservation::new(3);
+        let observed = EventCounterObservation::new(2);
+        let mismatch = scoreboard.check(&expected, &observed).unwrap_err();
+
+        assert_eq!(**mismatch.expected(), expected);
+        assert_eq!(**mismatch.observed(), observed);
+    }
+    // ANCHOR_END: scoreboard
+
+    // ANCHOR: coverage-test
+    /// Covered event-counter smoke test.
+    #[vvm::test(trace, coverage)]
+    fn event_counter_coverage(
+        context: &mut TestContext,
+    ) -> std::result::Result<EventCounterTestResult, Box<dyn std::error::Error>> {
+        let mut dut = EventCounter::new()?;
+
+        context.config().configure_trace(&mut dut)?;
+
+        Ok(Testbench::new(dut)
+            .with_sequence(event_counter_sequence())
+            .with_reference_model(EventCounterReferenceModel::default())
+            .with_scoreboard(ExactScoreboard)
+            .with_clock(EventCounterClock)
+            .with_coverage(EventCounterCoverage::new("dut.event_counter")?)
+            .run_covered::<EventCounterObservation>(context))
+    }
+    // ANCHOR_END: coverage-test
+
     // ANCHOR: test
     /// Deterministic event-counter smoke test.
     #[vvm::test(trace)]
@@ -196,4 +297,18 @@ mod tests {
 
         assert_eq!(actual, vec![0, 0, 1, 1, 2, 3, 0, 0]);
     }
+
+    // ANCHOR: coverage-artifact
+    #[test]
+    fn covered_run_exposes_a_coverage_snapshot(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let run = __vvm_test_descriptor_event_counter_coverage.run(&TestRunConfig::new())?;
+        let coverage = run.coverage().ok_or("missing coverage snapshot")?;
+
+        assert_eq!(coverage.groups().len(), 1);
+        assert!(coverage.group("dut.event_counter").is_some());
+
+        Ok(())
+    }
+    // ANCHOR_END: coverage-artifact
 }

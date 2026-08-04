@@ -86,5 +86,5 @@ functional-coverage:
 
 ## Documentation
 
-- Book guide: <https://byacrates.gitlab.io/vvm-rs/cargo-vvm.html>
-- Command reference: <https://byacrates.gitlab.io/vvm-rs/cargo-vvm/command-reference.html>
+- Book guide: <https://byacrates.gitlab.io/vvm-rs/guide/using-cargo-vvm.html>
+- Functional coverage guide: <https://byacrates.gitlab.io/vvm-rs/guide/functional-coverage.html>

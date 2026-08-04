@@ -1,20 +1,15 @@
-# Reference Overview
+# Reference
 
-The Reference section answers: "What are the exact values, limits, mappings, and
-operational rules?"
+The standalone Reference section has been dissolved into the Guide so users only
+have one public manual to follow.
 
-Use it for:
+Use these Guide chapters instead:
 
-- configuration defaults and precedence;
-- environment-variable behavior;
-- generated type mappings;
-- execution order;
-- artifact layout;
-- compatibility and limitations;
-- diagnostics and terminology.
+- [Configuring Tests](guide/configuring-tests.md)
+- [Generated Type Mapping](guide/generated-type-mapping.md)
+- [Execution Order](guide/execution-order.md)
+- [Diagnostics And Troubleshooting](guide/troubleshooting.md)
+- [Compatibility And Limitations](guide/compatibility-and-limitations.md)
 
-Rustdoc remains the exact API contract. This section exists for the operational
-rules around that API.
-
-If you need workflow instruction, go back to the [Guide](user-guide.md). If you
-need the conceptual model, use [Concepts](concepts/overview.md).
+Rustdoc remains the exact API contract, and the Concepts section remains the
+mental model for why those workflows are separated.

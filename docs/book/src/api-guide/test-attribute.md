@@ -17,5 +17,8 @@ parameters when you need coverage capture or richer retained diagnostics.
 
 Rustdoc:
 
-- [`vvm`](../api/vvm/index.html)
-- [`vvm::test`](../api/vvm/test/index.html)
+- [`#[vvm::test]`](../api/vvm/attr.test.html)
+- [`TestDescriptor`](../api/vvm/test/struct.TestDescriptor.html)
+- [`TestRunConfig`](../api/vvm/test/struct.TestRunConfig.html)
+- [`TestContext`](../api/vvm/test/struct.TestContext.html)
+- [`TestCapabilities`](../api/vvm/test/struct.TestCapabilities.html)

@@ -44,5 +44,5 @@ through as native runtime values.
 ## Related Material
 
 - [Inout API Guide](../api-guide/inout.md)
-- [Generated Types Reference](../reference/generated-types.md)
+- [Generated Type Mapping](generated-type-mapping.md)
 - [Tri-state bus case study](../examples/tri-state-bus.md)

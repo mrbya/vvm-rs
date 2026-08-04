@@ -19,4 +19,5 @@ and this page for the exact public API location.
 
 Rustdoc:
 
+- [`InoutState`](../api/vvm/dut/struct.InoutState.html)
 - [`vvm::dut`](../api/vvm/dut/index.html)

@@ -14,4 +14,10 @@ The important conceptual split is:
 
 Rustdoc:
 
-- [`vvm::timing`](../api/vvm/timing/index.html)
+- [`Clock` derive](../api/vvm/derive.Clock.html)
+- [`vvm::timing::Clock`](../api/vvm/timing/trait.Clock.html)
+- [`ClockScheduler`](../api/vvm/timing/struct.ClockScheduler.html)
+- [`ClockTiming`](../api/vvm/timing/struct.ClockTiming.html)
+- [`CycleTiming`](../api/vvm/timing/struct.CycleTiming.html)
+- [`SimulationTime`](../api/vvm/timing/struct.SimulationTime.html)
+- [`TimeStep`](../api/vvm/timing/struct.TimeStep.html)

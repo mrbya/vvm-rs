@@ -99,6 +99,15 @@ where
 }
 
 /// Schedules independently timed primary and secondary clock domains.
+///
+/// `ClockScheduler` is the cycle-driven scheduler for externally owned clocks.
+/// It does not process simulator-owned delayed events; use
+/// [`crate::TimingScheduler`] for that timing-enabled workflow.
+///
+/// The scheduler keeps deterministic registration-order semantics for the
+/// primary clock and any secondary clocks. Same-time multi-clock behavior is
+/// therefore explicit and repeatable rather than hidden behind simulator tie
+/// breaks.
 pub struct ClockScheduler<'clock, D>
 where
     D: Dut,

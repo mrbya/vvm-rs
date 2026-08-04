@@ -47,4 +47,4 @@ VVM_TRACE_DIR=target/quick-start-traces cargo test event_counter_smoke
 
 - [Build Script](build-script.md)
 - [Tracing API Guide](../api-guide/tracing.md)
-- [Environment Variables Reference](../reference/environment-variables.md)
+- [Configuring Tests](configuring-tests.md)

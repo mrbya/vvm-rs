@@ -42,5 +42,5 @@ Use ratios and phase relationships that stress the interfaces you care about:
 ## Related Material
 
 - [Clocks And Time](../concepts/clocks-and-time.md)
-- [Execution Order Reference](../reference/execution-order.md)
+- [Execution Order](execution-order.md)
 - [Asynchronous FIFO case study](../examples/async-fifo.md)

@@ -251,7 +251,16 @@ pub struct Unconfigured;
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct NoCoverage;
 
-/// Synchronous testbench with concrete component types.
+/// Cycle-driven VVM testbench with concrete component types.
+///
+/// `Testbench` owns the main synchronous verification pipeline for one DUT run:
+/// it drives the configured sequence, evaluates the DUT around the configured
+/// clock schedule, samples observations, predicts expected behavior, checks the
+/// scoreboard, optionally samples coverage, and retains final run diagnostics in
+/// the returned [`TestResult`].
+///
+/// Construct it progressively with [`Self::new`], `with_*` builder methods, then
+/// run it through [`Self::run`] or [`Self::run_covered`].
 pub struct Testbench<
     D,
     S = Unconfigured,

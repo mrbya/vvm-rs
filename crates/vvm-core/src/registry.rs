@@ -53,7 +53,21 @@ impl fmt::Display for TestStatus {
     }
 }
 
-/// Configuration sipplied to one registerred test execution.
+/// Resolved run-time configuration for one registered VVM test invocation.
+///
+/// `TestRunConfig` is the lightweight configuration view used by tests that do
+/// not need a mutable [`crate::TestContext`]. It carries the effective replay,
+/// trace, and cycle settings after descriptor defaults and run-time overrides
+/// have been resolved.
+///
+/// Use this type when the test only needs to:
+///
+/// - read replay or cycle overrides;
+/// - open a trace on a trace-capable DUT;
+/// - inspect the effective run configuration.
+///
+/// Use [`crate::TestContext`] instead when the test also needs per-test coverage
+/// capture or retained framework diagnostics.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct TestRunConfig {
     /// Explicit random-stream replay override.

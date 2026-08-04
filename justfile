@@ -182,6 +182,7 @@ docs-test:
 # Validate generated-site entry points and local documentation links.
 docs-links:
     @just docs-site
+    bash scripts/check-book-api-links.sh
     test -s public/getting-started.html
     test -s public/coverage.html
     test -s public/cargo-vvm.html

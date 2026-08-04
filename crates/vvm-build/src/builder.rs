@@ -18,6 +18,30 @@ pub struct Define {
 
 /// Configures generation and native compilation of a Verilated DUT.
 #[derive(Debug)]
+/// Build-script configuration for one generated DUT wrapper.
+///
+/// `DutBuilder` is the public build-time entry point for VVM. Configure the HDL
+/// sources, optional trace/timing support, raw Verilator settings that VVM does
+/// not already own, then call [`Self::build`] from a consumer `build.rs`.
+///
+/// The logical name passed to [`Self::new`] matters twice:
+///
+/// - it names the generated output directory under `OUT_DIR`;
+/// - it must match `vvm::include_dut!(name)` later in Rust code.
+///
+/// # Example
+///
+/// ```no_run
+/// fn main() -> Result<(), vvm_build::BuildError> {
+///     vvm_build::DutBuilder::new("counter")
+///         .top_module("counter")
+///         .source("rtl/counter.sv")
+///         .trace(vvm_build::TraceOptions::vcd())
+///         .build()?;
+///
+///     Ok(())
+/// }
+/// ```
 pub struct DutBuilder {
     /// Logical DUT name used for generated files and symbols.
     name: String,

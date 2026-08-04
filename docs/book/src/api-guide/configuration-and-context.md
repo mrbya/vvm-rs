@@ -22,4 +22,11 @@ Typical `TestContext` responsibilities add:
 
 Rustdoc:
 
-- [`vvm::test`](../api/vvm/test/index.html)
+- [`TestRunConfig`](../api/vvm/test/struct.TestRunConfig.html)
+- [`TestRunConfig::replay_token_or`](../api/vvm/test/struct.TestRunConfig.html#method.replay_token_or)
+- [`TestRunConfig::cycles_or`](../api/vvm/test/struct.TestRunConfig.html#method.cycles_or)
+- [`TestRunConfig::configure_trace`](../api/vvm/test/struct.TestRunConfig.html#method.configure_trace)
+- [`TestContext`](../api/vvm/test/struct.TestContext.html)
+- [`TestContext::config`](../api/vvm/test/struct.TestContext.html#method.config)
+- [`TestContext::capture_coverage`](../api/vvm/test/struct.TestContext.html#method.capture_coverage)
+- [`TestContext::coverage_session`](../api/vvm/test/struct.TestContext.html#method.coverage_session)

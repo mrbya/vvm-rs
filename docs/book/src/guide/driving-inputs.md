@@ -64,4 +64,4 @@ names, duplicate mappings, or incompatible field types.
 
 - [Sampling Outputs](sampling-outputs.md)
 - [Drive And Sample API Guide](../api-guide/drive-and-sample.md)
-- [Generated Types Reference](../reference/generated-types.md)
+- [Generated Type Mapping](generated-type-mapping.md)

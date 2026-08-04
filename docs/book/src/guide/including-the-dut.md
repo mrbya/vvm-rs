@@ -59,5 +59,5 @@ diagnostic artifact, not a long-term source file.
 ## Related Material
 
 - [Build Script](build-script.md)
-- [Generated Types Reference](../reference/generated-types.md)
+- [Generated Type Mapping](generated-type-mapping.md)
 - [DutBuilder API Guide](../api-guide/dut-builder.md)

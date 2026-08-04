@@ -19,4 +19,4 @@ The canonical user entry point is the `vvm` facade. Most application code should
 not depend on `vvm-core` directly.
 
 If you still need the mental model, go back to [How VVM Works](../how-vvm-works.md)
-or the task-oriented [Guide](../user-guide.md).
+or the task-oriented [Guide](../guide/user-guide.md).

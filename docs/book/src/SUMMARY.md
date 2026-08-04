@@ -10,7 +10,6 @@
 
 # Concepts
 
-- [Overview](concepts/overview.md)
 - [Verification Workflow](concepts/verification-workflow.md)
 - [DUT And Generated Wrapper](concepts/dut-and-wrapper.md)
 - [Transactions](concepts/transactions.md)
@@ -22,7 +21,6 @@
 
 # Guide
 
-- [User Guide Overview](guide/user-guide.md)
 - [Project Setup](guide/project-setup.md)
 - [Build Script](guide/build-script.md)
 - [Including The DUT](guide/including-the-dut.md)
@@ -36,11 +34,15 @@
 - [Multi-clock Execution](guide/multi-clock.md)
 - [Timing-enabled Models](guide/timing-models.md)
 - [Bidirectional Ports](guide/bidirectional-ports.md)
-- [Troubleshooting](guide/troubleshooting.md)
+- [Functional Coverage](guide/functional-coverage.md)
+- [Using cargo-vvm](guide/using-cargo-vvm.md)
+- [Generated Type Mapping](guide/generated-type-mapping.md)
+- [Execution Order](guide/execution-order.md)
+- [Diagnostics And Troubleshooting](guide/troubleshooting.md)
+- [Compatibility And Limitations](guide/compatibility-and-limitations.md)
 
 # API Guide
 
-- [Overview](api-guide/overview.md)
 - [Facade And Prelude](api-guide/facade-and-prelude.md)
 - [DutBuilder](api-guide/dut-builder.md)
 - [Drive And Sample](api-guide/drive-and-sample.md)
@@ -57,32 +59,6 @@
 - [Reports](api-guide/reports.md)
 - [Errors](api-guide/errors.md)
 
-# Functional Coverage
-
-- [Overview](coverage.md)
-- [Bins](coverage/bins.md)
-- [Coverpoints](coverage/coverpoints.md)
-- [Typed Models](coverage/typed-models.md)
-- [Crosses](coverage/crosses.md)
-- [Sampling](coverage/sampling.md)
-- [Sessions And Artifacts](coverage/sessions-and-artifacts.md)
-- [Schema](coverage/schema.md)
-- [Merging](coverage/merging.md)
-- [Reporting](coverage/reporting.md)
-- [CI](coverage/ci.md)
-
-# cargo-vvm
-
-- [Overview](cargo-vvm.md)
-- [Installation](cargo-vvm/installation.md)
-- [Workflow](cargo-vvm/workflow.md)
-- [Command Reference](cargo-vvm/command-reference.md)
-- [Output Layout](cargo-vvm/output-layout.md)
-- [Merge Policies](cargo-vvm/merge-policies.md)
-- [Failure Semantics](cargo-vvm/failure-semantics.md)
-- [GitLab CI](cargo-vvm/gitlab.md)
-- [Troubleshooting](cargo-vvm/troubleshooting.md)
-
 # Examples
 
 - [Overview](examples.md)
@@ -91,19 +67,6 @@
 - [Timed UART](examples/timed-uart.md)
 - [Asynchronous FIFO](examples/async-fifo.md)
 - [Tri-state Bus](examples/tri-state-bus.md)
-
-# Reference
-
-- [Overview](reference.md)
-- [Configuration](reference/configuration.md)
-- [Environment Variables](reference/environment-variables.md)
-- [Generated Types](reference/generated-types.md)
-- [Execution Order](reference/execution-order.md)
-- [Artifact Layout](reference/artifact-layout.md)
-- [Compatibility](reference/compatibility.md)
-- [Diagnostics](reference/diagnostics.md)
-- [Terminology](reference/terminology.md)
-- [Limitations](reference/limitations.md)
 
 # Development
 
@@ -125,6 +88,7 @@
 - [Fixtures](development/fixtures.md)
 - [Examples](development/examples.md)
 - [Documentation](development/documentation.md)
+- [Coverage JSON Schema](coverage/schema.md)
 - [Benchmarking](development/benchmarking.md)
 - [Compatibility](development/compatibility.md)
 - [Releases](development/releases.md)

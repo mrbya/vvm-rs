@@ -63,3 +63,4 @@ Current support notes:
 - Read [How VVM Works](how-vvm-works.md) for the runtime mental model.
 - Use [Installation](installation.md) and [Quick Start](quick-start.md) when you
   are ready to build a project.
+- Read [Concepts](concepts/overview.md) and [User Guide](guide/user-guide.md) for a full VVM guide.

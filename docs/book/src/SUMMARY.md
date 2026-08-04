@@ -7,7 +7,6 @@
 - [Rust Essentials For HDL Engineers](rust-essentials-for-hdl-engineers.md)
 - [Installation](installation.md)
 - [Quick Start](quick-start.md)
-- [Getting Started Overview](getting-started.md)
 
 # Concepts
 
@@ -23,7 +22,7 @@
 
 # Guide
 
-- [User Guide Overview](user-guide.md)
+- [User Guide Overview](guide/user-guide.md)
 - [Project Setup](guide/project-setup.md)
 - [Build Script](guide/build-script.md)
 - [Including The DUT](guide/including-the-dut.md)
@@ -108,7 +107,7 @@
 
 # Development
 
-- [Overview](developer-guide.md)
+- [Overview](development/developer-guide.md)
 - [Contributing](contributing.md)
 - [Setup](development/setup.md)
 - [Common Commands](development/common-commands.md)

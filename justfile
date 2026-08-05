@@ -158,10 +158,6 @@ build *FLAGS:
 clean:
     cargo clean
 
-# Build the complete documentation site.
-docs:
-    @just docs-site
-
 # Build the mdBook guide only.
 docs-book:
     mdbook build docs/book
@@ -179,23 +175,20 @@ docs-test:
     @just doctest
     @just docs-book
 
-# Validate generated-site entry points and local documentation links.
+# Validate generated doc suite entry points and local documentation links.
 docs-links:
-    @just docs-site
+    @just docs-suite
     bash scripts/check-book-api-links.sh
     test -s public/getting-started.html
-    test -s public/coverage.html
-    test -s public/cargo-vvm.html
 
-# Assemble the book and public Rust API site.
-docs-site:
-    bash scripts/docs-site.sh
+# Build the complete documentation.
+docs:
+    bash scripts/doc-suite.sh
 
 # Serve the assembled site locally.
 docs-serve:
-    @just docs-site
+    @just docs
     http-server -i public
-    # mdbook serve docs/book -d ../../public
 
 # Remove assembled documentation outputs.
 docs-clean:
@@ -258,10 +251,6 @@ install-hooks:
 install:
     cargo install --path crates/cargo-vvm --locked
 
-# Install pre-commit hooks.
-pre-commit-install:
-    pre-commit install
-
 # Builds docker image for a gitlab CI runner.
 docker-build:
     #!/usr/bin/env bash
@@ -316,7 +305,8 @@ init:
     echo # installing markdown-toc
     npm list -g markdown-toc || npm install -g markdown-toc
     echo # installing pinned documentation builder
-    mdbook --version | grep -F "mdbook v0.5.3" || cargo install mdbook --version 0.5.3 --locked
+    mdbook -V || cargo install mdbook
+    http-server -V || cargo install http-server
     echo # installing git hooks
     pre-commit --version || pip install pre-commit
     pre-commit install || echo "failed to install git hooks!" 1>&2

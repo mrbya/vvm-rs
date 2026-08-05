@@ -72,3 +72,4 @@
 
 - [Contributing](development/contributing.md)
 - [Architecture](development/architecture.md)
+- [Coverage JSON Schema V1](development/coverage-json-schema-v1.md)

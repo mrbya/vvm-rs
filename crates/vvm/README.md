@@ -66,6 +66,6 @@ mod tests {
 ## Documentation
 
 - Quick start: <https://byacrates.gitlab.io/vvm-rs/quick-start.html>
-- User workflow guide: <https://byacrates.gitlab.io/vvm-rs/user-guide.html>
+- User workflow guide: <https://byacrates.gitlab.io/vvm-rs/guide/project-setup.html>
 - Examples: <https://byacrates.gitlab.io/vvm-rs/examples.html>
 - API reference: <https://byacrates.gitlab.io/vvm-rs/api/vvm/>

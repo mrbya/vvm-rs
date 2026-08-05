@@ -164,7 +164,7 @@ just ci
 ## Similar Projects And Inspiration
 
 VVM is heavily inspired by UVM-style verification structure and by the original
-VVM reference project preserved under `docs/dev/reference-projects/vvm/`.
+VVM reference project.
 
 ## License
 

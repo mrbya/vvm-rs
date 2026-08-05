@@ -175,15 +175,22 @@ docs-test:
     @just doctest
     @just docs-book
 
+# Assemble the published documentation site.
+docs-suite:
+    bash scripts/doc-suite.sh
+
 # Validate generated doc suite entry points and local documentation links.
 docs-links:
     @just docs-suite
-    bash scripts/check-book-api-links.sh
-    test -s public/getting-started.html
+    bash scripts/check-doc-hygiene.sh
+
+# Build the assembled documentation site.
+docs-site:
+    @just docs-suite
 
 # Build the complete documentation.
 docs:
-    bash scripts/doc-suite.sh
+    @just docs-suite
 
 # Serve the assembled site locally.
 docs-serve:
@@ -241,6 +248,7 @@ ci:
     @just thorough-check
     @just test-all
     @just doctest
+    @just docs-links
     @just test-cov-ci
 
 # Installs pre-commit hooks.

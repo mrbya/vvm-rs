@@ -114,12 +114,13 @@ Check built docs with local serve:
 just docs-serve
 ```
 
-When adding or rewriting Rustdoc, follow `docs/dev/rustdoc_style.md`. Workspace crates enable
-strict missing-doc lints.
+When adding or rewriting Rustdoc, follow the repository rustdoc style guidance
+and keep the strict missing-doc lint policy intact.
 
 ## Testing
 
-The authoritative testing policy lives in `docs/dev/testing-strategy.md`.
+The repository testing policy is intentionally layered and enforced through the
+`just` command surface.
 
 At a high level, the repository separates:
 
@@ -137,7 +138,8 @@ Use the lowest layer that proves the contract you changed.
 The curated examples are product documentation and regression targets at the same
 time. They should stay readable, source-backed, and aligned with the public API.
 
-Example strategy that remains the maintainer source of truth lives in `docs/dev/example-strategy.md`.
+Treat curated examples as product documentation and keep them aligned with the
+published example ladder and example chapters.
 
 ## Benchmarking
 

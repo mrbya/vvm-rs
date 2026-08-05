@@ -220,4 +220,4 @@ artifacts, and writes reports in one step, continue to
 - [Using cargo-vvm](using-cargo-vvm.md)
 - [Coverage API Guide](../api-guide/coverage.md)
 - [Reports API Guide](../api-guide/reports.md)
-- [Coverage JSON Schema v1](../../../coverage-json-v1.md)
+- [Coverage JSON Schema v1](../development/coverage-json-schema-v1.md)

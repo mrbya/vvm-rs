@@ -226,6 +226,5 @@ For the exact CLI contract, use `cargo vvm coverage --help`.
 ## Related Material
 
 - [Functional Coverage](functional-coverage.md)
-- [cargo-vvm README](../../../crates/cargo-vvm/README.md)
 - [Coverage API Guide](../api-guide/coverage.md)
 - [Reports API Guide](../api-guide/reports.md)

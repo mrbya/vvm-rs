@@ -273,7 +273,7 @@ These generated files live under Cargo-managed output directories such as
   workflow.
 - Read [Configuring Tests](guide/configuring-tests.md) when you are ready to use
   environment-driven trace, replay, and cycle controls.
-- Read [Concepts](concepts/overview.md) and [User Guide](guide/user-guide.md) for a full VVM guide.
+- Read [Verification Workflow](concepts/verification-workflow.md) for the mental model and continue with [Project Setup](guide/project-setup.md) for the full Guide.
 
 
 ## 22. Related Case Study

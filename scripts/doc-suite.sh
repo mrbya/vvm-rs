@@ -42,7 +42,7 @@ timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 printf '{"version":"%s","revision":"%s","channel":"%s","built_at":"%s","rust":"%s","msrv":"1.87.0","verilator_minimum":"5.000","verilator_tested":"5.050"}\n' "$version" "$revision" "$channel" "$timestamp" "$rust" > public/build-info.json
 
 write_redirect public/getting-started.html quick-start.html
-write_redirect public/user-guide.html guide/user-guide.html
+write_redirect public/user-guide.html guide/project-setup.html
 write_redirect public/coverage.html guide/functional-coverage.html
 write_redirect public/coverage/bins.html ../guide/functional-coverage.html#bins
 write_redirect public/coverage/coverpoints.html ../guide/functional-coverage.html#coverpoints

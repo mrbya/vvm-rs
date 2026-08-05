@@ -161,5 +161,6 @@ That means contributors should think in domain errors, not in one giant shared
 enum. Build errors, timing errors, coverage errors, and runtime mismatches each
 keep their own context and source chains.
 
-See the maintainer policy document for the detailed error inventory: `docs/dev/errors-and-diagnostics.md`.
-
+Keep the detailed error inventory distributed across the crate-local error types
+and their rustdoc so contributors can update diagnostics near the code that owns
+them.

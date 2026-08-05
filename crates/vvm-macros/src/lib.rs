@@ -2,8 +2,8 @@
 //!
 //! The facade re-exports `Drive`, `Sample`, `Clock`, `Coverage`, and
 //! `#[vvm::test]`. These macros generate typed integrations and diagnostics;
-//! users normally depend on `vvm`, not this implementation crate. See
-//! <https://byacrates.gitlab.io/vvm-rs/user-guide.html> for their workflow.
+//! users normally depend on `vvm`, not this implementation crate. See the
+//! project book at <https://byacrates.gitlab.io/vvm-rs/> for their workflow.
 
 use proc_macro::TokenStream;
 use syn::{DeriveInput, ItemFn, parse_macro_input};

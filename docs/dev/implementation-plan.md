@@ -177,7 +177,7 @@ Removed. Shared ABI support should only return once concrete cross-DUT native fu
 | 9 | Public facade | Complete |
 | 10 | Tracing, reporting, and standard test harness | Complete |
 | 11 | Wider HDL feature support and Rust-native coverage | Complete |
-| 12 | Pre-release cleanup and polish | In progress (12.5 documentation and Pages complete; 12.6+ remain) |
+| 12 | Pre-release cleanup and polish | In progress (12.5 documentation and Pages complete; 12.6 benchmark work not started) |
 
 ---
 
@@ -2488,6 +2488,7 @@ Create:
 docs/book/
 ├── book.toml
 └── src/
+    ├── 404.md
     ├── SUMMARY.md
     ├── introduction.md
     ├── why-vvm.md
@@ -2496,18 +2497,19 @@ docs/book/
     ├── rust-essentials-for-hdl-engineers.md
     ├── installation.md
     ├── quick-start.md
-    ├── getting-started.md
-    ├── user-guide.md
     ├── concepts/
     ├── guide/
-    ├── coverage/
-    ├── cargo-vvm/
+    ├── api-guide/
     ├── examples/
-    ├── reference/
-    ├── developer-guide.md
-    ├── contributing.md
     └── development/
 ```
+
+Closing hygiene outcome:
+
+- Hidden compatibility source chapters were removed from `docs/book/src`.
+- Only `docs/book/src/SUMMARY.md` and `docs/book/src/404.md` remain unindexed.
+- Legacy public URLs are preserved by generated redirects in `scripts/doc-suite.sh`.
+- The public coverage artifact schema is rendered at `development/coverage-json-schema-v1.md`.
 
 ### User guide
 

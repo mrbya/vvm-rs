@@ -12,7 +12,7 @@ create-missing = false
 additional-css = ["custom.css"]
 git-repository-url = "https://gitlab.com/byacrates/vvm-rs"
 edit-url-template = "https://gitlab.com/byacrates/vvm-rs/-/edit/master/{path}"
-site-url = "/"
+site-url = "/vvm-rs/"
 search.enable = true
 
 [output.html.playground]

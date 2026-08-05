@@ -2638,19 +2638,19 @@ crates/cargo-vvm/README.md
 
 ### Objective
 
-Create reproducible performance measurements that reveal regressions in VVM’s pure-Rust runtime, coverage system, generated integration, and orchestration workflows.
+Create deterministic developer-facing Criterion benchmarks that reveal before-and-after performance changes in VVM's pure-Rust runtime, coverage system, generated integration, native execution paths, and orchestration workflows.
 
 ### Benchmark policy
 
 * [ ] Define what VVM performance claims and does not claim.
-* [ ] Distinguish deterministic microbenchmarks from noisy system benchmarks.
+* [ ] Keep Criterion as the only measurement and comparison framework.
 * [ ] Use fixed seeds and stable representative inputs.
-* [ ] Record hardware, OS, compiler, Rust, and Verilator versions.
-* [ ] Establish baselines before setting regression thresholds.
-* [ ] Do not make ordinary merge requests fail on small noisy changes initially.
-* [ ] Run expensive system benchmarks on a stable or dedicated runner where possible.
+* [ ] Record hardware, OS, compiler, Rust, Cargo, C++ compiler, and Verilator versions.
+* [ ] Treat baselines as local and machine-specific under `target/criterion`.
+* [ ] Establish local baselines before setting any future regression thresholds.
+* [ ] Do not make ordinary merge requests fail on noisy performance changes.
 
-### Criterion microbenchmarks
+### Criterion benchmarks
 
 Add benchmark targets for:
 
@@ -2673,11 +2673,6 @@ Add benchmark targets for:
 * [ ] HTML report generation.
 * [ ] Verilator metadata normalization.
 * [ ] Generated-code model construction where practical.
-
-### System benchmarks
-
-Measure:
-
 * [ ] Counter cycles per second.
 * [ ] FIFO transactions per second.
 * [ ] Baseline testbench execution without tracing or coverage.
@@ -2688,21 +2683,18 @@ Measure:
 * [ ] Clean `vvm-build` wall-clock time.
 * [ ] Incremental `vvm-build` wall-clock time.
 * [ ] `cargo-vvm` orchestration overhead.
-* [ ] Peak memory for representative long runs where practical.
+* [ ] Peak memory notes where practical without building a custom framework.
 
 ### Benchmark organization
 
 Conceptual layout:
 
 ```text
-benches/
-    pure-rust microbenchmarks
+crates/*/benches/
+    pure-Rust and package-local Criterion targets
 
-benchmarks/
-    external or system-level benchmark workspaces
-
-scripts/
-    baseline capture and comparison helpers
+examples/*/benches/
+    native Verilator-backed Criterion targets
 ```
 
 * [ ] Avoid requiring Verilator for pure-Rust Criterion benchmarks.
@@ -2711,16 +2703,14 @@ scripts/
 * [ ] Avoid accidental tracing or logging in benchmark paths.
 * [ ] Verify benchmark inputs are not optimized away.
 
-### Reporting and CI
+### Contributor workflow and CI
 
-* [ ] Add contributor commands for microbenchmarks.
-* [ ] Add contributor commands for system benchmarks.
-* [ ] Retain Criterion reports as artifacts where useful.
-* [ ] Add a scheduled benchmark pipeline.
-* [ ] Store the initial `v0.1.0` benchmark baseline.
-* [ ] Document how developers compare a branch with the baseline.
-* [ ] Investigate statistically meaningful regressions.
-* [ ] Defer hard automatic thresholds until runner stability is demonstrated.
+* [ ] Add contributor commands for full-suite runs, saved baselines, baseline comparison, and focused targets.
+* [ ] Document the local before-and-after workflow.
+* [ ] Keep benchmark execution out of `just ci`, pre-commit, and GitLab CI.
+* [ ] Record one initial `v0.1.0` local profile with real environment details and representative measurements.
+* [ ] Investigate statistically meaningful regressions with Criterion's reports.
+* [ ] Defer hard automatic thresholds until local workflow stability is demonstrated.
 
 ### Acceptance criteria
 
@@ -2728,8 +2718,8 @@ scripts/
 * [ ] Representative real-DUT system benchmarks exist.
 * [ ] Benchmarks use deterministic inputs.
 * [ ] Benchmark commands are documented.
-* [ ] CI can run and retain benchmark output.
-* [ ] A `v0.1.0` performance baseline exists.
+* [ ] Benchmarks remain local-only and CI does not execute them.
+* [ ] A representative `v0.1.0` local performance profile exists.
 
 ---
 

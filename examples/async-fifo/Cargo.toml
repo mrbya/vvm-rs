@@ -16,9 +16,17 @@ description = "Asynchronous FIFO multi-clock verification example"
 [lints]
 workspace = true
 
-[dev-dependencies]
+[dependencies]
 thiserror.workspace = true
 vvm.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+tempfile.workspace = true
+
+[[bench]]
+name = "async_fifo"
+harness = false
 
 [build-dependencies]
 vvm-build.workspace = true

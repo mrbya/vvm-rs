@@ -154,6 +154,18 @@ just docs-test
 just ci
 ```
 
+Local Criterion benchmarks:
+
+```bash
+just benchmark
+just benchmark-save-baseline NAME=before-change
+just benchmark-compare-baseline NAME=before-change
+just benchmark-target vvm-core packed
+```
+
+These benchmarks are local-only and machine-specific. See the book's
+development benchmarking chapter for the full workflow and policy.
+
 ## Documentation
 
 - Project book: <https://byacrates.gitlab.io/vvm-rs/>

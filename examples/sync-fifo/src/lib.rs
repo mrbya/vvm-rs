@@ -1,8 +1,10 @@
 //! A one-clock FIFO verified with typed transactions and a queue model.
 
 // `build.rs` writes this safe generated wrapper below OUT_DIR.
-#[cfg(test)]
 vvm::include_dut!(sync_fifo);
+
+#[doc(hidden)]
+pub mod benchmark;
 
 /// FIFO verification implementation and scenario tests.
 #[cfg(test)]

@@ -201,21 +201,21 @@ docs-serve:
 docs-clean:
     rm -rf public target/book target/docs-api
 
-# Run Criterion benchmark suite.
+# Run the complete local Criterion benchmark suite.
 benchmark *FLAGS:
-    cargo bench --benches --features full {{FLAGS}}
+    cargo bench --benches {{FLAGS}}
 
-# Save a named benchmark baseline for trend comparisons.
+# Save a named local Criterion baseline under target/criterion.
 benchmark-save-baseline NAME='local' *FLAGS:
-    cargo bench --benches --features full -- --save-baseline {{NAME}} {{FLAGS}}
+    cargo bench --benches -- --save-baseline {{NAME}} {{FLAGS}}
 
-# Compare current benchmarks against a saved baseline.
+# Compare the current suite against a saved local Criterion baseline.
 benchmark-compare-baseline NAME='local' *FLAGS:
-    cargo bench --benches --features full -- --baseline {{NAME}} {{FLAGS}}
+    cargo bench --benches -- --baseline {{NAME}} {{FLAGS}}
 
-# Run one benchmark target (`parse`, `analysis`, `scenarios`, `corpus`).
-benchmark-target TARGET *FLAGS:
-    cargo bench --bench {{TARGET}} --features full {{FLAGS}}
+# Run one Criterion benchmark target from one package.
+benchmark-target PACKAGE TARGET *FLAGS:
+    cargo bench -p {{PACKAGE}} --bench {{TARGET}} -- {{FLAGS}}
 
 # Audits codebase for vulnerabilities.
 audit *FLAGS:

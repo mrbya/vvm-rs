@@ -143,13 +143,31 @@ published example ladder and example chapters.
 
 ## Benchmarking
 
-Benchmark commands live in the `justfile` and currently route through Criterion.
+Benchmark commands live in the `justfile` and route through Criterion only.
 
 Useful commands:
 
 - `just benchmark`
 - `just benchmark-save-baseline NAME=local`
 - `just benchmark-compare-baseline NAME=local`
+- `just benchmark-target vvm-core packed`
+
+Use the save-before-change and compare-after-change workflow for performance work:
+
+```bash
+just benchmark-save-baseline NAME=before-feature
+
+# implement the feature or optimization
+
+just benchmark-compare-baseline NAME=before-feature
+```
+
+Benchmarks are local-only developer tools.
+
+- Criterion stores local data and baselines under `target/criterion`.
+- Baselines are machine-specific and should not be compared casually across
+  unrelated systems.
+- `just ci`, GitLab CI, and pre-commit hooks do not run benchmarks.
 
 Benchmarks are for performance investigation, not for proving correctness.
 

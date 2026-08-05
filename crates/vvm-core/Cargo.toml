@@ -23,7 +23,28 @@ sha2.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
+criterion.workspace = true
 proptest.workspace = true
+
+[[bench]]
+name = "packed"
+harness = false
+
+[[bench]]
+name = "random"
+harness = false
+
+[[bench]]
+name = "scoreboard"
+harness = false
+
+[[bench]]
+name = "schedulers"
+harness = false
+
+[[bench]]
+name = "coverage"
+harness = false
 
 [package.metadata.cargo-udeps.ignore]
 normal = [

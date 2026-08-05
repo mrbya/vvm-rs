@@ -16,9 +16,17 @@ description = "Synchronous FIFO verification example for VVM"
 [lints]
 workspace = true
 
-[dev-dependencies]
+[dependencies]
 thiserror.workspace = true
 vvm.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+tempfile.workspace = true
+
+[[bench]]
+name = "sync_fifo"
+harness = false
 
 [build-dependencies]
 vvm-build.workspace = true

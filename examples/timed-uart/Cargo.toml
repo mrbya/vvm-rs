@@ -16,10 +16,17 @@ description = "Timing-enabled UART frame verification example for VVM"
 [lints]
 workspace = true
 
-[dev-dependencies]
-tempfile.workspace = true
+[dependencies]
 thiserror.workspace = true
 vvm.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+tempfile.workspace = true
+
+[[bench]]
+name = "timed_uart"
+harness = false
 
 [build-dependencies]
 vvm-build.workspace = true

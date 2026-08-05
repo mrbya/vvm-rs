@@ -19,7 +19,16 @@ thiserror.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
+criterion.workspace = true
 tempfile.workspace = true
+
+[[bench]]
+name = "metadata"
+harness = false
+
+[[bench]]
+name = "build_workflow"
+harness = false
 
 [package.metadata.cargo-udeps.ignore]
 normal = [

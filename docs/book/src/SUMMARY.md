@@ -71,5 +71,7 @@
 # Development
 
 - [Contributing](development/contributing.md)
+- [Common Commands](development/common-commands.md)
 - [Architecture](development/architecture.md)
+- [Benchmarking](development/benchmarking.md)
 - [Coverage JSON Schema V1](development/coverage-json-schema-v1.md)

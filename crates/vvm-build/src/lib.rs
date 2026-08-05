@@ -71,6 +71,9 @@
 
 /// Verilator DUT build configuration.
 pub(crate) mod builder;
+/// Hidden internal benchmark helpers.
+#[doc(hidden)]
+pub mod benchmark;
 /// Rerun-if directives.
 pub(crate) mod cargo;
 /// Adapter and CXX Bridge code generation orchestration.

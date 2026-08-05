@@ -1,16 +1,15 @@
 //! Counter verification example with standard Rust test discovery.
 
-#[cfg(test)]
 vvm::include_dut!(counter);
 
 /// Counter-specific functional coverage.
-#[cfg(test)]
 mod coverage;
+#[doc(hidden)]
+pub mod benchmark;
 /// Simulation test cases.
 #[cfg(test)]
 mod test_cases;
 /// Counter-specific verification setup.
-#[cfg(test)]
 mod verification;
 
 #[cfg(test)]

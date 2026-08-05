@@ -124,11 +124,13 @@ impl ReferenceModel<CounterStimulus> for CounterReferenceModel {
 }
 
 /// Deliberately incorrect model used by the ignored failure demonstration.
+#[cfg(test)]
 #[derive(Debug, Default)]
 pub struct FailingReferenceModel {
     count: u8,
 }
 
+#[cfg(test)]
 impl ReferenceModel<CounterStimulus> for FailingReferenceModel {
     type Expected = CounterObservation;
 

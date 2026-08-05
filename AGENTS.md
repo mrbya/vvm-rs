@@ -14,7 +14,9 @@
 - Format with `just fmt` or check without edits using `just fmt --check`; formatting explicitly uses `cargo +nightly fmt --all`.
 - Run linting with `just check -- -D warnings`; it checks all workspace targets, tests, examples, and features.
 - Use `just test-fast` for pure-Rust unit, integration, UI, and fixture tests; use `just test-examples`, `just test-native-fixtures`, `just test-native`, `just test-e2e`, and `just test-package` for their corresponding boundaries. `just test-all` runs every category. The authoritative placement and execution policy is `docs/dev/testing-strategy.md`.
+- Use `just benchmark`, `just benchmark-save-baseline NAME=<name>`, `just benchmark-compare-baseline NAME=<name>`, and `just benchmark-target <package> <target>` for local Criterion benchmarking. Baselines live under `target/criterion` and are machine-specific.
 - `just ci` is the CI-equivalent, non-mutating verification: format check, lint with warnings denied, `cargo +nightly udeps`, audit, every test category, doctests, and coverage. It writes coverage reports under `coverage/`.
+- Benchmarks are local-only developer workflows. Do not add them to `just ci`, pre-commit, or GitLab CI.
 - The pre-commit hook runs `just ci` for Rust/TOML/justfile changes. README changes also run `just index`, which rewrites the README TOC.
 
 ## Tests And Fixtures

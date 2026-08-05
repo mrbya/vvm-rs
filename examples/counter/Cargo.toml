@@ -21,7 +21,12 @@ vvm.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
+criterion.workspace = true
 tempfile.workspace = true
+
+[[bench]]
+name = "counter"
+harness = false
 
 [build-dependencies]
 vvm-build.workspace = true

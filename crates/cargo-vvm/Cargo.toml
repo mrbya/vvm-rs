@@ -27,9 +27,14 @@ thiserror.workspace = true
 vvm-core.workspace = true
 
 [dev-dependencies]
+criterion.workspace = true
 assert_cmd.workspace = true
 predicates.workspace = true
 tempfile.workspace = true
+
+[[bench]]
+name = "orchestration"
+harness = false
 
 [package.metadata.cargo-udeps.ignore]
 development = ["assert_cmd", "predicates"]

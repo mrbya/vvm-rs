@@ -1,8 +1,8 @@
 [book]
-authors = ["VVM-rs contributors"]
+authors = ["mrbya <v.toth.svk2@gmail.com>"]
 language = "en"
 src = "src"
-title = "VVM-rs"
+title = "VVM"
 
 [build]
 build-dir = "../../target/book"

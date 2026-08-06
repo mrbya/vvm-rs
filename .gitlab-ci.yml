@@ -26,7 +26,7 @@ cache:
   - cargo test --locked --all-features -p vvm-rs --test public_api
   - cargo test --locked --all-features -p vvm-core --test properties
   - cargo test --locked --all-features -p cargo-vvm --test cli -- --skip coverage_command_writes_merged_and_rendered_counter_reports
-  - cargo test --locked --all-features -p vvm-macros --test trybuild
+  - cargo test --locked --all-features -p vvm-rs --test macro_ui
   - cargo test --locked --all-features -p vvm-rs --test fixtures pure_consumer_uses_only_the_facade_from_an_isolated_workspace
 
 format-and-lint:

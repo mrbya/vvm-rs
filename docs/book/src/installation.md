@@ -21,14 +21,14 @@ Most users depend on `vvm-rs` as `vvm` in test code and `vvm-build` in
 
 ```toml
 [dev-dependencies]
-vvm = { package = "vvm-rs", version = "0.1.0-alpha.1" }
+vvm = { package = "vvm-rs", version = "0.2.0" }
 
 [build-dependencies]
-vvm-build = "0.1.0-alpha.1"
+vvm-build = "0.2.0"
 ```
 
-During pre-release evaluation you can also use a Git dependency when you need a
-not-yet-published change:
+Until `v0.2.0` is published, use a Git dependency when you need the unreleased
+main-branch development state:
 
 ```toml
 [dev-dependencies]

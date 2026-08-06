@@ -1,5 +1,5 @@
 error: unsupported clock edge `sideways`; expected `rising` or `falling`
- --> tests/ui/fail/clock_invalid_edge.rs:5:12
+ --> $WORKSPACE/crates/vvm-macros/tests/ui/fail/clock_invalid_edge.rs
   |
-5 |     edge = "sideways"
+  |     edge = "sideways"
   |            ^^^^^^^^^^

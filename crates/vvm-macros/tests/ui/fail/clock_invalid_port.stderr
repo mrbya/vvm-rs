@@ -1,23 +1,23 @@
 error: prefix `af` is unknown
- --> tests/ui/fail/clock_invalid_port.rs:1:10
+ --> $WORKSPACE/crates/vvm-macros/tests/ui/fail/clock_invalid_port.rs
   |
-1 | #[derive(vvm_macros::Clock)]
+  | #[derive(vvm_macros::Clock)]
   |          ^^^^^^^^^^^^^^^^^ unknown prefix
   |
   = note: prefixed identifiers and literals are reserved since Rust 2021
   = note: this error originates in the derive macro `vvm_macros::Clock` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error: reserved multi-hash token is forbidden
- --> tests/ui/fail/clock_invalid_port.rs:1:10
+ --> $WORKSPACE/crates/vvm-macros/tests/ui/fail/clock_invalid_port.rs
   |
-1 | #[derive(vvm_macros::Clock)]
+  | #[derive(vvm_macros::Clock)]
   |          ^^^^^^^^^^^^^^^^^
   |
   = note: sequences of two or more # are reserved for future use since Rust 2024
   = note: this error originates in the derive macro `vvm_macros::Clock` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error: port name `.af##1` does not produce a valid Rust method identifier
- --> tests/ui/fail/clock_invalid_port.rs:4:13
+ --> $WORKSPACE/crates/vvm-macros/tests/ui/fail/clock_invalid_port.rs
   |
-4 |     clock = ".af##1",
+  |     clock = ".af##1",
   |             ^^^^^^^^

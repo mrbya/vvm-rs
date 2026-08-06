@@ -10,6 +10,8 @@ license.workspace       = true
 keywords.workspace      = true
 categories.workspace    = true
 description             = "VVM procedural macros and helper attributes"
+readme                  = "README.md"
+documentation           = "https://byacrates.gitlab.io/vvm-rs/api/vvm_macros/"
 
 [lib]
 proc-macro = true
@@ -23,11 +25,6 @@ proc-macro2.workspace = true
 quote.workspace = true
 syn = { workspace = true, features = ["full"] }
 
-[dev-dependencies]
-trybuild.workspace = true
-vvm-core.workspace = true
-vvm.workspace = true
-
 [package.metadata.cargo-udeps.ignore]
 normal = [
     "vvm",
@@ -35,4 +32,4 @@ normal = [
     "vvm-core",
     "vvm-macros",
 ]
-development = ["criterion", "vvm", "vvm-core"]
+development = ["criterion"]

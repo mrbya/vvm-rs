@@ -1,5 +1,5 @@
 error: missing `#[vvm(dut = path)]` attribute
- --> tests/ui/fail/missing_dut.rs:2:8
+ --> $WORKSPACE/crates/vvm-macros/tests/ui/fail/missing_dut.rs
   |
-2 | struct Stimulus {
+  | struct Stimulus {
   |        ^^^^^^^^

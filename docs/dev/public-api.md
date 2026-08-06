@@ -7,7 +7,7 @@ reporting live in `coverage::{artifact, merge, report, session, snapshot}`.
 The root exports only `Clock`, `Coverage`, `Drive`, and `Sample` derives, the
 `test` attribute, `include_dut!`, facade modules, and the prelude. Ordinary
 types are not duplicated at the root. The previous flat facade was deliberately
-removed before 0.1.0.
+removed before `v0.2.0`.
 
 The prelude contains common test-authoring derives and traits, `Dut`, basic
 testbench components, `TestContext`, and `TestRunConfig`. Packed values,
@@ -42,7 +42,7 @@ SimulationError}`, and `vvm::timing::{ClockConfigurationError, SchedulerError,
 TimeStepError}`.
 
 The inventory was reviewed with `cargo public-api` for `vvm-rs`, `vvm-core`,
-and `vvm-build` after the 12.2 migration. The v0.1.0 baseline uses facade
+and `vvm-build` after the 12.2 migration. The `v0.2.0` baseline uses facade
 modules as canonical user-facing APIs, coverage
 submodules are advanced user-facing APIs, `__private` is generated-only, and
 the former root types plus `IntoTestOutcome`, callback aliases, `NoCoverage`,

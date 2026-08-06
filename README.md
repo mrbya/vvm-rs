@@ -6,9 +6,10 @@ VVM gives a Rust crate a generated DUT wrapper, typed drive/sample APIs,
 testbench composition, replayable randomization, waveform tracing, timing-mode
 support for delayed HDL events, and Rust-native functional coverage.
 
-> [!WARNING]
-> VVM is an early alpha. The core workflow is real and CI-tested, but public APIs
-> may still change before the first stable release.
+> [!IMPORTANT]
+> VVM is a pre-`1.0` verification framework. The public API planned for `v0.2.0`
+> is established for this release cycle, supported workflows are CI-tested, and
+> documented platform and HDL limitations still apply.
 
 ## What Is VVM?
 
@@ -36,6 +37,9 @@ raw Verilator+C++, start with the book chapter:
 - Linux-focused native verification support.
 - Two-state Verilator behavior: Rust-visible ports do not carry HDL `X` or `Z`.
 - Timing mode supports delayed future slots, not same-time or `#0` scheduling.
+- Pre-`1.0` semantic versioning: patch releases in the `0.2.x` line preserve the
+  supported public API, while a future pre-`1.0` minor release may make
+  intentional breaking changes.
 
 ## Features
 
@@ -63,11 +67,14 @@ Most users add the facade crate as `vvm` and use `vvm-build` in `build.rs`:
 
 ```toml
 [dev-dependencies]
-vvm = { package = "vvm-rs", version = "0.1.0-alpha.1" }
+vvm = { package = "vvm-rs", version = "0.2.0" }
 
 [build-dependencies]
-vvm-build = "0.1.0-alpha.1"
+vvm-build = "0.2.0"
 ```
+
+Use a Git dependency from the default branch when you need unreleased
+development changes before `v0.2.0` is published.
 
 Install `cargo-vvm` when you want suite-level functional-coverage merge and
 reporting:

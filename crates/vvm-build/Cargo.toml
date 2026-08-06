@@ -9,7 +9,7 @@ repository.workspace    = true
 license.workspace       = true
 keywords.workspace      = true
 categories.workspace    = true
-description             = "VVM build-time Verilator and bridge support"
+description             = "Build-script integration for Verilator-backed VVM DUT generation"
 readme                  = "README.md"
 documentation           = "https://byacrates.gitlab.io/vvm-rs/api/vvm_build/"
 

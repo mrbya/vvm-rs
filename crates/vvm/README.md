@@ -5,7 +5,7 @@
 
 ```toml
 [dev-dependencies]
-vvm = { package = "vvm-rs", version = "0.1.0-alpha.1" }
+vvm = { package = "vvm-rs", version = "0.2.0" }
 ```
 
 Use `vvm-build` in `build.rs`, then include the generated DUT wrapper with
@@ -61,7 +61,7 @@ mod tests {
 - Rust 1.87.0 or newer
 - Linux-focused native support
 - Verilator-backed two-state execution
-- alpha API stability
+- pre-`1.0` API with the `v0.2.0` release-cycle surface frozen
 
 ## Documentation
 

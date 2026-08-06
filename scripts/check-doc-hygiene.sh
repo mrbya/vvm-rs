@@ -219,10 +219,34 @@ check_pages_base_path() {
     fi
 }
 
+check_public_status_wording() {
+    local -a public_docs=(
+        "README.md"
+        "crates/vvm/README.md"
+        "crates/vvm-build/README.md"
+        "crates/cargo-vvm/README.md"
+        "docs/book/src/introduction.md"
+        "docs/book/src/why-vvm.md"
+        "docs/book/src/installation.md"
+        "docs/book/src/quick-start.md"
+        "docs/book/src/guide/compatibility-and-limitations.md"
+        "docs/book/src/development/common-commands.md"
+        "docs/book/src/development/architecture.md"
+    )
+    local status_pattern='early alpha|alpha software|alpha API stability'
+
+    if rg -n -i --pcre2 "$status_pattern" "${public_docs[@]}" >/tmp/vvm-public-status-wording.log; then
+        while IFS= read -r line; do
+            record_failure "Obsolete public status wording:" "$line" "update current public docs to pre-1.0 release-cycle language"
+        done < /tmp/vvm-public-status-wording.log
+    fi
+}
+
 check_summary_targets
 check_orphaned_sources
 check_source_links
 check_redirects
 check_pages_base_path
+check_public_status_wording
 
 exit "$failures"

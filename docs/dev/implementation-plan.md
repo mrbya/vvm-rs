@@ -1,7 +1,7 @@
 # VVM-rs Implementation Plan
 
 > **Project:** VVM-rs — Verilator Verification Methodology in Rust
-> **Status:** Pre-release stabilization toward VVM v0.1.0
+> **Status:** Pre-release stabilization toward VVM v0.2.0
 > **Primary goal:** Build ergonomic, strongly typed Rust testbenches for Verilator-generated HDL models.
 
 This document is the working roadmap for VVM-rs. Check tasks off as they are completed and update the milestone table after each meaningful change.
@@ -1728,7 +1728,7 @@ Prepare VVM for its first real public release by stabilizing its architecture, p
 
 Milestone 12 is in progress (12.2 complete) and is primarily a stabilization milestone.
 
-It should not introduce another broad feature wave. Work that is not required for a credible `v0.1.0` release should be explicitly deferred rather than allowed to expand the release scope indefinitely.
+It should not introduce another broad feature wave. Work that is not required for a credible `v0.2.0` release should be explicitly deferred rather than allowed to expand the release scope indefinitely.
 
 The milestone should produce:
 
@@ -1751,19 +1751,19 @@ verified crates.io packages
     ↓
 release candidate
     ↓
-VVM v0.1.0
+VVM v0.2.0
 ```
 
 ## Release principles
 
-* [ ] Freeze the `v0.1.0` feature scope before beginning broad cleanup.
-* [ ] Classify every unfinished earlier-roadmap task as either release-blocking or post-`0.1.0`.
-* [ ] Do not require every aspirational Milestone 11 feature for `v0.1.0`.
+* [ ] Freeze the `v0.2.0` feature scope before beginning broad cleanup.
+* [ ] Classify every unfinished earlier-roadmap task as either release-blocking or post-`0.2.0`.
+* [ ] Do not require every aspirational Milestone 11 feature for `v0.2.0`.
 * [ ] Do not add new public abstractions solely to make the cleanup appear comprehensive.
-* [ ] Prefer a deliberate pre-`0.1.0` breaking cleanup over carrying accidental API decisions into the first release.
+* [ ] Prefer a deliberate pre-`0.2.0` breaking cleanup over carrying accidental API decisions into the first release.
 * [ ] Make every public item have one canonical documented path.
 * [ ] Test packaged consumer workflows rather than only workspace path dependencies.
-* [ ] Establish compatibility and performance baselines before publishing `v0.1.0`.
+* [ ] Establish compatibility and performance baselines before publishing `v0.2.0`.
 * [ ] Publish a release candidate before the final release.
 * [ ] Treat documentation, packaging, and release automation as release functionality rather than optional polish.
 
@@ -1780,8 +1780,8 @@ Complete the milestone in this order:
 12.6 Benchmark suite and performance baselines
 12.7 Packaging, compatibility, and release engineering
 12.8 Safety, dependency, and final release audit
-12.9 v0.1.0 release candidate
-12.10 v0.1.0 release
+12.9 v0.2.0 release candidate
+12.10 v0.2.0 release
 ```
 
 Tests, examples, documentation, and benchmarks must target the stabilized API rather than being written against paths that are about to change.
@@ -1792,7 +1792,7 @@ Tests, examples, documentation, and benchmarks must target the stabilized API ra
 
 ### Objective
 
-Replace the flat facade with a coherent domain-oriented public API and establish the public compatibility surface for `v0.1.0`.
+Replace the flat facade with a coherent domain-oriented public API and establish the public compatibility surface for `v0.2.0`.
 
 ### Completion status
 
@@ -1817,8 +1817,8 @@ Replace the flat facade with a coherent domain-oriented public API and establish
 ### Release-scope freeze
 
 * [ ] Review all unfinished Milestone 11 tasks.
-* [ ] Identify tasks required for a credible `v0.1.0`.
-* [ ] Move non-blocking HDL features into an explicitly post-`0.1.0` roadmap.
+* [ ] Identify tasks required for a credible `v0.2.0`.
+* [ ] Move non-blocking HDL features into an explicitly post-`0.2.0` roadmap.
 * [ ] Define a feature freeze for Milestone 12.
 * [ ] Require release-scope justification for any new public API added during cleanup.
 
@@ -1988,10 +1988,10 @@ vvm-macros
 
 * [ ] Generate a machine-readable public API inventory.
 * [ ] Review it manually for accidental exports.
-* [ ] Store the accepted `v0.1.0` API baseline.
+* [ ] Store the accepted `v0.2.0` API baseline.
 * [ ] Add `cargo-public-api` or equivalent contributor tooling.
 * [ ] Add `cargo-semver-checks` for post-release compatibility checks.
-* [ ] Document how intentional breaking changes are reviewed after `v0.1.0`.
+* [ ] Document how intentional breaking changes are reviewed after `v0.2.0`.
 
 ### Acceptance criteria
 
@@ -2708,7 +2708,7 @@ examples/*/benches/
 * [x] Add contributor commands for full-suite runs, saved baselines, baseline comparison, and focused targets.
 * [x] Document the local before-and-after workflow.
 * [x] Keep benchmark execution out of `just ci`, pre-commit, and GitLab CI.
-* [x] Record one initial `v0.1.0` local profile with real environment details and representative measurements.
+* [x] Record one initial `v0.2.0` local profile with real environment details and representative measurements.
 * [x] Investigate statistically meaningful regressions with Criterion's reports.
 * [x] Defer hard automatic thresholds until local workflow stability is demonstrated.
 
@@ -2719,7 +2719,7 @@ examples/*/benches/
 * [x] Benchmarks use deterministic inputs.
 * [x] Benchmark commands are documented.
 * [x] Benchmarks remain local-only and CI does not execute them.
-* [x] A representative `v0.1.0` local performance profile exists.
+* [x] A representative `v0.2.0` local performance profile exists.
 
 ---
 
@@ -2835,7 +2835,7 @@ timing-enabled C++ requirements
 
 ### Public compatibility policy
 
-* [ ] Define the compatibility promise beginning with `v0.1.0`.
+* [ ] Define the compatibility promise beginning with `v0.2.0`.
 * [ ] Define how pre-`1.0` semver changes will be handled.
 * [ ] Define compatibility expectations for persisted coverage schemas.
 * [ ] Define compatibility expectations for generated-code layouts.
@@ -2996,18 +2996,18 @@ benchmark smoke run
 
 ---
 
-## 12.9 — VVM v0.1.0 release candidate
+## 12.9 — VVM v0.2.0 release candidate
 
 ### Objective
 
-Publish and dogfood a release candidate using the exact package, documentation, and automation path intended for `v0.1.0`.
+Publish and dogfood a release candidate using the exact package, documentation, and automation path intended for `v0.2.0`.
 
 ### Feature freeze
 
 * [ ] Freeze public features.
 * [ ] Permit only release-blocking fixes.
 * [ ] Require explicit review for API changes.
-* [ ] Update the version to `0.1.0-rc.1`.
+* [ ] Update the version to `0.2.0-rc.1`.
 * [ ] Update package dependency versions consistently.
 * [ ] Update changelog and release notes.
 
@@ -3025,13 +3025,13 @@ Publish and dogfood a release candidate using the exact package, documentation, 
 
 ### Publication
 
-* [ ] Publish or otherwise distribute `0.1.0-rc.1` packages in dependency order.
+* [ ] Publish or otherwise distribute `0.2.0-rc.1` packages in dependency order.
 * [ ] Create the release-candidate tag.
 * [ ] Create a GitLab prerelease.
 * [ ] Publish release-candidate documentation.
 * [ ] Verify crates.io package pages and README rendering.
 * [ ] Verify docs.rs builds.
-* [ ] Verify `cargo install cargo-vvm --version 0.1.0-rc.1`.
+* [ ] Verify `cargo install cargo-vvm --version 0.2.0-rc.1`.
 
 ### Dogfooding
 
@@ -3054,11 +3054,11 @@ Test the release candidate in projects that do not use repository path dependenc
 * [ ] CI and coverage workflows work with published packages.
 * [ ] Benchmark results show no unexplained major regression.
 * [ ] Any required RC fixes are documented in the changelog.
-* [ ] A decision to publish `v0.1.0` is recorded.
+* [ ] A decision to publish `v0.2.0` is recorded.
 
 ---
 
-## 12.10 — VVM v0.1.0 release
+## 12.10 — VVM v0.2.0 release
 
 ### Objective
 
@@ -3068,7 +3068,7 @@ Publish the first supported VVM release after the release candidate has complete
 
 * [ ] Apply only approved release-candidate fixes.
 * [ ] Re-run the complete release gate.
-* [ ] Update versions from `0.1.0-rc.1` to `0.1.0`.
+* [ ] Update versions from `0.2.0-rc.1` to `0.2.0`.
 * [ ] Update internal dependency requirements.
 * [ ] Finalize `CHANGELOG.md`.
 * [ ] Finalize release notes.
@@ -3089,13 +3089,13 @@ cargo-vvm
 
 * [ ] Wait for each crate to become available before publishing dependents.
 * [ ] Verify checksums and package contents.
-* [ ] Create the `v0.1.0` tag.
+* [ ] Create the `v0.2.0` tag.
 * [ ] Create the GitLab Release.
 * [ ] Publish final versioned documentation.
 * [ ] Verify GitLab Pages.
 * [ ] Verify docs.rs.
 * [ ] Verify crates.io READMEs and metadata.
-* [ ] Verify `cargo install cargo-vvm --version 0.1.0`.
+* [ ] Verify `cargo install cargo-vvm --version 0.2.0`.
 
 ### Post-publication verification
 
@@ -3114,12 +3114,12 @@ Using only published artifacts:
 
 ### Baselines
 
-* [ ] Store the final `v0.1.0` public API baseline.
+* [ ] Store the final `v0.2.0` public API baseline.
 * [ ] Store the final persisted-schema fixtures.
 * [ ] Store the final generated-code fixtures.
 * [ ] Store the final benchmark baseline.
 * [ ] Record supported Rust, Verilator, compiler, and OS versions.
-* [ ] Open post-`0.1.0` roadmap items separately from release issues.
+* [ ] Open post-`0.2.0` roadmap items separately from release issues.
 
 ### Release completion criteria
 
@@ -3130,7 +3130,7 @@ Using only published artifacts:
 * [ ] The support and compatibility policy is public.
 * [ ] No release-blocking issue is known.
 * [ ] The repository roadmap marks Milestone 12 complete.
-* [ ] Development resumes under a post-`0.1.0` roadmap.
+* [ ] Development resumes under a post-`0.2.0` roadmap.
 
 ---
 
@@ -3152,15 +3152,15 @@ Milestone 12 is complete when:
 * [ ] The mdBook user and developer guides are complete.
 * [ ] Rustdoc and mdBook are deployed together through GitLab Pages.
 * [ ] `vvm-build` and `cargo-vvm` have crates.io-ready READMEs.
-* [ ] The benchmark suite produces a reviewed `v0.1.0` baseline.
+* [ ] The benchmark suite produces a reviewed `v0.2.0` baseline.
 * [ ] All intended packages pass package and dry-run publication checks.
 * [ ] Published-package consumer fixtures work.
 * [ ] The supported Rust, Verilator, compiler, and OS matrix is explicit.
 * [ ] Release and security documentation exists.
 * [ ] Unsafe and FFI invariants are reviewed and documented.
 * [ ] Dependency, advisory, and license policies pass.
-* [ ] `v0.1.0-rc.1` is published and externally validated.
-* [ ] `v0.1.0` is published successfully.
+* [ ] `v0.2.0-rc.1` is published and externally validated.
+* [ ] `v0.2.0` is published successfully.
 * [ ] Final API, schema, generated-code, and benchmark baselines are retained.
 
 ## Milestone 12 non-goals

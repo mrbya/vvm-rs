@@ -1,5 +1,5 @@
 error: missing `dut` option in `#[vvm(...)]`
- --> tests/ui/fail/clock_missing_dut.rs:3:8
+ --> $WORKSPACE/crates/vvm-macros/tests/ui/fail/clock_missing_dut.rs
   |
-3 | struct MockClock;
+  | struct MockClock;
   |        ^^^^^^^^^

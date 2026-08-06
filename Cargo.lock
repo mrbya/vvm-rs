@@ -146,7 +146,7 @@ checksum = "72f5acc6cb2ba439de613abc23857ec3d78374d8ed5ac84e9d11336e87da8649"
 
 [[package]]
 name = "cargo-vvm"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -1297,9 +1297,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
- "trybuild",
- "vvm-core",
- "vvm-rs",
 ]
 
 [[package]]
@@ -1309,6 +1306,7 @@ dependencies = [
  "cxx",
  "tempfile",
  "thiserror",
+ "trybuild",
  "vvm-core",
  "vvm-macros",
 ]

@@ -7,7 +7,7 @@ Add it to `[build-dependencies]`:
 
 ```toml
 [build-dependencies]
-vvm-build = "0.1.0-alpha.1"
+vvm-build = "0.2.0"
 ```
 
 ## Who Should Use It?

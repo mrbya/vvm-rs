@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog], and this project adheres to [Semantic
 
 ## [Unreleased]
 
+- Upcoming release line: `v0.2.0`
+
 ## [0.1.0-alpha.1] - 2026-07-03
 
 ### Added

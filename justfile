@@ -35,7 +35,7 @@ test-integration *FLAGS:
 
 # Run procedural-macro compile-pass and compile-fail cases.
 test-ui *FLAGS:
-    cargo nextest run --all-features -p vvm-macros --test trybuild {{FLAGS}}
+    cargo nextest run --all-features -p vvm-rs --test macro_ui {{FLAGS}}
 
 # Run clean pure-Rust consumer fixtures with isolated Cargo targets.
 test-fixtures *FLAGS:

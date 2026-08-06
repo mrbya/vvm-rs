@@ -1,5 +1,5 @@
 error: missing `clock` option in `#[vvm(...)]`
- --> tests/ui/fail/clock_missing_port.rs:5:8
+ --> $WORKSPACE/crates/vvm-macros/tests/ui/fail/clock_missing_port.rs
   |
-5 | struct MockClock;
+  | struct MockClock;
   |        ^^^^^^^^^

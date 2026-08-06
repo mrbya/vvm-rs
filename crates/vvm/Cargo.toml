@@ -9,7 +9,7 @@ repository.workspace    = true
 license.workspace       = true
 keywords.workspace      = true
 categories.workspace    = true
-description             = "Verilator Verification Methodology for Rust"
+description             = "Public Rust facade for VVM verification workflows"
 readme                  = "README.md"
 documentation           = "https://byacrates.gitlab.io/vvm-rs/api/vvm/"
 
@@ -28,3 +28,4 @@ thiserror.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+trybuild.workspace = true

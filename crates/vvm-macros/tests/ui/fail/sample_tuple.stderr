@@ -1,5 +1,5 @@
 error: `Sample` fields must be mapped with `#[vvm(port)]` or `#[vvm(port = "name")]`
-  --> tests/ui/fail/sample_tuple.rs:47:5
-   |
-47 |     en_out: bool,
-   |     ^^^^^^
+ --> $WORKSPACE/crates/vvm-macros/tests/ui/fail/sample_tuple.rs
+  |
+  |     en_out: bool,
+  |     ^^^^^^

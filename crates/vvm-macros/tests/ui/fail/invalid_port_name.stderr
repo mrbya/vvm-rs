@@ -1,5 +1,5 @@
 error[E0599]: no method named `set_invalid` found for mutable reference `&mut MockDut` in the current scope
-  --> tests/ui/fail/invalid_port_name.rs:44:18
-   |
-44 |     #[vvm(port = "invalid")]
-   |                  ^^^^^^^^^ method not found in `&mut MockDut`
+ --> $WORKSPACE/crates/vvm-macros/tests/ui/fail/invalid_port_name.rs
+  |
+  |     #[vvm(port = "invalid")]
+  |                  ^^^^^^^^^ method not found in `&mut MockDut`

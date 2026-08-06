@@ -4,6 +4,15 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+const PUBLISHABLE_PACKAGES: [&str; 5] = ["vvm-core", "vvm-macros", "vvm-build", "vvm-rs", "cargo-vvm"];
+const INTERNAL_PATCHES: [(&str, &str); 5] = [
+    ("vvm-core", "crates/vvm-core"),
+    ("vvm-macros", "crates/vvm-macros"),
+    ("vvm-build", "crates/vvm-build"),
+    ("vvm-rs", "crates/vvm"),
+    ("cargo-vvm", "crates/cargo-vvm"),
+];
+
 #[test]
 fn pure_consumer_uses_only_the_facade_from_an_isolated_workspace()
 -> Result<(), Box<dyn std::error::Error>> {
@@ -121,6 +130,44 @@ fn packaged_consumer_builds_from_extracted_crate_archives() -> Result<(), Box<dy
         target_dir.is_dir(),
         "packaged fixture did not isolate its target directory"
     );
+
+    Ok(())
+}
+
+#[test]
+fn packaged_publishable_crates_resolve_from_extracted_archives() -> Result<(), Box<dyn std::error::Error>> {
+    let temporary_workspace = tempfile::tempdir()?;
+    let package_target = temporary_workspace.path().join("package-target");
+    let packages = temporary_workspace.path().join("packages");
+
+    let extracted = PUBLISHABLE_PACKAGES
+        .into_iter()
+        .map(|package| {
+            let extracted_path = package_and_extract(package, &package_target, &packages)?;
+
+            assert_packaged_manifest_is_self_contained(package, &extracted_path)?;
+
+            Ok::<(String, PathBuf), Box<dyn std::error::Error>>((package.to_owned(), extracted_path))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    for (package, package_root) in &extracted {
+        let target_dir = temporary_workspace.path().join(format!("publication-target-{package}"));
+        let output = Command::new("cargo")
+            .arg("check")
+            .arg("--offline")
+            .arg("--manifest-path")
+            .arg(package_root.join("Cargo.toml"))
+            .args(extracted_patch_arguments(&extracted)?)
+            .env("CARGO_TARGET_DIR", &target_dir)
+            .output()?;
+
+        assert_command_success(&format!("packaged publication check for {package}"), &output)?;
+        assert!(
+            target_dir.is_dir(),
+            "packaged publication check for {package} did not isolate its target directory"
+        );
+    }
 
     Ok(())
 }
@@ -285,6 +332,7 @@ fn package_and_extract(
 
     let output = Command::new("cargo")
         .args(["package", "--allow-dirty", "--no-verify", "-p", package])
+        .args(internal_patch_arguments()?)
         .env("CARGO_TARGET_DIR", target_dir)
         .output()?;
 
@@ -302,6 +350,75 @@ fn package_and_extract(
     let directory_name = archive_name.strip_suffix(".crate").unwrap_or(&archive_name);
 
     Ok(destination.join(directory_name))
+}
+
+fn internal_patch_arguments() -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let root = workspace_root()?;
+
+    let arguments = INTERNAL_PATCHES
+        .iter()
+        .flat_map(|(name, path)| {
+            let absolute_path = root.join(path);
+
+            [
+                "--config".to_owned(),
+                format!(
+                    "patch.crates-io.{name}.path=\"{}\"",
+                    absolute_path.to_string_lossy()
+                ),
+            ]
+        })
+        .collect::<Vec<_>>();
+
+    Ok(arguments)
+}
+
+fn assert_packaged_manifest_is_self_contained(
+    package: &str,
+    package_root: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let manifest = fs::read_to_string(package_root.join("Cargo.toml"))?;
+
+    assert!(
+        !manifest.contains("workspace = true"),
+        "packaged manifest for {package} still inherits workspace metadata:\n{manifest}"
+    );
+    assert!(
+        !manifest.contains("path = \"/home/"),
+        "packaged manifest for {package} leaked an absolute workspace path:\n{manifest}"
+    );
+    assert!(
+        package_root.join("LICENSE-MIT").is_file(),
+        "packaged archive for {package} is missing LICENSE-MIT"
+    );
+    assert!(
+        package_root.join("LICENSE-APACHE").is_file(),
+        "packaged archive for {package} is missing LICENSE-APACHE"
+    );
+
+    Ok(())
+}
+
+fn extracted_patch_arguments(
+    packages: &[(String, PathBuf)],
+) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let patches = packages
+        .iter()
+        .map(|(name, path)| {
+            Ok::<Vec<String>, std::io::Error>(vec![
+                "--config".to_owned(),
+                format!(
+                    "patch.crates-io.{name}.path=\"{}\"",
+                    path.to_string_lossy()
+                ),
+            ])
+        })
+        .collect::<Result<Vec<_>, std::io::Error>>()?
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+
+    Ok(patches)
 }
 
 fn configure_packaged_dependencies(

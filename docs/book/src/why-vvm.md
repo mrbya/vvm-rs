@@ -64,9 +64,9 @@ Another tool is often better when you need:
 
 ## Current Position
 
-VVM is still alpha software. The project already supports real end-to-end
-verification workflows, but the public API and supported feature surface are not
-yet frozen.
+VVM already supports real end-to-end verification workflows. It remains
+pre-`1.0`, but the reviewed public API and supported workflow surface are frozen
+for the `v0.2.0` release cycle while documented limitations remain explicit.
 
 Read [How VVM Fits Into HDL Verification](how-vvm-fits-into-hdl-verification.md)
 next for the build-time and test-time pipeline.

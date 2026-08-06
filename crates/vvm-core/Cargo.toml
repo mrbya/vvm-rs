@@ -10,6 +10,8 @@ license.workspace       = true
 keywords.workspace      = true
 categories.workspace    = true
 description             = "VVM core verification APIs"
+readme                  = "README.md"
+documentation           = "https://byacrates.gitlab.io/vvm-rs/api/vvm_core/"
 
 [lib]
 bench = false

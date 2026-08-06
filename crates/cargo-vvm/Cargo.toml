@@ -1,6 +1,6 @@
 [package]
 name = "cargo-vvm"
-version = "0.1.0"
+version.workspace = true
 authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,7 +10,8 @@ license.workspace = true
 description = "Cargo subcommand for VVM functional coverage orchestration"
 readme = "README.md"
 documentation = "https://byacrates.gitlab.io/vvm-rs/cargo-vvm.html"
-publish = false
+keywords = ["verilator", "coverage", "verification", "cargo-subcommand", "hdl"]
+categories = ["development-tools::cargo-plugins", "development-tools::testing"]
 
 [[bin]]
 name = "cargo-vvm"

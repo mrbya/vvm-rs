@@ -1,5 +1,5 @@
 error: `Clock` can only be derived for a unit struct
- --> tests/ui/fail/clock_enum.rs:6:6
+ --> $WORKSPACE/crates/vvm-macros/tests/ui/fail/clock_enum.rs
   |
-6 | enum MockClock {
+  | enum MockClock {
   |      ^^^^^^^^^

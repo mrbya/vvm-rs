@@ -40,7 +40,7 @@ deterministic merge, text report, HTML report, and the GitLab metric.
 
 ## Bus-peripheral evaluation
 
-An APB or Wishbone peripheral was evaluated and deferred after v0.1.0. The FIFO
+An APB or Wishbone peripheral was evaluated and deferred after v0.2.0. The FIFO
 already teaches structured transactions and stateful reference behavior. A bus
 example would require a deliberate driver and register-access strategy rather
 than an accidental pre-release abstraction. A future bus milestone should own

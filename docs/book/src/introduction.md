@@ -16,8 +16,9 @@ VVM provides:
 - timing and multi-clock support;
 - functional coverage that stays inside ordinary Cargo workflows.
 
-VVM is still alpha software. The core workflow is real and tested, but the
-public API and support surface are still evolving.
+VVM is in pre-`1.0` development. The public API intended for `v0.2.0` is
+established for this release cycle, supported workflows are tested, and the
+documented support surface remains intentionally explicit.
 
 VVM is not a four-state simulator, not a UVM replacement, and not a substitute
 for dedicated CDC or metastability tools. Verilator remains the actual HDL
@@ -34,8 +35,9 @@ today.
 
 ## Current Status
 
-VVM is an early alpha. The core workflow is real and tested, but public APIs may
-still move before a stable release.
+VVM is no longer presented as an alpha prototype. It remains pre-`1.0`, so a
+future minor release may still make intentional breaking changes, but the
+`v0.2.0` release cycle treats the reviewed public API as frozen.
 
 Current support notes:
 
@@ -43,7 +45,8 @@ Current support notes:
 - Native verification is Linux-focused.
 - Ordinary models use the existing C++17 path.
 - Timing-enabled models additionally require coroutine-capable C++ support.
-- Verilator 5.000 as the minimum supported, while version and 5.050 as the current target version.
+- Verilator 5.000 as the minimum supported version and 5.050 as the current
+  validated version.
 
 ## Important Limitations
 

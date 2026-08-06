@@ -4,7 +4,8 @@ This chapter is the authoritative public support and limitations summary for VVM
 
 ## Status And Platform
 
-- VVM is alpha software.
+- VVM is pre-`1.0`, with the reviewed `v0.2.0` public API frozen for this
+  release cycle.
 - Native verification support is currently Linux-focused.
 - The workspace uses Rust edition 2024 with MSRV 1.87.0.
 - CI verifies Verilator 5.000 as the minimum supported version and 5.050 as the
@@ -45,7 +46,11 @@ This chapter is the authoritative public support and limitations summary for VVM
 
 ## Public API Stability
 
-- Public APIs may change before the first stable release.
+- Patch releases in the `0.2.x` line preserve the documented supported public
+  API.
+- Because VVM remains pre-`1.0`, a later minor release may still make
+  intentional breaking changes with changelog documentation and migration
+  guidance.
 - When a feature is not documented as a supported general workflow, validate it
   against current rustdoc and the maintained fixtures before building larger
   abstractions on top of it.

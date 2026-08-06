@@ -181,6 +181,22 @@ Release-facing work in this repository includes:
 - keeping documentation, examples, and compatibility claims consistent;
 - updating `CHANGELOG.md`.
 
+The intended publishable crate set for the `v0.2.0` line is:
+
+- `vvm-rs`: primary public runtime and facade entry point
+- `vvm-build`: primary build-script integration crate
+- `cargo-vvm`: primary Cargo subcommand for coverage orchestration
+- `vvm-core`: supporting runtime crate published for dependency resolution and public documentation
+- `vvm-macros`: supporting macro crate published for dependency resolution and public documentation
+
+The publication order follows the actual dependency graph:
+
+1. `vvm-core`
+2. `vvm-macros`
+3. `vvm-build`
+4. `vvm-rs`
+5. `cargo-vvm`
+
 ## Compatibility
 
 Contributor-facing compatibility work means keeping the documented support claims

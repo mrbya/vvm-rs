@@ -5,7 +5,9 @@ use std::collections::VecDeque;
 use vvm::coverage::{Bin, Coverpoint, Cross2};
 use vvm::dut::Sample;
 use vvm::random::{RandomContext, ReplayToken, ReplayableSequence, Seed};
-use vvm::testbench::{ExactScoreboard, Mismatch, ObservedCycle, ReferenceModel, TestResult, Testbench};
+use vvm::testbench::{
+    ExactScoreboard, Mismatch, ObservedCycle, ReferenceModel, TestResult, Testbench,
+};
 use vvm::{Clock, Drive};
 
 use crate::sync_fifo::{SyncFifo, SyncFifoError};
@@ -18,7 +20,8 @@ pub const BENCH_CYCLES: u64 = 512;
 const DEPTH: usize = 8;
 
 /// Benchmark result type.
-pub type FifoResult = TestResult<FifoTransaction, Mismatch<FifoObservation, FifoObservation>, SyncFifoError>;
+pub type FifoResult =
+    TestResult<FifoTransaction, Mismatch<FifoObservation, FifoObservation>, SyncFifoError>;
 
 /// Typed rising-edge driver for the FIFO clock port.
 #[derive(Clone, Copy, Debug, Default, Clock)]
@@ -41,11 +44,21 @@ pub struct FifoTransaction {
 
 impl FifoTransaction {
     const fn reset() -> Self {
-        Self { reset_n: false, push: false, push_data: 0, pop: false }
+        Self {
+            reset_n: false,
+            push: false,
+            push_data: 0,
+            pop: false,
+        }
     }
 
     const fn operation(push: bool, push_data: u8, pop: bool) -> Self {
-        Self { reset_n: true, push, push_data, pop }
+        Self {
+            reset_n: true,
+            push,
+            push_data,
+            pop,
+        }
     }
 
     const fn operation_kind(self) -> FifoOperation {
@@ -107,7 +120,12 @@ impl Sample<SyncFifo> for FifoObservation {
             Acceptance::Accepted
         };
 
-        Ok(Self { pop_data: dut.pop_data()?, occupancy, boundary, acceptance })
+        Ok(Self {
+            pop_data: dut.pop_data()?,
+            occupancy,
+            boundary,
+            acceptance,
+        })
     }
 }
 
@@ -175,8 +193,13 @@ pub struct RandomSequence {
 }
 
 impl RandomSequence {
+    #[must_use]
     pub fn new(replay: ReplayToken, cycles: u64) -> Self {
-        Self { random: RandomContext::from_replay(replay), remaining: cycles, reset_pending: cycles != 0 }
+        Self {
+            random: RandomContext::from_replay(replay),
+            remaining: cycles,
+            reset_pending: cycles != 0,
+        }
     }
 }
 
@@ -226,12 +249,20 @@ impl FifoCoverage {
             .bin(Bin::value("available", Boundary::Available))
             .bin(Bin::value("full", Boundary::Full))
             .build()?;
-        let operation_x_boundary = Cross2::builder("operation_x_boundary", &operation, &boundary).build()?;
+        let operation_x_boundary =
+            Cross2::builder("operation_x_boundary", &operation, &boundary).build()?;
 
-        Ok(Self { operation, boundary, operation_x_boundary })
+        Ok(Self {
+            operation,
+            boundary,
+            operation_x_boundary,
+        })
     }
 
-    pub fn sample(&mut self, cycle: ObservedCycle<'_, FifoTransaction, FifoObservation>) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn sample(
+        &mut self,
+        cycle: ObservedCycle<'_, FifoTransaction, FifoObservation>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let operation = self.operation.sample(&cycle.stimulus().operation_kind())?;
         let boundary = self.boundary.sample(&cycle.observed().boundary)?;
         self.operation_x_boundary.sample(&operation, &boundary)?;
@@ -243,7 +274,10 @@ impl FifoCoverage {
 pub fn run_testbench() -> Result<FifoResult, SyncFifoError> {
     let dut = SyncFifo::new()?;
 
-    run_sequence(dut, RandomSequence::new(BENCH_REPLAY, BENCH_CYCLES))
+    Ok(run_sequence(
+        dut,
+        RandomSequence::new(BENCH_REPLAY, BENCH_CYCLES),
+    ))
 }
 
 /// Runs a deterministic push-heavy workload.
@@ -255,7 +289,7 @@ pub fn run_push_only() -> Result<FifoResult, SyncFifoError> {
         }),
     );
 
-    run_sequence(dut, sequence)
+    Ok(run_sequence(dut, sequence))
 }
 
 /// Runs a deterministic pop-heavy workload.
@@ -264,14 +298,18 @@ pub fn run_pop_only() -> Result<FifoResult, SyncFifoError> {
     let sequence = std::iter::once(FifoTransaction::reset()).chain(
         (0..BENCH_CYCLES.saturating_sub(1)).map(|index| {
             if index < 16 {
-                FifoTransaction::operation(true, u8::try_from(index & 0xff).unwrap_or_default(), false)
+                FifoTransaction::operation(
+                    true,
+                    u8::try_from(index & 0xff).unwrap_or_default(),
+                    false,
+                )
             } else {
                 FifoTransaction::operation(false, 0, true)
             }
         }),
     );
 
-    run_sequence(dut, sequence)
+    Ok(run_sequence(dut, sequence))
 }
 
 /// Runs a deterministic simultaneous push/pop workload.
@@ -285,19 +323,16 @@ pub fn run_simultaneous() -> Result<FifoResult, SyncFifoError> {
         }),
     );
 
-    run_sequence(dut, sequence)
+    Ok(run_sequence(dut, sequence))
 }
 
-fn run_sequence(
-    dut: SyncFifo,
-    sequence: impl Iterator<Item = FifoTransaction>,
-) -> Result<FifoResult, SyncFifoError> {
-    Ok(Testbench::new(dut)
+fn run_sequence(dut: SyncFifo, sequence: impl Iterator<Item = FifoTransaction>) -> FifoResult {
+    Testbench::new(dut)
         .with_sequence(sequence)
         .with_reference_model(FifoModel::default())
         .with_scoreboard(ExactScoreboard)
         .with_clock(FifoClock)
-        .run::<FifoObservation>())
+        .run::<FifoObservation>()
 }
 
 /// Runs the normal FIFO testbench while sampling manual coverage.
@@ -312,7 +347,10 @@ pub fn run_testbench_with_coverage() -> Result<FifoResult, Box<dyn std::error::E
         .with_clock(FifoClock)
         .run_with_observer::<FifoObservation, _>(|cycle| {
             let sampled = coverage.sample(cycle);
-            assert!(sampled.is_ok(), "sync-fifo coverage sampling must succeed during benches");
+            assert!(
+                sampled.is_ok(),
+                "sync-fifo coverage sampling must succeed during benches"
+            );
         });
 
     Ok(result)

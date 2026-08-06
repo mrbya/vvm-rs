@@ -2,7 +2,8 @@
 
 use std::time::Duration;
 
-use criterion::{BenchmarkGroup, Throughput, measurement::WallTime};
+use criterion::measurement::WallTime;
+use criterion::{BenchmarkGroup, Throughput};
 use vvm_core::{
     Bin, CoverageArtifact, CoverageGroup, CoverageGroupInstance, CoverageGroupVisitor,
     CoverageItemRef, CoverageMerge, CoverageMergePolicy, CoverageReport, CoverageSession,
@@ -104,7 +105,11 @@ pub fn artifact_with_samples(
     session.capture(&fixture)?;
     let snapshot = session.finish().ok_or("coverage session was empty")?;
 
-    Ok(CoverageArtifact::from_session(status, Some(BENCH_REPLAY), snapshot)?)
+    Ok(CoverageArtifact::from_session(
+        status,
+        Some(BENCH_REPLAY),
+        snapshot,
+    )?)
 }
 
 /// Builds one deterministic coverage merge and its default report.

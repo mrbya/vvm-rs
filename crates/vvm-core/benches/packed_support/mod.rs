@@ -2,7 +2,8 @@
 
 use std::time::Duration;
 
-use criterion::{BenchmarkGroup, Throughput, measurement::WallTime};
+use criterion::measurement::WallTime;
+use criterion::{BenchmarkGroup, Throughput};
 
 /// Representative packed widths for deterministic benchmark coverage.
 pub const REPRESENTATIVE_WIDTHS: [usize; 10] = [1, 8, 32, 63, 64, 65, 127, 128, 256, 1024];
@@ -33,7 +34,8 @@ pub fn words_for_width(width: usize) -> Vec<u32> {
         let used_bits = width % 32;
 
         if used_bits != 0 {
-            *last &= u32::MAX >> (32 - used_bits);
+            let shift = u32::try_from(32_usize.saturating_sub(used_bits)).unwrap_or_default();
+            *last &= u32::MAX >> shift;
         }
     }
 
@@ -44,10 +46,10 @@ pub fn words_for_width(width: usize) -> Vec<u32> {
 pub fn scalar_value(width: usize) -> u64 {
     let value = 0x0123_4567_89ab_cdef_u64;
 
-    if width == 64 {
+    if width >= 64 {
         value
     } else {
-        let shift = u32::try_from(width).unwrap_or_default();
-        value & (u64::MAX >> (64 - shift))
+        let shift = u32::try_from(64_usize.saturating_sub(width)).unwrap_or_default();
+        value & (u64::MAX >> shift)
     }
 }

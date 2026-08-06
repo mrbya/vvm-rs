@@ -4,8 +4,11 @@ use std::hint::black_box;
 use std::time::Duration;
 
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
-use vvm_example_timed_uart::benchmark::{BENCH_FRAMES, run_randomized, run_randomized_with_coverage};
+use vvm_example_timed_uart::benchmark::{
+    BENCH_FRAMES, run_randomized, run_randomized_with_coverage,
+};
 
+/// Benchmarks timing-enabled UART frame throughput.
 fn timed_uart_benches(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("native/timed-uart");
     group.sample_size(20);

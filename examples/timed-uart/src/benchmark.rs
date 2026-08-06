@@ -1,7 +1,7 @@
 //! Hidden native benchmark harness for the timed UART example.
 
-use vvm::random::{RandomContext, ReplayToken, Seed};
 use vvm::coverage::{Bin, Coverpoint, Cross2};
+use vvm::random::{RandomContext, ReplayToken, Seed};
 use vvm::timing::{SimulationTime, TimingScheduler};
 
 use crate::timed_uart::TimedUart;
@@ -94,7 +94,8 @@ pub fn run_randomized_with_coverage() -> Result<()> {
     let mut parity_mode = parity_mode;
     let mut error_state = error_state;
     let mut data_class = data_class;
-    let mut parity_x_error = Cross2::builder("parity_x_error", &parity_mode, &error_state).build()?;
+    let mut parity_x_error =
+        Cross2::builder("parity_x_error", &parity_mode, &error_state).build()?;
 
     for index in 0..BENCH_FRAMES {
         let request = random_request(index, &mut random);
@@ -133,28 +134,43 @@ fn run(request: UartRequest) -> Result<(Vec<Transition>, TimedUart)> {
 
     let mut scheduler = TimingScheduler::new();
     scheduler.initialize(&mut dut)?;
-    let mut transitions = vec![Transition { time: SimulationTime::ZERO, tx: dut.tx()? }];
+    let mut transitions = vec![Transition {
+        time: SimulationTime::ZERO,
+        tx: dut.tx()?,
+    }];
 
     while let Some(event) = scheduler.advance_next(&mut dut)? {
-        transitions.push(Transition { time: event.time(), tx: dut.tx()? });
+        transitions.push(Transition {
+            time: event.time(),
+            tx: dut.tx()?,
+        });
     }
 
     Ok((transitions, dut))
 }
 
 fn decode(request: UartRequest, transitions: &[Transition]) -> Frame {
-    let levels = transitions.iter().map(|transition| transition.tx).collect::<Vec<_>>();
+    let levels = transitions
+        .iter()
+        .map(|transition| transition.tx)
+        .collect::<Vec<_>>();
     let data = levels
         .get(2..10)
         .unwrap_or_default()
         .iter()
         .enumerate()
-        .fold(0_u8, |value, (bit, level)| value | (u8::from(*level) << bit));
+        .fold(0_u8, |value, (bit, level)| {
+            value | (u8::from(*level) << bit)
+        });
     let parity_enabled = request.parity != ParityMode::Disabled;
     let parity = parity_enabled.then(|| levels.get(10).copied().unwrap_or_default());
     let stop_index = 10_usize.saturating_add(usize::from(parity_enabled));
 
-    Frame { data, parity, stop: levels.get(stop_index).copied().unwrap_or_default() }
+    Frame {
+        data,
+        parity,
+        stop: levels.get(stop_index).copied().unwrap_or_default(),
+    }
 }
 
 fn expected_frame(request: UartRequest) -> Frame {
@@ -164,7 +180,11 @@ fn expected_frame(request: UartRequest) -> Frame {
             ^ request.inject_parity_error
     });
 
-    Frame { data: request.data, parity, stop: !request.inject_stop_error }
+    Frame {
+        data: request.data,
+        parity,
+        stop: !request.inject_stop_error,
+    }
 }
 
 fn observed_errors(request: UartRequest, frame: Frame) -> ErrorState {
@@ -174,7 +194,10 @@ fn observed_errors(request: UartRequest, frame: Frame) -> ErrorState {
         ..request
     });
 
-    match (frame.parity != uncorrupted.parity, frame.stop != uncorrupted.stop) {
+    match (
+        frame.parity != uncorrupted.parity,
+        frame.stop != uncorrupted.stop,
+    ) {
         (false, false) => ErrorState::None,
         (true, false) => ErrorState::Parity,
         (false, true) => ErrorState::Stop,
@@ -199,14 +222,21 @@ fn random_request(index: u8, random: &mut RandomContext) -> UartRequest {
         3 => 0xaa,
         _ => u8::try_from(random.next_u32() & 0xff).unwrap_or_default(),
     };
-    let parity = match if index < 12 { u32::from(index % 3) } else { random.next_u32() % 3 } {
+    let parity = match if index < 12 {
+        u32::from(index % 3)
+    } else {
+        random.next_u32() % 3
+    } {
         0 => ParityMode::Disabled,
         1 => ParityMode::Even,
         _ => ParityMode::Odd,
     };
     let error_bits = if index < 12 {
         const DIRECTED_ERROR_BITS: [u8; 12] = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3];
-        DIRECTED_ERROR_BITS.get(usize::from(index)).copied().unwrap_or_default()
+        DIRECTED_ERROR_BITS
+            .get(usize::from(index))
+            .copied()
+            .unwrap_or_default()
     } else {
         u8::try_from(random.next_u32() & 0b11).unwrap_or_default()
     };

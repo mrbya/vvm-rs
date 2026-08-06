@@ -18,41 +18,61 @@ fn scalar_packed_benches(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("packed/scalar");
     configure_group(&mut group);
 
-    for width in REPRESENTATIVE_WIDTHS.into_iter().filter(|width| *width <= 64) {
+    for width in REPRESENTATIVE_WIDTHS
+        .into_iter()
+        .filter(|width| *width <= 64)
+    {
         let words = words_for_width(width);
         let value = scalar_value(width);
 
         throughput_elements(&mut group, u64::try_from(width).unwrap_or_default());
 
-        group.bench_with_input(BenchmarkId::new("extract", width), &width, |bench, &bench_width| {
-            bench.iter(|| {
-                let extracted = extract_unsigned(black_box(&words), bench_width, 0, bench_width);
-                black_box(extracted)
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::new("extract", width),
+            &width,
+            |bench, &bench_width| {
+                bench.iter(|| {
+                    let extracted =
+                        extract_unsigned(black_box(&words), bench_width, 0, bench_width);
+                    black_box(extracted)
+                });
+            },
+        );
 
-        group.bench_with_input(BenchmarkId::new("insert", width), &width, |bench, &bench_width| {
-            bench.iter(|| {
-                let mut output = vec![0_u32; words.len()];
-                let inserted = insert_unsigned(&mut output, bench_width, 0, bench_width, value);
-                black_box(inserted)
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::new("insert", width),
+            &width,
+            |bench, &bench_width| {
+                bench.iter(|| {
+                    let mut output = vec![0_u32; words.len()];
+                    let inserted = insert_unsigned(&mut output, bench_width, 0, bench_width, value);
+                    black_box(inserted)
+                });
+            },
+        );
 
-        group.bench_with_input(BenchmarkId::new("extract-signed", width), &width, |bench, &bench_width| {
-            bench.iter(|| {
-                let extracted = extract_signed(black_box(&words), bench_width, 0, bench_width);
-                black_box(extracted)
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::new("extract-signed", width),
+            &width,
+            |bench, &bench_width| {
+                bench.iter(|| {
+                    let extracted = extract_signed(black_box(&words), bench_width, 0, bench_width);
+                    black_box(extracted)
+                });
+            },
+        );
 
-        group.bench_with_input(BenchmarkId::new("insert-signed", width), &width, |bench, &bench_width| {
-            bench.iter(|| {
-                let mut output = vec![0_u32; words.len()];
-                let inserted = insert_signed(&mut output, bench_width, 0, bench_width, -5);
-                black_box(inserted)
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::new("insert-signed", width),
+            &width,
+            |bench, &bench_width| {
+                bench.iter(|| {
+                    let mut output = vec![0_u32; words.len()];
+                    let inserted = insert_signed(&mut output, bench_width, 0, bench_width, -5);
+                    black_box(inserted)
+                });
+            },
+        );
     }
 
     group.finish();
@@ -92,7 +112,13 @@ fn typed_packed_benches(criterion: &mut Criterion) {
     });
 
     group.bench_function("range/extract/65", |bench| {
-        bench.iter(|| black_box(extract_packed::<Bits<65>>(black_box(bits_1024.words_le()), 1024, 17)));
+        bench.iter(|| {
+            black_box(extract_packed::<Bits<65>>(
+                black_box(bits_1024.words_le()),
+                1024,
+                17,
+            ))
+        });
     });
 
     group.bench_function("range/insert/65", |bench| {
@@ -105,7 +131,11 @@ fn typed_packed_benches(criterion: &mut Criterion) {
 
     group.bench_function("range/extract-signed/65", |bench| {
         bench.iter(|| {
-            black_box(extract_packed::<SignedBits<65>>(black_box(bits_1024.words_le()), 1024, 33))
+            black_box(extract_packed::<SignedBits<65>>(
+                black_box(bits_1024.words_le()),
+                1024,
+                33,
+            ))
         });
     });
 

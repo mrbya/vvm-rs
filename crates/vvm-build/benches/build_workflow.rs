@@ -2,8 +2,8 @@
 
 mod build_support;
 
-use criterion::{BatchSize, BenchmarkId, Criterion, criterion_group, criterion_main};
 use build_support::{PreparedFixture, configure_group};
+use criterion::{BatchSize, BenchmarkId, Criterion, criterion_group, criterion_main};
 
 /// Benchmarks isolated clean, warm, and incremental `vvm-build` workflows.
 fn build_workflow_benches(criterion: &mut Criterion) {
@@ -22,7 +22,9 @@ fn build_workflow_benches(criterion: &mut Criterion) {
         bench.iter_batched(
             || {
                 let fixture = PreparedFixture::build_consumer().unwrap_or_else(|_| unreachable!());
-                fixture.cargo_test_no_run().unwrap_or_else(|_| unreachable!());
+                fixture
+                    .cargo_test_no_run()
+                    .unwrap_or_else(|_| unreachable!());
                 fixture
             },
             |fixture| fixture.cargo_test_no_run(),
@@ -31,21 +33,38 @@ fn build_workflow_benches(criterion: &mut Criterion) {
     });
 
     for (name, relative_path, marker) in [
-        ("rust-incremental/build-consumer", "src/lib.rs", "// bench rust incremental"),
-        ("hdl-incremental/build-consumer", "rtl/counter.sv", "// bench hdl incremental"),
+        (
+            "rust-incremental/build-consumer",
+            "src/lib.rs",
+            "// bench rust incremental",
+        ),
+        (
+            "hdl-incremental/build-consumer",
+            "rtl/counter.sv",
+            "// bench hdl incremental",
+        ),
     ] {
-        group.bench_with_input(BenchmarkId::from_parameter(name), &relative_path, |bench, path| {
-            bench.iter_batched(
-                || {
-                    let fixture = PreparedFixture::build_consumer().unwrap_or_else(|_| unreachable!());
-                    fixture.cargo_test_no_run().unwrap_or_else(|_| unreachable!());
-                    fixture.append_line(path, marker).unwrap_or_else(|_| unreachable!());
-                    fixture
-                },
-                |fixture| fixture.cargo_test_no_run(),
-                BatchSize::PerIteration,
-            );
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(name),
+            &relative_path,
+            |bench, path| {
+                bench.iter_batched(
+                    || {
+                        let fixture =
+                            PreparedFixture::build_consumer().unwrap_or_else(|_| unreachable!());
+                        fixture
+                            .cargo_test_no_run()
+                            .unwrap_or_else(|_| unreachable!());
+                        fixture
+                            .append_line(path, marker)
+                            .unwrap_or_else(|_| unreachable!());
+                        fixture
+                    },
+                    |fixture| fixture.cargo_test_no_run(),
+                    BatchSize::PerIteration,
+                );
+            },
+        );
     }
 
     group.bench_function("mixed-port/native-wide-transform", |bench| {

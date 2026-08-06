@@ -4,7 +4,7 @@ title: Benchmark functional coverage and reporting
 status: Done
 assignee: []
 created_date: '2026-08-05 15:43'
-updated_date: '2026-08-05 16:51'
+updated_date: '2026-08-06 10:17'
 labels:
   - benchmarking
   - criterion
@@ -33,6 +33,16 @@ Add deterministic Criterion benchmarks for functional coverage sampling, snapsho
 - [x] #6 Plain-text and HTML coverage report generation are benchmarked
 - [x] #7 Fixture preparation is excluded from timed loops and definitions are deterministic
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Add a dedicated `vvm-core` Criterion target for coverage workloads and declare it with `harness = false`.
+2. Build deterministic benchmark fixtures for coverpoints, crosses, captured artifacts, merges, and reports so setup remains outside the timed region.
+3. Benchmark sampling, snapshot/artifact encoding and decoding, merge scaling for 1/8/64 artifacts, and plain-text plus HTML report generation with stable benchmark IDs.
+4. Keep the benchmark in-memory for encoding/decoding work and validate that correctness still holds for the deterministic fixtures.
+5. Run focused compilation and one representative execution check before closing the task.
+<!-- SECTION:PLAN:END -->
 
 ## Final Summary
 

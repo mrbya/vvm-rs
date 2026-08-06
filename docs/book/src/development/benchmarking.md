@@ -45,13 +45,13 @@ local before-and-after evidence, not release guarantees.
 Capture a baseline before a performance-sensitive change:
 
 ```bash
-just benchmark-save-baseline NAME=before-feature
+just benchmark-save-baseline before-feature
 ```
 
 Implement the change, then compare against the saved baseline:
 
 ```bash
-just benchmark-compare-baseline NAME=before-feature
+just benchmark-compare-baseline before-feature
 ```
 
 Run a focused target when you only changed one area:
@@ -68,6 +68,13 @@ Run the complete suite without saving or comparing a baseline:
 
 ```bash
 just benchmark
+```
+
+Run the complete suite in Criterion's quick mode when you need one local
+validation pass across every target before a deeper statistical run:
+
+```bash
+just benchmark -- --quick
 ```
 
 ## Baselines And Reports
@@ -92,3 +99,42 @@ Use Criterion's own output and reports to decide whether a change is acceptable.
 
 VVM intentionally does not enforce hard automatic regression thresholds yet.
 Those decisions remain a developer and reviewer judgment call.
+
+## Recorded Validation Profile
+
+Milestone 12.6 was validated locally with these commands:
+
+```bash
+just benchmark -- --quick
+just benchmark-save-baseline milestone-12.6-validation --quick
+just benchmark-compare-baseline milestone-12.6-validation --quick
+```
+
+Recorded environment:
+
+- Git revision: `9d54261b49bdea128ad22690dfaff73525d563e9`
+- CPU: AMD Ryzen 7 5700U with Radeon Graphics, 8 cores / 16 threads
+- Memory: 14 GiB RAM, 4 GiB swap
+- OS: Linux x86_64
+- Kernel: `6.18.9-arch1-2`
+- Rust: `rustc 1.95.0 (59807616e 2026-04-14)`
+- Cargo: `cargo 1.95.0 (f2d3ce0bd 2026-03-21)`
+- Verilator: `5.050 2026-07-01`
+- C++ compiler: `GCC 15.2.1 20260209`
+
+Representative quick-mode measurements from that validation run:
+
+- `cargo-vvm/subprocess/help`: about `1.83 ms` to `1.90 ms`
+- `cargo-vvm/subprocess/coverage/counter`: about `30.41 s`
+- `vvm-build/subprocess/clean/build-consumer`: about `21.96 s`
+- `vvm-build/subprocess/warm-noop/build-consumer`: about `113.57 ms`
+- `vvm-build/subprocess/hdl-incremental/build-consumer`: about `11.29 s`
+- `native/counter/raw-cycle`: about `2.54 Melem/s`
+- `native/counter/testbench-cycle/traced`: about `1.45 Melem/s`
+- `native/sync-fifo/transactions`: about `636 Kelem/s`
+- `native/async-fifo/transactions`: about `95.4 Kelem/s`
+- `native/timed-uart/frames`: about `1.66 Kelem/s`
+
+These measurements are informative local baselines only. They are not release
+guarantees and should be compared primarily against later runs on the same
+machine.

@@ -13,6 +13,9 @@ publish = false
 build = "build.rs"
 description = "VVM caller-owned tri-state bus resolution example"
 
+[lib]
+bench = false
+
 [lints]
 workspace = true
 

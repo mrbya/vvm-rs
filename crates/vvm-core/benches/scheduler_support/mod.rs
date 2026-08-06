@@ -3,7 +3,8 @@
 use std::num::NonZeroU64;
 use std::time::Duration;
 
-use criterion::{BenchmarkGroup, Throughput, measurement::WallTime};
+use criterion::measurement::WallTime;
+use criterion::{BenchmarkGroup, Throughput};
 use vvm_core::{
     Clock, ClockScheduler, ClockTiming, CycleTiming, Drive, Dut, ExactScoreboard, ReferenceModel,
     Sample, SimulationTime, TestResult, Testbench, TimeStep, TimedDut, TimingScheduler,
@@ -192,7 +193,7 @@ pub fn run_mock_testbench(cycles: usize) -> MockRunResult {
 #[must_use]
 pub fn run_multiclock_testbench(cycles: usize, clock_count: usize) -> MockRunResult {
     let builder = ClockScheduler::new("core", MockClock, ClockTiming::UNIT);
-    let scheduler = match clock_count {
+    let scheduler_result = match clock_count {
         1 => builder,
         2 => builder.and_then(|scheduler| {
             scheduler.with_clock(
@@ -247,8 +248,16 @@ pub fn run_multiclock_testbench(cycles: usize, clock_count: usize) -> MockRunRes
                     ),
                 )
             }),
-    }
-    .unwrap_or_else(|_| ClockScheduler::new("core", MockClock, ClockTiming::UNIT).unwrap_or_else(|_| unreachable!()));
+    };
+
+    let Ok(scheduler) = scheduler_result else {
+        return Testbench::new(MockDut::default())
+            .with_sequence(MockStimulus::sequence(cycles))
+            .with_reference_model(MockModel::default())
+            .with_scoreboard(ExactScoreboard)
+            .with_clock(MockClock)
+            .run::<MockObservation>();
+    };
 
     Testbench::new(MockDut::default())
         .with_sequence(MockStimulus::sequence(cycles))
@@ -338,8 +347,12 @@ pub fn sparse_event_ticks(count: usize) -> Vec<u64> {
 pub fn run_timing_scheduler(events: &[u64]) {
     let mut dut = MockTimedDut::new(events.iter().copied());
     let mut scheduler = TimingScheduler::new();
-    let limit = NonZeroU64::new(u64::try_from(events.len()).unwrap_or(1)).unwrap_or(NonZeroU64::MIN);
+    let limit =
+        NonZeroU64::new(u64::try_from(events.len()).unwrap_or(1)).unwrap_or(NonZeroU64::MIN);
     let result = scheduler.run_until_idle(&mut dut, limit);
 
-    assert!(result.is_ok(), "deterministic timed benchmark workload must succeed");
+    assert!(
+        result.is_ok(),
+        "deterministic timed benchmark workload must succeed"
+    );
 }

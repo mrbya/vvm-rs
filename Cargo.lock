@@ -1244,7 +1244,6 @@ name = "vvm-example-async-fifo"
 version = "0.1.0-alpha.1"
 dependencies = [
  "criterion",
- "tempfile",
  "thiserror",
  "vvm-build",
  "vvm-rs",
@@ -1266,7 +1265,6 @@ name = "vvm-example-sync-fifo"
 version = "0.1.0-alpha.1"
 dependencies = [
  "criterion",
- "tempfile",
  "thiserror",
  "vvm-build",
  "vvm-rs",

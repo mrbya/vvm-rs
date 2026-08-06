@@ -13,6 +13,9 @@ publish = false
 build = "build.rs"
 description = "Timing-enabled UART frame verification example for VVM"
 
+[lib]
+bench = false
+
 [lints]
 workspace = true
 

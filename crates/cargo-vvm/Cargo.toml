@@ -15,6 +15,7 @@ publish = false
 [[bin]]
 name = "cargo-vvm"
 path = "src/main.rs"
+bench = false
 
 [lints]
 workspace = true

@@ -9,6 +9,7 @@ use vvm_example_async_fifo::benchmark::{
     run_read_faster_than_write, run_write_faster_than_read,
 };
 
+/// Benchmarks native asynchronous FIFO throughput under fixed clock relationships.
 fn async_fifo_benches(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("native/async-fifo");
     group.sample_size(20);

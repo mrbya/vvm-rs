@@ -13,6 +13,9 @@ publish = false
 build = "build.rs"
 description = "Asynchronous FIFO multi-clock verification example"
 
+[lib]
+bench = false
+
 [lints]
 workspace = true
 
@@ -22,7 +25,6 @@ vvm.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true
-tempfile.workspace = true
 
 [[bench]]
 name = "async_fifo"

@@ -2,7 +2,8 @@
 
 use std::time::Duration;
 
-use criterion::{BenchmarkGroup, Throughput, measurement::WallTime};
+use criterion::measurement::WallTime;
+use criterion::{BenchmarkGroup, Throughput};
 
 /// Applies the default Criterion configuration for fast in-process benchmarks.
 pub fn configure_group(group: &mut BenchmarkGroup<'_, WallTime>) {
@@ -30,7 +31,7 @@ pub struct StructuredValue {
 impl StructuredValue {
     /// Creates a deterministic structured value.
     #[must_use]
-    pub fn new(fill: u8) -> Self {
+    pub const fn new(fill: u8) -> Self {
         Self {
             header: 0xfeed_cafe,
             payload: 0x0123_4567_89ab_cdef,
@@ -40,14 +41,14 @@ impl StructuredValue {
 
     /// Creates a copy with one early mismatch.
     #[must_use]
-    pub fn early_mismatch(mut self) -> Self {
+    pub const fn early_mismatch(mut self) -> Self {
         self.bytes[0] ^= 1;
         self
     }
 
     /// Creates a copy with one late mismatch.
     #[must_use]
-    pub fn late_mismatch(mut self) -> Self {
+    pub const fn late_mismatch(mut self) -> Self {
         self.bytes[63] ^= 1;
         self
     }

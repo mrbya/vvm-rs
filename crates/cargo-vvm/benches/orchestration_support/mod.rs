@@ -4,7 +4,8 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
 
-use criterion::{BenchmarkGroup, measurement::WallTime};
+use criterion::BenchmarkGroup;
+use criterion::measurement::WallTime;
 use tempfile::TempDir;
 
 /// Applies the expensive-workload Criterion configuration.
@@ -31,7 +32,14 @@ impl PreparedCommand {
     pub fn build_binary() -> Result<PathBuf, Box<dyn std::error::Error>> {
         let workspace = workspace_root()?;
         let build = Command::new("cargo")
-            .args(["build", "-p", "cargo-vvm", "--bin", "cargo-vvm", "--release"])
+            .args([
+                "build",
+                "-p",
+                "cargo-vvm",
+                "--bin",
+                "cargo-vvm",
+                "--release",
+            ])
             .current_dir(&workspace)
             .output()?;
 
@@ -108,7 +116,9 @@ fn workspace_root() -> Result<PathBuf, Box<dyn std::error::Error>> {
         .parent()
         .and_then(Path::parent)
         .map(Path::to_path_buf)
-        .ok_or_else(|| std::io::Error::other("cargo-vvm must be nested below the workspace root"))?;
+        .ok_or_else(|| {
+            std::io::Error::other("cargo-vvm must be nested below the workspace root")
+        })?;
 
     Ok(root)
 }

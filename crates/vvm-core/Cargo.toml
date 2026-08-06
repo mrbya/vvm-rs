@@ -11,6 +11,9 @@ keywords.workspace      = true
 categories.workspace    = true
 description             = "VVM core verification APIs"
 
+[lib]
+bench = false
+
 [lints]
 workspace = true
 

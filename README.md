@@ -158,8 +158,8 @@ Local Criterion benchmarks:
 
 ```bash
 just benchmark
-just benchmark-save-baseline NAME=before-change
-just benchmark-compare-baseline NAME=before-change
+just benchmark-save-baseline before-change
+just benchmark-compare-baseline before-change
 just benchmark-target vvm-core packed
 ```
 

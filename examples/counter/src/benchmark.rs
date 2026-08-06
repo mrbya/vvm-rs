@@ -95,11 +95,17 @@ pub fn run_testbench_with_coverage(trace_path: Option<&Path>) -> Result<CounterT
         .with_clock(CounterClock)
         .run_with_observer::<CounterObservation, _>(|cycle| {
             let sampled = coverage.sample(cycle);
-            assert!(sampled.is_ok(), "counter coverage sampling must succeed during benches");
+            assert!(
+                sampled.is_ok(),
+                "counter coverage sampling must succeed during benches"
+            );
         });
 
     let validated = coverage.validate();
-    assert!(validated.is_ok(), "counter coverage definition must stay valid during benches");
+    assert!(
+        validated.is_ok(),
+        "counter coverage definition must stay valid during benches"
+    );
 
     Ok(result)
 }

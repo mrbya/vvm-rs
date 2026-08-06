@@ -74,7 +74,7 @@ impl FixtureBench {
             .ports
             .iter()
             .map(codegen::types::PortType::from_port)
-            .map(|port_type| port_type.rust_value_type())
+            .map(codegen::types::PortType::rust_value_type)
             .collect())
     }
 
@@ -143,4 +143,52 @@ fn load_normalized(name: &str) -> BuildResult<metadata::DutMetadata> {
     let raw = load_raw(name)?;
 
     metadata::normalize(name, name, &raw)
+}
+
+#[cfg(test)]
+mod tests {
+    use tempfile::tempdir;
+
+    use super::FixtureBench;
+
+    #[test]
+    fn fixture_helpers_decode_and_normalize_counter_fixture() {
+        let decoded = FixtureBench::decode("counter");
+        let normalized = FixtureBench::normalize("counter");
+        let supported = FixtureBench::validate_supported("counter");
+
+        assert_eq!(decoded.ok(), Some(21));
+        assert_eq!(normalized.ok(), Some(4));
+        assert!(matches!(supported, Ok(())));
+    }
+
+    #[test]
+    fn fixture_helpers_map_types_and_names_for_counter_fixture() {
+        let types = FixtureBench::map_types("counter");
+        let names = FixtureBench::resolve_names("counter");
+        let expected = ["bool", "bool", "bool", "u8"]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>();
+
+        assert_eq!(types.ok(), Some(expected));
+        assert_eq!(names.ok(), Some(4));
+    }
+
+    #[test]
+    fn fixture_helpers_generate_counter_artifacts() {
+        let Ok(output) = tempdir() else {
+            return;
+        };
+
+        let summary = FixtureBench::generate("counter", output.path());
+
+        assert_eq!(summary.as_ref().ok().map(|item| item.file_count()), Some(4));
+        assert!(
+            summary
+                .as_ref()
+                .ok()
+                .is_some_and(|item| item.total_bytes() > 0)
+        );
+    }
 }

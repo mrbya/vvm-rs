@@ -69,11 +69,11 @@
     clippy::verbose_file_reads
 )]
 
-/// Verilator DUT build configuration.
-pub(crate) mod builder;
 /// Hidden internal benchmark helpers.
 #[doc(hidden)]
 pub mod benchmark;
+/// Verilator DUT build configuration.
+pub(crate) mod builder;
 /// Rerun-if directives.
 pub(crate) mod cargo;
 /// Adapter and CXX Bridge code generation orchestration.

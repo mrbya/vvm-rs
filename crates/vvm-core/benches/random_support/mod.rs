@@ -2,7 +2,8 @@
 
 use std::time::Duration;
 
-use criterion::{BenchmarkGroup, Throughput, measurement::WallTime};
+use criterion::measurement::WallTime;
+use criterion::{BenchmarkGroup, Throughput};
 use vvm_core::{RandomContext, Randomize, ReplayToken, ReplayableSequence, Seed};
 
 /// Fixed benchmark seed shared across deterministic random workloads.

@@ -148,18 +148,18 @@ Benchmark commands live in the `justfile` and route through Criterion only.
 Useful commands:
 
 - `just benchmark`
-- `just benchmark-save-baseline NAME=local`
-- `just benchmark-compare-baseline NAME=local`
+- `just benchmark-save-baseline local`
+- `just benchmark-compare-baseline local`
 - `just benchmark-target vvm-core packed`
 
 Use the save-before-change and compare-after-change workflow for performance work:
 
 ```bash
-just benchmark-save-baseline NAME=before-feature
+just benchmark-save-baseline before-feature
 
 # implement the feature or optimization
 
-just benchmark-compare-baseline NAME=before-feature
+just benchmark-compare-baseline before-feature
 ```
 
 Benchmarks are local-only developer tools.

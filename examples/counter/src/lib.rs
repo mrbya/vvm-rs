@@ -2,10 +2,10 @@
 
 vvm::include_dut!(counter);
 
-/// Counter-specific functional coverage.
-mod coverage;
 #[doc(hidden)]
 pub mod benchmark;
+/// Counter-specific functional coverage.
+mod coverage;
 /// Simulation test cases.
 #[cfg(test)]
 mod test_cases;

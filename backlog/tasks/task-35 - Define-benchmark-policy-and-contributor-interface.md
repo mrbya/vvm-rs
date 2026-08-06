@@ -5,7 +5,7 @@ status: Done
 assignee:
   - OpenCode
 created_date: '2026-08-05 15:42'
-updated_date: '2026-08-05 16:47'
+updated_date: '2026-08-06 10:17'
 labels:
   - benchmarking
   - criterion
@@ -36,12 +36,11 @@ Establish the milestone 12.6 benchmark policy for VVM and replace the stale benc
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-1. Audit the current benchmark-related command surface, Cargo manifests, and existing development documentation to identify stale non-VVM benchmark assumptions and the real book chapters that should host the policy.
-2. Replace the stale justfile benchmark recipes with VVM-specific Criterion-only local commands for full-suite runs, named baseline save, named baseline comparison, and focused target execution. Keep benchmarks out of CI and out of just ci.
-3. Add or update Cargo benchmark declarations so Criterion targets will use harness = false where needed by the new benchmark suite, without adding irrelevant features or custom scripts.
-4. Add contributor-facing benchmark policy documentation in the mdBook development section and contributing guide, including local-only execution, machine-specific baselines under target/criterion, and the recommended before-and-after workflow.
-5. Update docs/dev/implementation-plan.md to replace the old 12.6 assumptions about CI benchmark jobs and custom scripts with the final Criterion-only local workflow that this milestone is implementing.
-6. Run focused validation for justfile and documentation changes, then mark the task acceptance criteria accurately before closing it.
+1. Audit the existing justfile, benchmark docs, and Cargo benchmark declarations to identify stale non-VVM benchmark commands and missing Criterion-only guidance.
+2. Replace the stale benchmark recipes with VVM-specific Criterion commands for full-suite runs, named baseline save/compare, and focused package/target execution while keeping benchmarks out of CI.
+3. Add or confirm `harness = false` declarations for every Criterion target that the milestone introduces, without adding custom scripts or alternate frameworks.
+4. Update README, AGENTS guidance, and the mdBook development chapters so contributors understand the local-only benchmark policy, machine-specific baselines, and the expected before/after workflow.
+5. Update the implementation plan to reflect the final Criterion-only local architecture and validate the command surface against the actual workspace bench targets.
 <!-- SECTION:PLAN:END -->
 
 ## Final Summary

@@ -13,6 +13,9 @@ publish = false
 build = "build.rs"
 description = "Synchronous FIFO verification example for VVM"
 
+[lib]
+bench = false
+
 [lints]
 workspace = true
 
@@ -22,7 +25,6 @@ vvm.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true
-tempfile.workspace = true
 
 [[bench]]
 name = "sync_fifo"

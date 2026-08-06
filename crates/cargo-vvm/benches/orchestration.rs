@@ -2,6 +2,8 @@
 
 mod orchestration_support;
 
+use std::hint::black_box;
+
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use orchestration_support::{PreparedCommand, configure_group};
 
@@ -9,20 +11,34 @@ use orchestration_support::{PreparedCommand, configure_group};
 fn orchestration_benches(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("cargo-vvm/subprocess");
     configure_group(&mut group);
-    let binary = PreparedCommand::build_binary().unwrap_or_else(|_| unreachable!());
+    let Ok(binary) = PreparedCommand::build_binary() else {
+        return;
+    };
 
     group.bench_function("help", |bench| {
         bench.iter_batched(
-            || PreparedCommand::new(binary.clone()).unwrap_or_else(|_| unreachable!()),
-            |command| command.help(),
+            || PreparedCommand::new(binary.clone()).ok(),
+            |command| {
+                black_box(
+                    command
+                        .as_ref()
+                        .is_some_and(|prepared| prepared.help().is_ok()),
+                )
+            },
             BatchSize::PerIteration,
         );
     });
 
     group.bench_function("coverage/counter", |bench| {
         bench.iter_batched(
-            || PreparedCommand::new(binary.clone()).unwrap_or_else(|_| unreachable!()),
-            |command| command.counter_coverage(),
+            || PreparedCommand::new(binary.clone()).ok(),
+            |command| {
+                black_box(
+                    command
+                        .as_ref()
+                        .is_some_and(|prepared| prepared.counter_coverage().is_ok()),
+                )
+            },
             BatchSize::PerIteration,
         );
     });

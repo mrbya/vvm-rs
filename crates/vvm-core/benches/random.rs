@@ -77,30 +77,42 @@ fn replay_sequence_benches(criterion: &mut Criterion) {
     for length in [16_usize, 256, 4096] {
         throughput_elements(&mut group, u64::try_from(length).unwrap_or_default());
 
-        group.bench_with_input(BenchmarkId::new("sequence", length), &length, |bench, &len| {
-            bench.iter(|| {
-                let values = RandomTransactionSequence::new(BENCH_REPLAY, len)
-                    .into_iter()
-                    .collect::<Vec<_>>();
-                black_box(values)
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::new("sequence", length),
+            &length,
+            |bench, &len| {
+                bench.iter(|| {
+                    let values = RandomTransactionSequence::new(BENCH_REPLAY, len)
+                        .into_iter()
+                        .collect::<Vec<_>>();
+                    black_box(values)
+                });
+            },
+        );
 
-        group.bench_with_input(BenchmarkId::new("same-seed", length), &length, |bench, &len| {
-            bench.iter(|| {
-                let left = RandomTransactionSequence::new(BENCH_REPLAY, len)
-                    .into_iter()
-                    .collect::<Vec<_>>();
-                let right = RandomTransactionSequence::new(BENCH_REPLAY, len)
-                    .into_iter()
-                    .collect::<Vec<_>>();
-                black_box(left == right)
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::new("same-seed", length),
+            &length,
+            |bench, &len| {
+                bench.iter(|| {
+                    let left = RandomTransactionSequence::new(BENCH_REPLAY, len)
+                        .into_iter()
+                        .collect::<Vec<_>>();
+                    let right = RandomTransactionSequence::new(BENCH_REPLAY, len)
+                        .into_iter()
+                        .collect::<Vec<_>>();
+                    black_box(left == right)
+                });
+            },
+        );
     }
 
     group.finish();
 }
 
-criterion_group!(random_benches, random_generation_benches, replay_sequence_benches);
+criterion_group!(
+    random_benches,
+    random_generation_benches,
+    replay_sequence_benches
+);
 criterion_main!(random_benches);

@@ -177,7 +177,7 @@ Removed. Shared ABI support should only return once concrete cross-DUT native fu
 | 9 | Public facade | Complete |
 | 10 | Tracing, reporting, and standard test harness | Complete |
 | 11 | Wider HDL feature support and Rust-native coverage | Complete |
-| 12 | Pre-release cleanup and polish | In progress (12.5 documentation and Pages complete; 12.6 benchmark work not started) |
+| 12 | Pre-release cleanup and polish | In progress (12.5 documentation and Pages complete; 12.6 benchmark suite and local baselines complete; 12.7 packaging not started) |
 
 ---
 
@@ -2642,48 +2642,48 @@ Create deterministic developer-facing Criterion benchmarks that reveal before-an
 
 ### Benchmark policy
 
-* [ ] Define what VVM performance claims and does not claim.
-* [ ] Keep Criterion as the only measurement and comparison framework.
-* [ ] Use fixed seeds and stable representative inputs.
-* [ ] Record hardware, OS, compiler, Rust, Cargo, C++ compiler, and Verilator versions.
-* [ ] Treat baselines as local and machine-specific under `target/criterion`.
-* [ ] Establish local baselines before setting any future regression thresholds.
-* [ ] Do not make ordinary merge requests fail on noisy performance changes.
+* [x] Define what VVM performance claims and does not claim.
+* [x] Keep Criterion as the only measurement and comparison framework.
+* [x] Use fixed seeds and stable representative inputs.
+* [x] Record hardware, OS, compiler, Rust, Cargo, C++ compiler, and Verilator versions.
+* [x] Treat baselines as local and machine-specific under `target/criterion`.
+* [x] Establish local baselines before setting any future regression thresholds.
+* [x] Do not make ordinary merge requests fail on noisy performance changes.
 
 ### Criterion benchmarks
 
 Add benchmark targets for:
 
-* [ ] Packed extraction and insertion at representative widths.
-* [ ] Signed packed conversion.
-* [ ] `Bits` and `SignedBits` operations.
-* [ ] Random value generation.
-* [ ] Replayable sequence generation.
-* [ ] Exact scoreboard comparisons.
-* [ ] Mock-DUT testbench cycle overhead.
-* [ ] Multi-clock scheduler event processing.
-* [ ] Timing scheduler event processing.
-* [ ] Coverpoint sampling.
-* [ ] Cross sampling.
-* [ ] Coverage snapshot capture.
-* [ ] Coverage artifact encoding.
-* [ ] Coverage artifact decoding.
-* [ ] Coverage merging at several sizes.
-* [ ] Text report generation.
-* [ ] HTML report generation.
-* [ ] Verilator metadata normalization.
-* [ ] Generated-code model construction where practical.
-* [ ] Counter cycles per second.
-* [ ] FIFO transactions per second.
-* [ ] Baseline testbench execution without tracing or coverage.
-* [ ] Tracing overhead.
-* [ ] Functional-coverage overhead.
-* [ ] Multi-clock overhead.
-* [ ] Timing-enabled overhead.
-* [ ] Clean `vvm-build` wall-clock time.
-* [ ] Incremental `vvm-build` wall-clock time.
-* [ ] `cargo-vvm` orchestration overhead.
-* [ ] Peak memory notes where practical without building a custom framework.
+* [x] Packed extraction and insertion at representative widths.
+* [x] Signed packed conversion.
+* [x] `Bits` and `SignedBits` operations.
+* [x] Random value generation.
+* [x] Replayable sequence generation.
+* [x] Exact scoreboard comparisons.
+* [x] Mock-DUT testbench cycle overhead.
+* [x] Multi-clock scheduler event processing.
+* [x] Timing scheduler event processing.
+* [x] Coverpoint sampling.
+* [x] Cross sampling.
+* [x] Coverage snapshot capture.
+* [x] Coverage artifact encoding.
+* [x] Coverage artifact decoding.
+* [x] Coverage merging at several sizes.
+* [x] Text report generation.
+* [x] HTML report generation.
+* [x] Verilator metadata normalization.
+* [x] Generated-code model construction where practical.
+* [x] Counter cycles per second.
+* [x] FIFO transactions per second.
+* [x] Baseline testbench execution without tracing or coverage.
+* [x] Tracing overhead.
+* [x] Functional-coverage overhead.
+* [x] Multi-clock overhead.
+* [x] Timing-enabled overhead.
+* [x] Clean `vvm-build` wall-clock time.
+* [x] Incremental `vvm-build` wall-clock time.
+* [x] `cargo-vvm` orchestration overhead.
+* [x] Peak memory notes where practical without building a custom framework.
 
 ### Benchmark organization
 
@@ -2697,29 +2697,29 @@ examples/*/benches/
     native Verilator-backed Criterion targets
 ```
 
-* [ ] Avoid requiring Verilator for pure-Rust Criterion benchmarks.
-* [ ] Keep native system benchmarks separately selectable.
-* [ ] Avoid benchmarking debug builds.
-* [ ] Avoid accidental tracing or logging in benchmark paths.
-* [ ] Verify benchmark inputs are not optimized away.
+* [x] Avoid requiring Verilator for pure-Rust Criterion benchmarks.
+* [x] Keep native system benchmarks separately selectable.
+* [x] Avoid benchmarking debug builds.
+* [x] Avoid accidental tracing or logging in benchmark paths.
+* [x] Verify benchmark inputs are not optimized away.
 
 ### Contributor workflow and CI
 
-* [ ] Add contributor commands for full-suite runs, saved baselines, baseline comparison, and focused targets.
-* [ ] Document the local before-and-after workflow.
-* [ ] Keep benchmark execution out of `just ci`, pre-commit, and GitLab CI.
-* [ ] Record one initial `v0.1.0` local profile with real environment details and representative measurements.
-* [ ] Investigate statistically meaningful regressions with Criterion's reports.
-* [ ] Defer hard automatic thresholds until local workflow stability is demonstrated.
+* [x] Add contributor commands for full-suite runs, saved baselines, baseline comparison, and focused targets.
+* [x] Document the local before-and-after workflow.
+* [x] Keep benchmark execution out of `just ci`, pre-commit, and GitLab CI.
+* [x] Record one initial `v0.1.0` local profile with real environment details and representative measurements.
+* [x] Investigate statistically meaningful regressions with Criterion's reports.
+* [x] Defer hard automatic thresholds until local workflow stability is demonstrated.
 
 ### Acceptance criteria
 
-* [ ] Criterion benchmarks cover the main pure-Rust hot paths.
-* [ ] Representative real-DUT system benchmarks exist.
-* [ ] Benchmarks use deterministic inputs.
-* [ ] Benchmark commands are documented.
-* [ ] Benchmarks remain local-only and CI does not execute them.
-* [ ] A representative `v0.1.0` local performance profile exists.
+* [x] Criterion benchmarks cover the main pure-Rust hot paths.
+* [x] Representative real-DUT system benchmarks exist.
+* [x] Benchmarks use deterministic inputs.
+* [x] Benchmark commands are documented.
+* [x] Benchmarks remain local-only and CI does not execute them.
+* [x] A representative `v0.1.0` local performance profile exists.
 
 ---
 

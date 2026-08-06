@@ -13,6 +13,7 @@ description             = "VVM procedural macros and helper attributes"
 
 [lib]
 proc-macro = true
+bench = false
 
 [lints]
 workspace = true

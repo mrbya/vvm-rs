@@ -2,7 +2,8 @@
 
 use std::time::Duration;
 
-use criterion::{BenchmarkGroup, Throughput, measurement::WallTime};
+use criterion::measurement::WallTime;
+use criterion::{BenchmarkGroup, Throughput};
 
 /// Representative committed metadata fixture names.
 pub const FIXTURE_NAMES: [&str; 9] = [

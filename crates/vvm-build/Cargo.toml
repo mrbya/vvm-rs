@@ -13,6 +13,9 @@ description             = "VVM build-time Verilator and bridge support"
 readme                  = "README.md"
 documentation           = "https://byacrates.gitlab.io/vvm-rs/api/vvm_build/"
 
+[lib]
+bench = false
+
 [dependencies]
 cxx-build.workspace = true
 thiserror.workspace = true

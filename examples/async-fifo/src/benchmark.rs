@@ -50,7 +50,10 @@ pub fn run_randomized() -> Result<()> {
     }
 
     let remaining = model.len();
-    assert!(remaining <= 8, "logical async-fifo occupancy must stay within depth");
+    assert!(
+        remaining <= 8,
+        "logical async-fifo occupancy must stay within depth"
+    );
 
     Ok(())
 }

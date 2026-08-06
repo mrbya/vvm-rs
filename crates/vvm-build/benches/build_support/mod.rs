@@ -5,7 +5,8 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
 
-use criterion::{BenchmarkGroup, measurement::WallTime};
+use criterion::BenchmarkGroup;
+use criterion::measurement::WallTime;
 use tempfile::TempDir;
 
 /// Applies the expensive-workload Criterion configuration.
@@ -97,7 +98,9 @@ pub fn workspace_root() -> Result<PathBuf, Box<dyn std::error::Error>> {
         .parent()
         .and_then(Path::parent)
         .map(Path::to_path_buf)
-        .ok_or_else(|| std::io::Error::other("vvm-build must be nested below the workspace root"))?;
+        .ok_or_else(|| {
+            std::io::Error::other("vvm-build must be nested below the workspace root")
+        })?;
 
     Ok(root)
 }

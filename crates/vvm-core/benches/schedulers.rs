@@ -2,6 +2,8 @@
 
 mod scheduler_support;
 
+use std::hint::black_box;
+
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use scheduler_support::{
     MockClock, MockDut, MockModel, MockObservation, MockStimulus, configure_expensive_group,
@@ -18,24 +20,32 @@ fn testbench_benches(criterion: &mut Criterion) {
     for cycles in [64_usize, 256] {
         throughput_cycles(&mut group, u64::try_from(cycles).unwrap_or_default());
 
-        group.bench_with_input(BenchmarkId::new("model-scoreboard", cycles), &cycles, |bench, &count| {
-            bench.iter(|| run_mock_testbench(count));
-        });
+        group.bench_with_input(
+            BenchmarkId::new("model-scoreboard", cycles),
+            &cycles,
+            |bench, &count| {
+                bench.iter(|| run_mock_testbench(count));
+            },
+        );
 
-        group.bench_with_input(BenchmarkId::new("observer", cycles), &cycles, |bench, &count| {
-            let sequence = MockStimulus::sequence(count);
+        group.bench_with_input(
+            BenchmarkId::new("observer", cycles),
+            &cycles,
+            |bench, &count| {
+                let sequence = MockStimulus::sequence(count);
 
-            bench.iter(|| {
-                Testbench::new(MockDut::default())
-                    .with_sequence(sequence.clone())
-                    .with_reference_model(MockModel::default())
-                    .with_scoreboard(ExactScoreboard)
-                    .with_clock(MockClock)
-                    .run_with_observer::<MockObservation, _>(|cycle| {
-                        let _ = cycle.cycle();
-                    })
-            });
-        });
+                bench.iter(|| {
+                    Testbench::new(MockDut::default())
+                        .with_sequence(sequence.clone())
+                        .with_reference_model(MockModel::default())
+                        .with_scoreboard(ExactScoreboard)
+                        .with_clock(MockClock)
+                        .run_with_observer::<MockObservation, _>(|cycle| {
+                            black_box(cycle.cycle());
+                        })
+                });
+            },
+        );
     }
 
     group.finish();
@@ -50,9 +60,13 @@ fn clock_scheduler_benches(criterion: &mut Criterion) {
         let cycles = 128_usize;
         throughput_events(&mut group, u64::try_from(cycles).unwrap_or_default());
 
-        group.bench_with_input(BenchmarkId::from_parameter(name), &clock_count, |bench, &count| {
-            bench.iter(|| run_multiclock_testbench(cycles, count));
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(name),
+            &clock_count,
+            |bench, &count| {
+                bench.iter(|| run_multiclock_testbench(cycles, count));
+            },
+        );
     }
 
     group.finish();
@@ -71,13 +85,22 @@ fn timing_scheduler_benches(criterion: &mut Criterion) {
     ] {
         throughput_events(&mut group, u64::try_from(events.len()).unwrap_or_default());
 
-        group.bench_with_input(BenchmarkId::from_parameter(name), &events, |bench, ticks| {
-            bench.iter(|| run_timing_scheduler(ticks));
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(name),
+            &events,
+            |bench, ticks| {
+                bench.iter(|| run_timing_scheduler(ticks));
+            },
+        );
     }
 
     group.finish();
 }
 
-criterion_group!(scheduler_benches, testbench_benches, clock_scheduler_benches, timing_scheduler_benches);
+criterion_group!(
+    scheduler_benches,
+    testbench_benches,
+    clock_scheduler_benches,
+    timing_scheduler_benches
+);
 criterion_main!(scheduler_benches);

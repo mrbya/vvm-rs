@@ -4,7 +4,7 @@ title: Benchmark scoreboards testbench execution and schedulers
 status: Done
 assignee: []
 created_date: '2026-08-05 15:43'
-updated_date: '2026-08-05 16:51'
+updated_date: '2026-08-06 10:17'
 labels:
   - benchmarking
   - criterion
@@ -32,6 +32,15 @@ Add Criterion benchmarks for exact scoreboard comparisons, pure-Rust mock-DUT te
 - [x] #5 Correctness is validated outside timed regions
 - [x] #6 These benchmarks do not require Verilator
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Add dedicated `vvm-core` Criterion targets for scoreboard and scheduler/testbench workloads, each declared with `harness = false`.
+2. Build deterministic pure-Rust support fixtures for structured scoreboard payloads, mock DUT/testbench sequences, multi-clock schedules, and timed event queues so Verilator is never required.
+3. Benchmark success and mismatch scoreboard paths, mock testbench overhead, multi-clock scheduling, and timed scheduling with stable IDs and correctness checks outside the timed loop.
+4. Keep all of the workloads pure Rust and verify the representative targets compile and execute successfully before closing the task.
+<!-- SECTION:PLAN:END -->
 
 ## Final Summary
 

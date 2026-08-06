@@ -146,7 +146,7 @@ checksum = "72f5acc6cb2ba439de613abc23857ec3d78374d8ed5ac84e9d11336e87da8649"
 
 [[package]]
 name = "cargo-vvm"
-version = "0.1.0-alpha.1"
+version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -1216,7 +1216,7 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "vvm-build"
-version = "0.1.0-alpha.1"
+version = "0.2.0"
 dependencies = [
  "criterion",
  "cxx-build",
@@ -1227,7 +1227,7 @@ dependencies = [
 
 [[package]]
 name = "vvm-core"
-version = "0.1.0-alpha.1"
+version = "0.2.0"
 dependencies = [
  "criterion",
  "proptest",
@@ -1241,7 +1241,7 @@ dependencies = [
 
 [[package]]
 name = "vvm-example-async-fifo"
-version = "0.1.0-alpha.1"
+version = "0.2.0"
 dependencies = [
  "criterion",
  "thiserror",
@@ -1251,7 +1251,7 @@ dependencies = [
 
 [[package]]
 name = "vvm-example-counter"
-version = "0.1.0-alpha.1"
+version = "0.2.0"
 dependencies = [
  "criterion",
  "tempfile",
@@ -1262,7 +1262,7 @@ dependencies = [
 
 [[package]]
 name = "vvm-example-sync-fifo"
-version = "0.1.0-alpha.1"
+version = "0.2.0"
 dependencies = [
  "criterion",
  "thiserror",
@@ -1272,7 +1272,7 @@ dependencies = [
 
 [[package]]
 name = "vvm-example-timed-uart"
-version = "0.1.0-alpha.1"
+version = "0.2.0"
 dependencies = [
  "criterion",
  "tempfile",
@@ -1283,7 +1283,7 @@ dependencies = [
 
 [[package]]
 name = "vvm-example-tri-state-bus"
-version = "0.1.0-alpha.1"
+version = "0.2.0"
 dependencies = [
  "tempfile",
  "vvm-build",
@@ -1292,7 +1292,7 @@ dependencies = [
 
 [[package]]
 name = "vvm-macros"
-version = "0.1.0-alpha.1"
+version = "0.2.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1304,7 +1304,7 @@ dependencies = [
 
 [[package]]
 name = "vvm-rs"
-version = "0.1.0-alpha.1"
+version = "0.2.0"
 dependencies = [
  "cxx",
  "tempfile",

@@ -1,6 +1,8 @@
 #!/usr/bin/env just --justfile
 set dotenv-load := true
 
+latest := "0.1.0-alpha.1"
+
 # Output this list.
 list:
     @just --list
@@ -250,6 +252,18 @@ ci:
     @just doctest
     @just docs-links
     @just test-cov-ci
+
+# Lists VVM public API.
+api *FLAGS:
+    cargo public-api -p vvm-rs {{FLAGS}}
+
+# Generates public API inventory for current VVM version.
+api-gen:
+    cargo public-api -p vvm-rs > "./docs/dev/api/$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "vvm-rs") | .version')"
+
+# Diffs public API against a specific VVM release.
+api-diff version=latest:
+    cargo public-api diff -p vvm-rs {{version}}
 
 # Installs pre-commit hooks.
 install-hooks:

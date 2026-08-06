@@ -23,14 +23,14 @@ repository              = "https://gitlab.com/byacrates/vvm-rs"
 license                 = "MIT OR Apache-2.0"
 keywords                = ["verilator", "verification", "hdl", "testbench", "simulation"]
 categories              = ["development-tools::testing"]
-version                 = "0.1.0-alpha.1"
+version                 = "0.2.0"
 
 [workspace.dependencies]
 # vvm crates
-vvm                     = { package = "vvm-rs", path = "crates/vvm", version = "0.1.0-alpha.1" }
-vvm-build               = { path = "crates/vvm-build", version = "0.1.0-alpha.1" }
-vvm-core                = { path = "crates/vvm-core", version = "0.1.0-alpha.1" }
-vvm-macros              = { path = "crates/vvm-macros", version = "0.1.0-alpha.1" }
+vvm                     = { package = "vvm-rs", path = "crates/vvm", version = "0.2.0" }
+vvm-build               = { path = "crates/vvm-build", version = "0.2.0" }
+vvm-core                = { path = "crates/vvm-core", version = "0.2.0" }
+vvm-macros              = { path = "crates/vvm-macros", version = "0.2.0" }
 
 # Runtime and build dependencies
 cxx                     = { version = "1" }

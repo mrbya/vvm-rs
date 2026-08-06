@@ -1,5 +1,7 @@
 # Contributing
 
+Thanks for your interest in contributing!
+
 ## Requirements
 
 - Rust 1.87.0 or newer.
@@ -64,7 +66,6 @@ Prefer `just` recipes over ad hoc Cargo commands whenever a recipe exists.
 4. `just test-cov-ci`
 
 ## Pre-Commit Hooks
-
 
 Install hooks with:
 
@@ -189,3 +190,22 @@ claims casually.
 
 If a compatibility claim changes, update the relevant CI coverage and the public
 compatibility documentation together.
+
+## Repo layout
+
+- Protected branches: `master`, `dev`
+- We're brancing out of `dev`.
+- `master` contains stable releases only.
+
+## Reporting issues
+- Include OS, Rust version, Verilator version, compiler used and reproduction steps.
+- Provide logs or minimal examples when possible.
+
+## License
+Any contribution intentionally submitted
+for inclusion in the work by you shall be dual licensed under the Apache-2.0 and
+MIT license, without any additional terms or conditions.
+
+[LICENSE-APACHE]: ./LICENSE-APACHE
+[LICENSE-MIT]: ./LICENSE-MIT
+

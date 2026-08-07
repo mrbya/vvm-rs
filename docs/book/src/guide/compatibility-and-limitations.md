@@ -2,19 +2,31 @@
 
 This chapter is the authoritative public support and limitations summary for VVM.
 
-## Status And Platform
+## Status And Tested Matrix
 
 - VVM is pre-`1.0`, with the reviewed `v0.2.0` public API frozen for this
   release cycle.
-- Native verification support is currently Linux-focused.
-- The workspace uses Rust edition 2024 with MSRV 1.87.0.
-- CI verifies Verilator 5.000 as the minimum supported version and 5.050 as the
-  currently tested version.
+
+| Surface | Supported and validated for `v0.2.0` |
+| --- | --- |
+| Operating system | Linux only |
+| Rust toolchains | MSRV `1.87.0` and the current stable Rust toolchain |
+| Verilator | Minimum `5.000`; current validated CI image `5.050` |
+| Default native C++ toolchain | GCC on Linux CI |
+| Additional native compiler validation | Clang on Linux native fixtures |
+| Ordinary native models | C++17-capable compiler |
+| Timing-enabled native models | C++20 compiler with coroutine support |
+
+The supported surface is intentionally narrow. VVM does not advertise macOS,
+Windows, MSVC, or other compiler families for native verification in the
+`v0.2.0` cycle because the repository does not validate them.
 
 ## Toolchain Requirements
 
 - Native integration requires Verilator and a working C++ toolchain.
-- Timing-enabled models additionally require coroutine-capable C++ support.
+- Ordinary native builds use the existing C++17 path.
+- Timing-enabled models additionally require a C++20 compiler with coroutine
+  support.
 - Generated wrappers, bridges, and compiled models are build artifacts under
   Cargo-managed output directories and should not be treated as source files.
 

@@ -1,0 +1,6 @@
+header:set_bus_input
+header:bus_output_enable
+source:model->bus__en
+bridge:fn bus_output_value
+wrapper:pub fn set_bus_input
+wrapper:InoutState<bool, bool>

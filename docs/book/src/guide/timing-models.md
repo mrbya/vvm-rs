@@ -21,7 +21,7 @@ different scheduler and it stays separate on purpose.
 ## What You Need
 
 - a timing-capable generated wrapper;
-- coroutine-capable C++ support for the Verilator timing path;
+- a C++20 compiler with coroutine support for the Verilator timing path;
 - `TimedDut` and `TimingScheduler` instead of the normal cycle-driven clock loop.
 
 ## Common Operations

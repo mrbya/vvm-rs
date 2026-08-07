@@ -1,0 +1,7 @@
+header:events_pending
+header:std::uint64_t& time
+source:eventsPending()
+source:nextTimeSlot()
+bridge:fn events_pending
+wrapper:pub fn next_time_slot
+wrapper:impl ::vvm::__private::TimedDut

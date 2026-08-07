@@ -241,6 +241,14 @@ mod tests {
             .join(name)
     }
 
+    fn expected_codegen_contract_path(name: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("codegen-contracts")
+            .join(name)
+    }
+
     fn assert_generated_artifacts_match(
         generated: &super::GeneratedArtifacts,
         expected_directory: &Path,
@@ -319,6 +327,47 @@ mod tests {
         Ok(())
     }
 
+    fn assert_contract_fixture(
+        fixture_name: &str,
+        header: &str,
+        source: &str,
+        bridge: &str,
+        wrapper: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = std::fs::read_to_string(expected_codegen_contract_path(fixture_name))?;
+
+        for line in fixture.lines().filter(|line| !line.is_empty()) {
+            let (target, expected) = line.split_once(':').ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("invalid contract fixture line `{line}`"),
+                )
+            })?;
+
+            let actual = match target {
+                "header" => header,
+                "source" => source,
+                "bridge" => bridge,
+                "wrapper" => wrapper,
+                _ => {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        format!("unknown contract fixture target `{target}`"),
+                    )
+                    .into());
+                }
+            };
+
+            assert!(
+                actual.contains(expected),
+                "generated {target} artifact does not contain expected contract fragment \
+                 `{expected}`"
+            );
+        }
+
+        Ok(())
+    }
+
     fn scalar_port(name: &str, direction: PortDirection, width: BitWidth, signed: bool) -> Port {
         Port {
             name: name.to_owned(),
@@ -364,6 +413,8 @@ mod tests {
         );
         assert!(!wrapper.contains("pub fn drive_bus"));
         assert!(!wrapper.contains("pub fn release_bus"));
+
+        assert_contract_fixture("inout_ports.txt", &header, &source, &bridge, &wrapper)?;
 
         Ok(())
     }
@@ -519,6 +570,13 @@ mod tests {
         assert!(timed_bridge.contains("time: &mut u64"));
         assert!(timed_wrapper.contains("pub fn next_time_slot"));
         assert!(timed_wrapper.contains("impl ::vvm::__private::TimedDut"));
+        assert_contract_fixture(
+            "counter_timing.txt",
+            &timed_header,
+            &timed_source,
+            &timed_bridge,
+            &timed_wrapper,
+        )?;
         Ok(())
     }
 
@@ -738,6 +796,8 @@ mod tests {
 
         assert_wide_wrapper_artifacts(&wrapper);
 
+        assert_contract_fixture("wide_ports.txt", &header, &source, &bridge, &wrapper)?;
+
         Ok(())
     }
 
@@ -919,6 +979,42 @@ mod tests {
         assert!(wrapper.contains("value: impl ::core::borrow::Borrow<Packet>"));
         assert!(wrapper.contains("pub fn packet_out(&self) -> Result<PacketOut> {"));
         assert!(wrapper.contains("PackedLayoutFailed"));
+
+        assert_contract_fixture("packed_struct_ports.txt", &header, "", &bridge, &wrapper)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn multi_clock_like_ports_generate_independent_scalar_accessors()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let width = BitWidth::new(NonZeroU32::MIN);
+        let metadata = DutMetadata {
+            name: String::from("multi_clock_counter"),
+            top_module: String::from("multi_clock_counter"),
+            ports: vec![
+                scalar_port("core_clk", PortDirection::Input, width, false),
+                scalar_port("peripheral_clk", PortDirection::Input, width, false),
+                scalar_port("reset_n", PortDirection::Input, width, false),
+                scalar_port("peripheral_enable", PortDirection::Input, width, false),
+                scalar_port("core_sample", PortDirection::Output, width, false),
+                scalar_port("peripheral_count", PortDirection::Output, width, false),
+            ],
+        };
+        let output = tempdir()?;
+        let generated = generate(
+            &metadata,
+            "Vmulti_clock_counter",
+            output.path(),
+            None,
+            false,
+        )?;
+        let header = std::fs::read_to_string(&generated.cpp_header)?;
+        let source = std::fs::read_to_string(&generated.cpp_source)?;
+        let bridge = std::fs::read_to_string(&generated.cxx_bridge)?;
+        let wrapper = std::fs::read_to_string(&generated.rust_wrapper)?;
+
+        assert_contract_fixture("multi_clock_ports.txt", &header, &source, &bridge, &wrapper)?;
 
         Ok(())
     }

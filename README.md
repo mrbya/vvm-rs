@@ -34,7 +34,10 @@ raw Verilator+C++, start with the book chapter:
 
 ## Current Status
 
-- Linux-focused native verification support.
+- Linux-only native verification support for the `v0.2.0` release line.
+- CI validates Rust 1.87.0, the current stable Rust toolchain, Verilator 5.000,
+  Verilator 5.050, and GCC-based native builds.
+- Native fixture coverage also validates a Linux Clang toolchain.
 - Two-state Verilator behavior: Rust-visible ports do not carry HDL `X` or `Z`.
 - Timing mode supports delayed future slots, not same-time or `#0` scheduling.
 - Pre-`1.0` semantic versioning: patch releases in the `0.2.x` line preserve the
@@ -55,11 +58,13 @@ raw Verilator+C++, start with the book chapter:
 
 ## Requirements
 
-- Rust 1.87.0 or newer.
+- Rust 1.87.0 or the current stable Rust toolchain.
 - Verilator.
 - A working Linux C++ toolchain.
 
-Timing-enabled models additionally need coroutine-capable C++ support.
+Ordinary native models use a C++17-capable toolchain.
+
+Timing-enabled models additionally need a C++20 compiler with coroutine support.
 
 ## Installation
 

@@ -1,5 +1,42 @@
 # Public API Policy
 
+This document is the canonical `v0.2.0` compatibility policy for VVM's reviewed
+public surface.
+
+## Release-cycle promise
+
+VVM remains pre-`1.0`. The `v0.2.0` release cycle freezes the reviewed public
+surface captured in `docs/dev/api/0.2.0`.
+
+- `0.2.x` patch releases preserve the documented supported public Rust API.
+- Later pre-`1.0` minor releases may still make intentional breaking changes,
+  but only with changelog entries, compatibility review, and updated baselines.
+- APIs outside the documented supported surface are not covered by the patch-line
+  compatibility promise.
+
+## Compatibility domains
+
+- Rust API compatibility is defined by the accepted facade surface and canonical
+  module paths below.
+- Persisted coverage compatibility is versioned JSON compatibility plus matching
+  reviewed structural fingerprints; artifacts with unsupported schema versions or
+  incompatible definitions are rejected instead of merged silently.
+- Generated-code compatibility covers the public generated wrapper contract:
+  generated module naming, supported accessor naming, trait implementations, and
+  documented DUT capabilities. Internal generated implementation details remain
+  free to change.
+- CLI compatibility covers machine-consumed `cargo-vvm` behavior documented for
+  the `v0.2.0` line: stable output file names and layout, supported child-command
+  forms, merge-policy semantics, and the final `VVM functional coverage:` metric
+  line.
+- `vvm::__private` is never part of the compatibility promise.
+
+## Accepted `v0.2.0` baseline
+
+Use `docs/dev/api/0.2.0` as the accepted public API baseline for the release
+line. Contributors should compare current output against that checked-in file
+instead of assuming a published `v0.2.0` tag already exists.
+
 `vvm` is the supported user facade. Canonical domains are `coverage`, `dut`,
 `packed`, `random`, `test`, `testbench`, and `timing`; coverage persistence and
 reporting live in `coverage::{artifact, merge, report, session, snapshot}`.
@@ -49,3 +86,9 @@ the former root types plus `IntoTestOutcome`, callback aliases, `NoCoverage`,
 `Unconfigured`, `CoverageSpec`, `CoverageSampleSpec`, and
 `unpacked_array_ordinal` are removed accidental exports. The final semver
 baseline includes the canonical error paths above.
+
+## Contributor commands
+
+- `just api` prints the current public API inventory.
+- `just api-gen` regenerates the inventory file for the current crate version.
+- `just api-diff` compares the current branch against `docs/dev/api/0.2.0`.

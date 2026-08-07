@@ -5,14 +5,18 @@
 For normal VVM usage, install:
 
 - Rust 1.87.0 or newer.
+- The current stable Rust toolchain is also validated in CI.
 - Cargo.
 - Verilator.
 - A working Linux C++ toolchain.
 
-Timing-enabled models additionally need compiler coroutine support.
+Ordinary native models use a C++17-capable toolchain.
+
+Timing-enabled models additionally need a C++20 compiler with coroutine support.
 
 VVM does not currently claim broad cross-platform native support. The tested
-path is Linux-based development and CI.
+path is Linux-based development and CI, with Verilator 5.000 as the minimum
+supported version and 5.050 as the current validated image.
 
 ## Add Dependencies To A Consumer Project
 

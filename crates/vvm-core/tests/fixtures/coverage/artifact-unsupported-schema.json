@@ -1,0 +1,45 @@
+{
+  "format": "vvm-functional-coverage",
+  "schema_version": 99,
+  "producer": {
+    "name": "vvm-rs",
+    "version": "__VVM_CORE_VERSION__"
+  },
+  "test": {
+    "name": "artifact_round_trip",
+    "status": "passed",
+    "replay_token": null
+  },
+  "summary": {
+    "groups": 1,
+    "items": 3,
+    "coverpoints": 2,
+    "crosses": 1,
+    "coverage": {
+      "covered": 6,
+      "uncovered": 2,
+      "total": 8
+    }
+  },
+  "groups": [
+    {
+      "definition": {
+        "name": "decoder",
+        "revision": 0,
+        "fingerprint": "__DECODER_FINGERPRINT__"
+      },
+      "instance_path": "dut.decoder",
+      "summary": {
+        "items": 3,
+        "coverpoints": 2,
+        "crosses": 1,
+        "coverage": {
+          "covered": 6,
+          "uncovered": 2,
+          "total": 8
+        }
+      },
+      "items": []
+    }
+  ]
+}

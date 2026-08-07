@@ -1,0 +1,6 @@
+header:set_packet(std::uint32_t value)
+header:set_wide_packet(rust::Slice<const std::uint32_t> words)
+bridge:fn wide_packet_out(self: &PackedStructPorts, words: &mut [u32]) -> bool;
+wrapper:pub struct WidePacket
+wrapper:PackedFieldLayout
+wrapper:pub fn payload(&self) -> std::result::Result<::vvm::__private::SignedBits<129>

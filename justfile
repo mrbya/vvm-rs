@@ -2,6 +2,7 @@
 set dotenv-load := true
 
 latest := "0.1.0-alpha.1"
+api-baseline := "docs/dev/api/0.2.0"
 
 # Output this list.
 list:
@@ -66,7 +67,7 @@ test-e2e *FLAGS:
 
 # Verify the publishable crate archives without contacting crates.io.
 test-package *FLAGS:
-    cargo nextest run --all-features -p vvm-rs --test fixtures packaged_consumer {{FLAGS}}
+    cargo nextest run --all-features -p vvm-rs --test fixtures -E 'test(packaged_)' {{FLAGS}}
 
 # Run all tests that do not need Verilator.
 test-fast *FLAGS:
@@ -253,6 +254,14 @@ ci:
     @just docs-links
     @just test-cov-ci
 
+# Runs the dry-run release verification flow and assembles retained artifacts.
+release-verify TAG='':
+    bash scripts/release-verify.sh {{TAG}}
+
+# Publishes the release only when explicitly authorized and tag-aligned.
+release-publish TAG='':
+    bash scripts/release-publish.sh {{TAG}}
+
 # Lists VVM public API.
 api *FLAGS:
     cargo public-api -p vvm-rs {{FLAGS}}
@@ -261,9 +270,14 @@ api *FLAGS:
 api-gen:
     cargo public-api -p vvm-rs > "./docs/dev/api/$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "vvm-rs") | .version')"
 
-# Diffs public API against a specific VVM release.
-api-diff version=latest:
-    cargo public-api diff -p vvm-rs {{version}}
+# Diffs the current public API against the accepted v0.2.0 baseline file.
+api-diff baseline='docs/dev/api/0.2.0':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    current="$(mktemp)"
+    trap 'rm -f "$current"' EXIT
+    cargo public-api -p vvm-rs > "$current"
+    diff -u "{{baseline}}" "$current"
 
 # Installs pre-commit hooks.
 install-hooks:
@@ -324,6 +338,7 @@ init:
     echo # things required by thorough-check
     cargo udeps -V || cargo binstall cargo-udeps --no-confirm
     cargo audit -V || cargo binstall cargo-audit --no-confirm
+    cargo public-api --version || cargo binstall cargo-public-api --no-confirm
     echo # installing markdown-toc
     npm list -g markdown-toc || npm install -g markdown-toc
     echo # installing pinned documentation builder

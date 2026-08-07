@@ -1,0 +1,6 @@
+header:set_input_u65(rust::Slice<const std::uint32_t> words)
+header:output_u256(rust::Slice<std::uint32_t> words)
+source:expected_words{8}
+bridge:fn output_i129(self: &WidePorts, words: &mut [u32]) -> bool;
+wrapper:Bits<256>
+wrapper:SignedBits<129>

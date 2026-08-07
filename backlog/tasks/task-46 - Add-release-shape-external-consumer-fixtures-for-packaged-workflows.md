@@ -1,11 +1,11 @@
 ---
 id: TASK-46
 title: Add release-shape external consumer fixtures for packaged workflows
-status: In Progress
+status: Done
 assignee:
   - OpenCode
 created_date: '2026-08-06 14:47'
-updated_date: '2026-08-06 15:16'
+updated_date: '2026-08-06 16:31'
 labels:
   - release
   - fixtures
@@ -26,10 +26,10 @@ Create or extend clean external fixtures that validate supported public workflow
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Packaged generated-counter, coverage, timing, and multi-clock consumers all build and run from packaged crate shapes
-- [ ] #2 The packaged cargo-vvm crate can be installed into an isolated CARGO_HOME and its supported commands execute successfully
-- [ ] #3 Fixtures opt out of the parent workspace, isolate target directories, avoid repository path dependencies, and use only public APIs
-- [ ] #4 Fixture coverage is integrated into release-equivalent validation commands
+- [x] #1 Packaged generated-counter, coverage, timing, and multi-clock consumers all build and run from packaged crate shapes
+- [x] #2 The packaged cargo-vvm crate can be installed into an isolated CARGO_HOME and its supported commands execute successfully
+- [x] #3 Fixtures opt out of the parent workspace, isolate target directories, avoid repository path dependencies, and use only public APIs
+- [x] #4 Fixture coverage is integrated into release-equivalent validation commands
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -41,3 +41,19 @@ Create or extend clean external fixtures that validate supported public workflow
 4. Add an isolated packaged `cargo-vvm` installation check using a temporary `CARGO_HOME`, ensuring commands run from the packaged crate shape rather than a globally installed binary.
 5. Integrate the new packaged workflow fixtures into the release-facing validation surface and re-run the focused fixture suite until all packaged workflows pass.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Extended `crates/vvm/tests/fixtures.rs` to validate packaged generated-counter, timing, and multi-clock consumers from extracted crate archives and to install `cargo-vvm` from the packaged crate into an isolated `CARGO_HOME`/`--root` before running a real coverage workflow against a packaged external consumer fixture.
+
+Added `tests/fixtures/coverage-consumer/` as a minimal public-API coverage fixture, broadened `just test-package` to the packaged fixture suite, and aligned the GitLab `package-consumer` job with the `packaged_` test set.
+
+Focused validation: `cargo test --all-features -p vvm-rs --test fixtures packaged_`.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Completed the release-shape packaged consumer coverage by extending the fixture harness to run packaged generated-counter, timing, and multi-clock workflows from extracted crate archives, adding a minimal packaged coverage consumer, and installing `cargo-vvm` from the packaged crate into an isolated `CARGO_HOME` before executing a real coverage run. Release-facing validation now exercises the full packaged fixture suite through `just test-package` and the GitLab `package-consumer` job, with focused verification passing via `cargo test --all-features -p vvm-rs --test fixtures packaged_`.
+<!-- SECTION:FINAL_SUMMARY:END -->

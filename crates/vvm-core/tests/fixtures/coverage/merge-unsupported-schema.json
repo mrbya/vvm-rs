@@ -1,0 +1,69 @@
+{
+  "format": "vvm-functional-coverage-merge",
+  "schema_version": 99,
+  "producer": {
+    "name": "vvm-rs",
+    "version": "__VVM_CORE_VERSION__"
+  },
+  "policy": "all",
+  "inputs": [
+    {
+      "producer_version": "__VVM_CORE_VERSION__",
+      "test": {
+        "name": "merge_passed",
+        "status": "passed",
+        "replay_token": null
+      },
+      "included": true,
+      "summary": {
+        "groups": 1,
+        "items": 3,
+        "coverpoints": 2,
+        "crosses": 1,
+        "coverage": {
+          "covered": 3,
+          "uncovered": 5,
+          "total": 8
+        }
+      }
+    }
+  ],
+  "summary": {
+    "artifacts": 1,
+    "included_artifacts": 1,
+    "excluded_artifacts": 0,
+    "passed_artifacts": 1,
+    "failed_artifacts": 0,
+    "errored_artifacts": 0,
+    "groups": 1,
+    "items": 3,
+    "coverpoints": 2,
+    "crosses": 1,
+    "coverage": {
+      "covered": 3,
+      "uncovered": 5,
+      "total": 8
+    }
+  },
+  "groups": [
+    {
+      "definition": {
+        "name": "decoder",
+        "revision": 0,
+        "fingerprint": "__DECODER_FINGERPRINT__"
+      },
+      "instance_path": "dut.decoder",
+      "summary": {
+        "items": 3,
+        "coverpoints": 2,
+        "crosses": 1,
+        "coverage": {
+          "covered": 3,
+          "uncovered": 5,
+          "total": 8
+        }
+      },
+      "items": []
+    }
+  ]
+}

@@ -1,17 +1,20 @@
 # Contributing
 
-Thanks for your interest in contributing!
+Thanks for contributing to VVM.
 
 ## Requirements
 
-- Rust 1.87.0 or newer.
+- Rust `1.87.0` or the current stable Rust toolchain.
 - Cargo.
 - Verilator.
-- A working Linux C++ toolchain.
+- A Linux C++ toolchain.
+
+Ordinary native models use a C++17-capable compiler. Timing-enabled models
+additionally require a C++20 compiler with coroutine support.
 
 ## First-Time Setup
 
-nstall just if needed:
+Install `just` if needed:
 
 ```bash
 cargo install just
@@ -23,51 +26,105 @@ Then run the bootstrap recipe from the repository root:
 just init
 ```
 
-The bootstrap installs or checks the tools used by the project gates:
+`just init` installs or checks the tools used by repository validation,
+including nightly `rustfmt`, `cargo-nextest`, `cargo-llvm-cov`,
+`cargo-udeps`, `cargo-audit`, `cargo-public-api`, `mdbook`, Markdown TOC,
+and pre-commit hooks.
 
-- nightly Rust
-- cargo-binstall
-- cargo-nextest
-- cargo-llvm-cov
-- cargo-udeps
-- cargo-audit
-- mdbook
-- global markdown-toc
-- pre-commit hooks
+The `justfile` uses `dotenv-load := true`, so recipes automatically load a
+local `.env` file when one exists.
 
-The justfile has set dotenv-load := true, so recipes automatically load a local .env file when one exists.
+## Workflow
+
+Use Backlog.md for non-trivial work.
+
+- Search for an existing task before creating a new one.
+- Create or update a task when the work requires planning or design choices.
+- Keep the implementation plan, notes, validation evidence, and final summary in
+  the Backlog task.
+- Use normal repository edits only for code and docs; do not hand-edit Backlog
+  markdown files.
+
+Prefer `just` recipes over ad hoc commands whenever a recipe exists.
 
 ## Common Commands
 
 | Command | Scope |
 | --- | --- |
-| `just fmt` | applies formatting to rust sources |
-| `just fmt --check` | checks formatting |
-| `just check` | clippy across the workspace |
-| `just thorough-check` | checks formatting, audit, unused deps and more |
-| `just test-all` | full test matrix |
-| `just test-*` | focused test target |
-| `just test-cov` | full test matrix with coverage report |
-| `just docs` | assemble full docs book |
-| `just docs-serve` | builds and locally serves full docs book |
-| `just ci` | full repository gate |
+| `just fmt` | format Rust sources |
+| `just fmt --check` | verify formatting without edits |
+| `just check -- -D warnings` | run workspace Clippy with warnings denied |
+| `just test-fast` | pure-Rust unit, integration, UI, and fixture coverage |
+| `just test-native` | Verilator-backed tests, native fixtures, and examples |
+| `just test-e2e` | release-facing example and coverage workflows |
+| `just test-package` | packaged-crate and packaged-consumer validation |
+| `just ci` | repository CI-equivalent validation |
+| `just docs` | assemble the published documentation site |
+| `just api-diff` | compare the current public API against `docs/dev/api/0.2.0` |
 
-For the full list of available just recipes run `just list` or `just help`.
+Run `just --list` for the full recipe list.
 
-Prefer `just` recipes over ad hoc Cargo commands whenever a recipe exists.
+## Validation Expectations
 
-## CI Gate
+Match validation depth to the change.
 
-`just ci` runs:
+- Run the smallest focused test or fixture that proves the contract you changed.
+- Run `just fmt` or `just fmt --check` before finalizing Rust changes.
+- Run `just check -- -D warnings` for implementation changes.
+- Run `just docs` or at least `mdbook build docs/book` for book-content changes.
+- Run `just test-package` for package metadata, package layout, packaged fixtures,
+  or release-facing workflow changes.
+- Run `just ci` before merging broad or release-facing work when feasible.
 
-1. `just thorough-check`
-2. `just test-all`
-3. `just doctest`
-4. `just test-cov-ci`
+Do not suppress lint failures to make the gate pass. Fix the implementation.
+
+## Testing Layers
+
+The repository deliberately separates validation into layers.
+
+- Unit tests cover private invariants.
+- Public crate integration tests cover supported facade and tooling contracts.
+- Macro UI tests cover compile-time diagnostics.
+- Fixture workspaces cover isolated consumer scenarios.
+- Native fixtures cover generated-wrapper regressions and public DUT contracts.
+- Examples act as both documentation and maintained end-to-end workflows.
+
+Use the lowest layer that proves the behavior you changed.
+
+## Documentation Expectations
+
+- Keep public docs, crate READMEs, and rustdoc aligned with actual behavior.
+- Follow `docs/dev/rustdoc_style.md` for rustdoc changes.
+- Keep the compatibility matrix truthful. Do not expand platform, toolchain, or
+  version claims without adding validation coverage.
+- Update `CHANGELOG.md` for user-visible behavior, workflow, compatibility, or
+  documentation changes that matter to downstream users or maintainers.
+
+## Package Validation Expectations
+
+Release-facing changes must preserve the publication shape.
+
+- Keep publishable crate metadata, READMEs, and included support files accurate.
+- Validate package archives with `just test-package`.
+- When changing packaged resources, confirm extracted crate contents still build
+  and the packaged consumer workflows still pass.
+- Do not add workspace-only assumptions to publishable crates.
+
+## Public API Review Expectations
+
+The `v0.2.0` release line treats `docs/dev/api/0.2.0` as the accepted public API
+baseline.
+
+- Run `just api-diff` when changing public Rust APIs.
+- Review `docs/dev/public-api.md` before adding exports or changing canonical
+  module paths.
+- Treat `vvm::__private` as unsupported generated-source ABI, not as user API.
+- If a breaking public change is intentional, document it in the changelog and
+  update the accepted baseline only after review.
 
 ## Pre-Commit Hooks
 
-Install hooks with:
+Install hooks with either:
 
 ```bash
 just install-hooks
@@ -81,131 +138,121 @@ pre-commit install
 
 The configured hooks run these project-specific checks:
 
-| Changed Files | Hook Behavior |
+| Changed files | Hook behavior |
 | --- | --- |
-| `*.rs`, `*.toml`, or `justfile` outside bundled templates | Runs `just ci`. |
+| `*.rs`, `*.toml`, or `justfile` | Runs `just ci`. |
 | `README.md` | Runs `just index`, which rewrites the README table of contents. |
 | Commit messages | Checks Conventional Commits format. |
-
-The hook config also includes standard whitespace, end-of-file, TOML, JSON, YAML, and large
-file checks.
 
 ## Commit Messages
 
 Commit messages are checked by the `conventional-commit-check` hook. Use
-Conventional Commits-style messages, such as:
+Conventional Commits-style messages such as:
 
 ```text
 docs(macro): documented Sample derive macro
-fix(build): reject invalid verilator configuration
+fix(build): DutBuilder now rejects invalid verilator configuration
 test: added public API integration tests
 maint: cleaned up superfluous just recipes
 ```
 
-## Documentation
-
-Build full doc suite before submitting changes:
-
-```bash
-just docs
-```
-
-Check built docs with local serve:
-```bash
-just docs-serve
-```
-
-When adding or rewriting Rustdoc, follow the repository rustdoc style guidance in `docs/dev/rustdoc_style.md`
-and keep the strict missing-doc lint policy intact.
-
-## Testing
-
-The repository testing policy is intentionally layered and enforced through the
-`just` command surface.
-
-At a high level, the repository separates:
-
-- unit tests for private invariants;
-- public crate integration tests;
-- macro compile-time tests;
-- fixture workspaces for isolated consumer scenarios;
-- curated examples for end-to-end public workflows;
-- native fixtures for generated-port regressions.
-
-Use the lowest layer that proves the contract you changed.
-
-## Examples
-
-The curated examples are product documentation and regression targets at the same
-time. They should stay readable, source-backed, and aligned with the public API.
-
-Treat curated examples as product documentation and keep them aligned with the
-published example ladder and example chapters.
-
 ## Benchmarking
-
-Benchmark commands live in the `justfile` and route through Criterion only.
-
-Useful commands:
-
-- `just benchmark`
-- `just benchmark-save-baseline local`
-- `just benchmark-compare-baseline local`
-- `just benchmark-target vvm-core packed`
-
-Use the save-before-change and compare-after-change workflow for performance work:
-
-```bash
-just benchmark-save-baseline before-feature
-
-# implement the feature or optimization
-
-just benchmark-compare-baseline before-feature
-```
 
 Benchmarks are local-only developer tools.
 
-- Criterion stores local data and baselines under `target/criterion`.
-- Baselines are machine-specific and should not be compared casually across
-  unrelated systems.
-- `just ci`, GitLab CI, and pre-commit hooks do not run benchmarks.
+- Use `just benchmark`, `just benchmark-save-baseline <name>`,
+  `just benchmark-compare-baseline <name>`, and focused `just benchmark-target`
+  runs.
+- Criterion baselines live under `target/criterion` and are machine-specific.
+- Benchmarks do not run in `just ci`, pre-commit hooks, or GitLab CI.
 
-Benchmarks are for performance investigation, not for proving correctness.
+## Reporting Defects
 
-## Releases
+Include the most relevant environment details when reporting an issue:
 
-Release-facing work in this repository includes:
+- operating system;
+- Rust version;
+- Verilator version;
+- compiler used for native builds;
+- reproduction steps, logs, and minimal examples when possible.
 
-- keeping package metadata aligned;
-- preserving useful package READMEs for crates.io;
-- validating package archives with `just test-package`;
-- keeping documentation, examples, and compatibility claims consistent;
-- updating `CHANGELOG.md`.
+## Maintainer Release Workflow
 
-## Compatibility
+### Release boundaries
 
-Contributor-facing compatibility work means keeping the documented support claims
-aligned with CI evidence. Do not change MSRV, Verilator support, or platform
-claims casually.
+- The intended publishable set is `vvm-core`, `vvm-macros`, `vvm-build`,
+  `vvm-rs`, and `cargo-vvm`.
+- Publish in dependency order: `vvm-core`, `vvm-macros`, `vvm-build`, `vvm-rs`,
+  then `cargo-vvm`.
 
-If a compatibility claim changes, update the relevant CI coverage and the public
-compatibility documentation together.
+### Development-version progression
 
-## Repo layout
+- Keep ordinary development off the exact published release commit.
+- Before publishing, ensure every publishable crate version, internal dependency
+  version, and release tag agree.
+- After a final release, move the default branch to the next unreleased
+  development version before resuming normal feature work.
 
-- Protected branches: `master`, `dev`
-- We're brancing out of `dev`.
-- `master` contains stable releases only.
+### Dry-run validation before publishing
 
-## Reporting issues
-- Include OS, Rust version, Verilator version, compiler used and reproduction steps.
-- Provide logs or minimal examples when possible.
+Run the release-facing validation before any production publish attempt:
+
+```bash
+just ci
+just test-package
+mdbook build docs/book
+cargo package --list -p vvm-core
+cargo package --list -p vvm-macros
+cargo package --list -p vvm-build
+cargo package --list -p vvm-rs
+cargo package --list -p cargo-vvm
+cargo publish --dry-run -p vvm-core
+cargo publish --dry-run -p vvm-macros
+cargo publish --dry-run -p vvm-build
+cargo publish --dry-run -p vvm-rs
+cargo publish --dry-run -p cargo-vvm
+```
+
+Review package file lists manually before publishing.
+
+### Protected credentials
+
+- Production crates.io publication requires a protected `CARGO_REGISTRY_TOKEN`.
+- Any GitLab token used for release tags, release objects, or protected manual
+  publish jobs must also be protected and restricted to the intended release
+  refs.
+- Never expose production credentials to branch pipelines, merge requests, or
+  unprotected tags.
+
+### Publication sequence
+
+1. Finalize the changelog and contributor-facing release notes.
+2. Re-run the dry-run validation.
+3. Publish crates in dependency order.
+4. Wait for each crates.io upload to become available before publishing the next
+   dependent crate.
+5. Create the release tag only for the exact reviewed release commit.
+6. Create the GitLab release and publish the matching documentation outputs.
+
+### Partial-publication recovery
+
+- If publication fails before any crate is uploaded, fix the issue and retry the
+  same version only after re-running dry-run validation.
+- If some crates are already published, do not try to overwrite them.
+- Bump the unpublished crates to a new version, update internal dependency
+  versions, and repeat the dry-run flow from the first unpublished dependency.
+- Record the partial-publication state and the recovery plan in Backlog before
+  continuing.
+
+### Yanking policy
+
+- Yank only when a published crate is materially broken or unsafe for normal
+  consumption.
+- Do not use yanks as a substitute for ordinary release correction.
+- When yanking, document the reason in Backlog and in the next changelog entry,
+  then publish the corrective follow-up release.
 
 ## License
-Any contribution intentionally submitted
-for inclusion in the work by you shall be dual licensed under the Apache-2.0 and
-MIT license, without any additional terms or conditions.
 
-[LICENSE-APACHE]: ./LICENSE-APACHE
-[LICENSE-MIT]: ./LICENSE-MIT
-
+Any contribution intentionally submitted for inclusion in this work shall be
+dual licensed under Apache-2.0 and MIT, without additional terms or conditions.

@@ -6,7 +6,28 @@ The format is based on [Keep a Changelog], and this project adheres to [Semantic
 
 ## [Unreleased]
 
-- Upcoming release line: `v0.2.0`
+Upcoming release line: `v0.2.0`
+
+### Added
+
+- A complete mdBook-based user guide, API guide, development guide, and examples path covering project setup, timing-enabled models, bidirectional ports, functional coverage, troubleshooting, and maintained example workflows.
+- New maintained example crates for synchronous FIFO, timed UART, asynchronous FIFO, and tri-state bus verification alongside the original counter example.
+- Functional-coverage persistence, deterministic merge/report support, and the publishable `cargo-vvm` Cargo subcommand for suite-level coverage workflows.
+- Native generated-port regression fixtures covering signed values, wide ports, arrays, packed structs and enums, timing-enabled DUTs, and multi-clock DUTs.
+- Packaged-consumer and packaged-installation validation proving released crate shapes work outside the workspace.
+- An explicit compatibility matrix and accepted `v0.2.0` API baseline for the release line.
+
+### Changed
+
+- The public facade was reorganized around canonical modules instead of the earlier flatter export surface, and the reviewed `v0.2.0` API is now treated as the supported baseline for `0.2.x` patch releases.
+- Native support claims are now explicitly Linux-only for the `v0.2.0` cycle, with Rust 1.87.0 plus current stable Rust, Verilator 5.000 minimum, Verilator 5.050 current validation, GCC-based native CI, and Linux Clang native-fixture validation documented as the tested matrix.
+- Timing-enabled generated builds now document the actual native requirement: ordinary DUTs use C++17 while timing-enabled DUTs require a C++20 compiler with coroutine support.
+- Contributor and maintainer documentation now covers Backlog workflow, release-facing validation, package verification, changelog expectations, and public API review against the checked-in `v0.2.0` baseline.
+
+### Fixed
+
+- Package metadata, included support files, and extracted crate layouts now hold up under `cargo package`, `cargo publish --dry-run`, and packaged consumer validation instead of depending on workspace-only assumptions.
+- Public coverage schema documentation now matches the implemented deterministic merge behavior and fingerprint-based compatibility checks.
 
 ## [0.1.0-alpha.1] - 2026-07-03
 

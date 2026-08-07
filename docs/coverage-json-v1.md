@@ -79,7 +79,9 @@ or the group instance path. It also does not include matcher operand values or
 inclusive-range bounds: schema v1 persists matcher shape, not matcher values.
 Therefore a matching v1 fingerprint is not proof that two independently built
 coverage definitions have identical matcher values, and it is not a merge
-compatibility guarantee. Deterministic artifact merging is not implemented.
+compatibility guarantee by itself. Deterministic artifact merging is
+implemented, but merge admission still depends on schema support plus compatible
+reviewed fingerprints.
 
 ## Writing
 

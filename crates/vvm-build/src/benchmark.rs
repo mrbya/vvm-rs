@@ -183,6 +183,11 @@ mod tests {
 
         let summary = FixtureBench::generate("counter", output.path());
 
+        assert!(
+            summary.is_ok(),
+            "unexpected generation failure: {summary:?}"
+        );
+
         assert_eq!(summary.as_ref().ok().map(|item| item.file_count()), Some(4));
         assert!(
             summary

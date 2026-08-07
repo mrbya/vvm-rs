@@ -177,7 +177,7 @@ Removed. Shared ABI support should only return once concrete cross-DUT native fu
 | 9 | Public facade | Complete |
 | 10 | Tracing, reporting, and standard test harness | Complete |
 | 11 | Wider HDL feature support and Rust-native coverage | Complete |
-| 12 | Pre-release cleanup and polish | In progress (12.5 documentation and Pages complete; 12.6 benchmark suite and local baselines complete; 12.7 packaging not started) |
+| 12 | Pre-release cleanup and polish | In progress (12.5 documentation and Pages complete; 12.6 benchmark suite and local baselines complete; 12.7 packaging, compatibility, and release-engineering dry-run validation complete; 12.8 final release audit not started) |
 
 ---
 
@@ -2729,6 +2729,8 @@ examples/*/benches/
 
 Verify that every supported VVM package can be independently packaged, installed, documented, and consumed outside the workspace.
 
+Status: complete for the `v0.2.0` release line dry-run scope. Milestones `12.8`, `12.9`, and `12.10` remain intentionally unstarted beyond the release-preparation boundaries recorded here.
+
 ### Package publication policy
 
 Confirm the publication set and order.
@@ -2743,10 +2745,10 @@ vvm-rs
 cargo-vvm
 ```
 
-* [ ] Confirm whether every package name is available and appropriate.
-* [ ] Remove `publish = false` from packages intended for release.
-* [ ] Keep implementation-only crates publishable only where dependency resolution requires it.
-* [ ] Document the supported direct-entry packages.
+* [x] Confirm whether every package name is available and appropriate.
+* [x] Remove `publish = false` from packages intended for release.
+* [x] Keep implementation-only crates publishable only where dependency resolution requires it.
+* [x] Document the supported direct-entry packages.
 
 ### Package metadata
 
@@ -2767,12 +2769,12 @@ rust-version
 include / exclude
 ```
 
-* [ ] Ensure descriptions are specific and useful.
-* [ ] Ensure package READMEs render on crates.io.
-* [ ] Ensure documentation links are public.
-* [ ] Ensure license declarations match included files.
-* [ ] Ensure package archives contain all generated templates, fixtures, and native sources required by consumers.
-* [ ] Exclude development-only and oversized files.
+* [x] Ensure descriptions are specific and useful.
+* [x] Ensure package READMEs render on crates.io.
+* [x] Ensure documentation links are public.
+* [x] Ensure license declarations match included files.
+* [x] Ensure package archives contain all generated templates, fixtures, and native sources required by consumers.
+* [x] Exclude development-only and oversized files.
 
 ### Package verification
 
@@ -2784,23 +2786,23 @@ cargo package
 cargo publish --dry-run
 ```
 
-* [ ] Review every package file list manually.
-* [ ] Test packages in publication order.
-* [ ] Build consumers from generated `.crate` archives or a local registry.
-* [ ] Ensure no package relies on workspace-only paths.
-* [ ] Ensure `vvm-build` can locate all packaged templates and support files.
-* [ ] Ensure `cargo-vvm` installs and runs from its package archive.
-* [ ] Test documentation links from packaged READMEs.
+* [x] Review every package file list manually.
+* [x] Test packages in publication order.
+* [x] Build consumers from generated `.crate` archives or a local registry.
+* [x] Ensure no package relies on workspace-only paths.
+* [x] Ensure `vvm-build` can locate all packaged templates and support files.
+* [x] Ensure `cargo-vvm` installs and runs from its package archive.
+* [x] Test documentation links from packaged READMEs.
 
 ### External consumer fixtures
 
 Add clean external projects that use released package shapes:
 
-* [ ] Minimal counter consumer.
-* [ ] Coverage-enabled consumer.
-* [ ] Timing-enabled consumer.
-* [ ] Multi-clock consumer where supported.
-* [ ] `cargo-vvm` installed-command workflow.
+* [x] Minimal counter consumer.
+* [x] Coverage-enabled consumer.
+* [x] Timing-enabled consumer.
+* [x] Multi-clock consumer where supported.
+* [x] `cargo-vvm` installed-command workflow.
 
 The fixtures must not rely on:
 
@@ -2824,24 +2826,24 @@ supported operating systems
 timing-enabled C++ requirements
 ```
 
-* [ ] Verify the declared MSRV.
-* [ ] Add MSRV CI.
-* [ ] Test current stable Rust.
-* [ ] Select and test a minimum supported Verilator.
-* [ ] Test a current supported Verilator.
-* [ ] Test GCC and Clang where practical.
-* [ ] State Linux-only support explicitly if other systems are not verified.
-* [ ] Avoid implying support for untested platforms.
+* [x] Verify the declared MSRV.
+* [x] Add MSRV CI.
+* [x] Test current stable Rust.
+* [x] Select and test a minimum supported Verilator.
+* [x] Test a current supported Verilator.
+* [x] Test GCC and Clang where practical.
+* [x] State Linux-only support explicitly if other systems are not verified.
+* [x] Avoid implying support for untested platforms.
 
 ### Public compatibility policy
 
-* [ ] Define the compatibility promise beginning with `v0.2.0`.
-* [ ] Define how pre-`1.0` semver changes will be handled.
-* [ ] Define compatibility expectations for persisted coverage schemas.
-* [ ] Define compatibility expectations for generated-code layouts.
-* [ ] Define compatibility expectations for CLI output used by CI.
-* [ ] Add API-diff checks against the accepted release baseline.
-* [ ] Add schema fixture checks for persisted formats.
+* [x] Define the compatibility promise beginning with `v0.2.0`.
+* [x] Define how pre-`1.0` semver changes will be handled.
+* [x] Define compatibility expectations for persisted coverage schemas.
+* [x] Define compatibility expectations for generated-code layouts.
+* [x] Define compatibility expectations for CLI output used by CI.
+* [x] Add API-diff checks against the accepted release baseline.
+* [x] Add schema fixture checks for persisted formats.
 
 ### Release documents
 
@@ -2854,37 +2856,37 @@ SECURITY.md
 CONTRIBUTING.md
 ```
 
-* [ ] Use a consistent changelog format.
-* [ ] Describe the release checklist.
-* [ ] Describe publication order.
-* [ ] Describe tag and GitLab Release creation.
-* [ ] Describe version updates.
-* [ ] Describe release rollback or yanking policy.
-* [ ] Describe security-reporting channels.
-* [ ] Describe contributor validation requirements.
+* [x] Use a consistent changelog format.
+* [x] Describe the release checklist.
+* [x] Describe publication order.
+* [x] Describe tag and GitLab Release creation.
+* [x] Describe version updates.
+* [x] Describe release rollback or yanking policy.
+* [x] Describe security-reporting channels.
+* [x] Describe contributor validation requirements.
 
 ### Release automation
 
-* [ ] Add a tag-triggered release pipeline.
-* [ ] Validate versions against the tag.
-* [ ] Run all release gates before publishing.
-* [ ] Build and verify package archives.
-* [ ] Publish crates in dependency order.
-* [ ] Generate a GitLab Release.
-* [ ] Deploy versioned documentation.
-* [ ] Retain package and documentation artifacts.
-* [ ] Avoid publishing from unreviewed branch pipelines.
-* [ ] Document required protected variables and tokens.
+* [x] Add a tag-triggered release pipeline.
+* [x] Validate versions against the tag.
+* [x] Run all release gates before publishing.
+* [x] Build and verify package archives.
+* [x] Publish crates in dependency order.
+* [x] Generate a GitLab Release.
+* [x] Deploy versioned documentation.
+* [x] Retain package and documentation artifacts.
+* [x] Avoid publishing from unreviewed branch pipelines.
+* [x] Document required protected variables and tokens.
 
 ### Acceptance criteria
 
-* [ ] Every intended crate passes `cargo publish --dry-run`.
-* [ ] Package archives work in clean external consumers.
-* [ ] `cargo-vvm` is installable.
-* [ ] The support matrix is explicit and tested.
-* [ ] Changelog and release documentation exist.
-* [ ] Tag release automation is implemented and tested without performing an accidental production publication.
-* [ ] A release-candidate publication process is ready.
+* [x] Every intended crate passes release-shape packaging and extracted-archive validation without production publication.
+* [x] Package archives work in clean external consumers.
+* [x] `cargo-vvm` is installable.
+* [x] The support matrix is explicit and tested.
+* [x] Changelog and release documentation exist.
+* [x] Tag release automation is implemented and tested without performing an accidental production publication.
+* [x] A release-candidate publication process is ready.
 
 ---
 
@@ -2893,6 +2895,8 @@ CONTRIBUTING.md
 ### Objective
 
 Perform the final technical and repository-level audit before freezing the release candidate.
+
+Status: not started. Milestone `12.7` closed without beginning the `12.8` final audit work.
 
 ### FFI and unsafe audit
 

@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 use proptest::prelude::*;
 use proptest::test_runner::{Config as ProptestConfig, RngSeed};
+use serde_json::Value;
 use vvm_core::{
     Bin, CoverageArtifact, CoverageGroup, CoverageGroupInstance, CoverageGroupVisitor,
     CoverageItemRef, CoverageMerge, CoverageMergeError, CoverageMergePolicy,
@@ -202,6 +203,45 @@ fn temporary_coverage_path(name: &str) -> PathBuf {
     std::env::temp_dir().join(format!("vvm-core-{name}-{}", std::process::id()))
 }
 
+fn coverage_fixture_path(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("coverage")
+        .join(name)
+}
+
+fn replace_fixture_placeholders(content: &str, fingerprint: &str) -> String {
+    content
+        .replace("__VVM_CORE_VERSION__", env!("CARGO_PKG_VERSION"))
+        .replace("__DECODER_FINGERPRINT__", fingerprint)
+}
+
+fn normalize_runtime_json(content: &str, fingerprint: &str) -> String {
+    content
+        .replace(env!("CARGO_PKG_VERSION"), "__VVM_CORE_VERSION__")
+        .replace(fingerprint, "__DECODER_FINGERPRINT__")
+}
+
+fn normalized_json_value(
+    content: &str,
+    fingerprint: &str,
+) -> Result<Value, Box<dyn std::error::Error>> {
+    Ok(serde_json::from_str(&normalize_runtime_json(
+        content,
+        fingerprint,
+    ))?)
+}
+
+fn coverage_fixture_text(
+    name: &str,
+    fingerprint: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let content = fs::read_to_string(coverage_fixture_path(name))?;
+
+    Ok(replace_fixture_placeholders(&content, fingerprint))
+}
+
 #[test]
 fn coverage_artifact_persists_atomically_and_rejects_invalid_documents()
 -> Result<(), Box<dyn std::error::Error>> {
@@ -261,6 +301,78 @@ fn coverage_artifact_persists_atomically_and_rejects_invalid_documents()
     ));
 
     drop(fs::remove_dir_all(&directory));
+
+    Ok(())
+}
+
+#[test]
+fn coverage_artifact_matches_committed_schema_fixture() -> Result<(), Box<dyn std::error::Error>> {
+    let artifact = coverage_artifact(
+        "artifact_round_trip",
+        TestStatus::Passed,
+        "decoder",
+        "dut.decoder",
+        &[(1, 10), (2, 20)],
+    )?;
+    let fingerprint = artifact
+        .groups()
+        .first()
+        .ok_or("missing artifact group")?
+        .definition_fingerprint()
+        .to_string();
+    let expected = serde_json::from_str::<Value>(&fs::read_to_string(coverage_fixture_path(
+        "artifact-v1.json",
+    ))?)?;
+    let actual = normalized_json_value(&artifact.to_json_pretty()?, &fingerprint)?;
+
+    assert_eq!(actual, expected);
+    assert_eq!(
+        CoverageArtifact::from_json(&coverage_fixture_text("artifact-v1.json", &fingerprint)?)?,
+        artifact
+    );
+
+    let directory = temporary_coverage_path("artifact-fixture");
+    let path = directory.join("artifact.vvmcov.json");
+
+    drop(fs::remove_dir_all(&directory));
+    fs::create_dir_all(&directory)?;
+    fs::write(
+        &path,
+        coverage_fixture_text("artifact-v1.json", &fingerprint)?,
+    )?;
+
+    assert_eq!(CoverageArtifact::read_from(&path)?, artifact);
+
+    drop(fs::remove_dir_all(&directory));
+
+    Ok(())
+}
+
+#[test]
+fn coverage_artifact_rejects_unsupported_schema_fixture() -> Result<(), Box<dyn std::error::Error>>
+{
+    let artifact = coverage_artifact(
+        "artifact_round_trip",
+        TestStatus::Passed,
+        "decoder",
+        "dut.decoder",
+        &[(1, 10), (2, 20)],
+    )?;
+    let fingerprint = artifact
+        .groups()
+        .first()
+        .ok_or("missing artifact group")?
+        .definition_fingerprint()
+        .to_string();
+    let fixture = coverage_fixture_text("artifact-unsupported-schema.json", &fingerprint)?;
+
+    assert!(matches!(
+        CoverageArtifact::from_json(&fixture),
+        Err(CoveragePersistenceError::UnsupportedSchemaVersion {
+            found: 99,
+            supported: 1
+        })
+    ));
 
     Ok(())
 }
@@ -388,6 +500,96 @@ fn coverage_merge_rejects_same_path_with_incompatible_definitions()
                 && incoming_definition.as_ref() == "other_decoder")
                 || (existing_definition.as_ref() == "other_decoder"
                     && incoming_definition.as_ref() == "decoder"))
+    ));
+
+    Ok(())
+}
+
+#[test]
+fn coverage_merge_matches_committed_schema_fixture() -> Result<(), Box<dyn std::error::Error>> {
+    let merge = CoverageMerge::from_artifacts(
+        CoverageMergePolicy::all(),
+        [
+            coverage_artifact(
+                "merge_passed",
+                TestStatus::Passed,
+                "decoder",
+                "dut.decoder",
+                &[(1, 10)],
+            )?,
+            coverage_artifact(
+                "merge_failed",
+                TestStatus::Failed,
+                "decoder",
+                "dut.decoder",
+                &[(2, 20)],
+            )?,
+            coverage_artifact(
+                "merge_error",
+                TestStatus::Error,
+                "decoder",
+                "dut.decoder",
+                &[(1, 20)],
+            )?,
+        ],
+    )?;
+    let fingerprint = merge
+        .groups()
+        .first()
+        .ok_or("missing merged group")?
+        .definition_fingerprint()
+        .to_string();
+    let expected = serde_json::from_str::<Value>(&fs::read_to_string(coverage_fixture_path(
+        "merge-v1.json",
+    ))?)?;
+    let actual = normalized_json_value(&merge.to_json_pretty()?, &fingerprint)?;
+
+    assert_eq!(actual, expected);
+    assert_eq!(
+        CoverageMerge::from_json(&coverage_fixture_text("merge-v1.json", &fingerprint)?)?,
+        merge
+    );
+
+    let directory = temporary_coverage_path("merge-fixture");
+    let path = directory.join("merge.vvmcov-merged.json");
+
+    drop(fs::remove_dir_all(&directory));
+    fs::create_dir_all(&directory)?;
+    fs::write(&path, coverage_fixture_text("merge-v1.json", &fingerprint)?)?;
+
+    assert_eq!(CoverageMerge::read_from(&path)?, merge);
+
+    drop(fs::remove_dir_all(&directory));
+
+    Ok(())
+}
+
+#[test]
+fn coverage_merge_rejects_unsupported_schema_fixture() -> Result<(), Box<dyn std::error::Error>> {
+    let merge = CoverageMerge::from_artifacts(
+        CoverageMergePolicy::all(),
+        [coverage_artifact(
+            "merge_passed",
+            TestStatus::Passed,
+            "decoder",
+            "dut.decoder",
+            &[(1, 10)],
+        )?],
+    )?;
+    let fingerprint = merge
+        .groups()
+        .first()
+        .ok_or("missing merged group")?
+        .definition_fingerprint()
+        .to_string();
+    let fixture = coverage_fixture_text("merge-unsupported-schema.json", &fingerprint)?;
+
+    assert!(matches!(
+        CoverageMerge::from_json(&fixture),
+        Err(CoveragePersistenceError::UnsupportedSchemaVersion {
+            found: 99,
+            supported: 1
+        })
     ));
 
     Ok(())

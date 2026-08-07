@@ -1,0 +1,235 @@
+{
+  "format": "vvm-functional-coverage-merge",
+  "schema_version": 1,
+  "producer": {
+    "name": "vvm-rs",
+    "version": "__VVM_CORE_VERSION__"
+  },
+  "policy": "all",
+  "inputs": [
+    {
+      "producer_version": "__VVM_CORE_VERSION__",
+      "test": {
+        "name": "merge_error",
+        "status": "error",
+        "replay_token": null
+      },
+      "included": true,
+      "summary": {
+        "groups": 1,
+        "items": 3,
+        "coverpoints": 2,
+        "crosses": 1,
+        "coverage": {
+          "covered": 3,
+          "uncovered": 5,
+          "total": 8
+        }
+      }
+    },
+    {
+      "producer_version": "__VVM_CORE_VERSION__",
+      "test": {
+        "name": "merge_failed",
+        "status": "failed",
+        "replay_token": null
+      },
+      "included": true,
+      "summary": {
+        "groups": 1,
+        "items": 3,
+        "coverpoints": 2,
+        "crosses": 1,
+        "coverage": {
+          "covered": 3,
+          "uncovered": 5,
+          "total": 8
+        }
+      }
+    },
+    {
+      "producer_version": "__VVM_CORE_VERSION__",
+      "test": {
+        "name": "merge_passed",
+        "status": "passed",
+        "replay_token": null
+      },
+      "included": true,
+      "summary": {
+        "groups": 1,
+        "items": 3,
+        "coverpoints": 2,
+        "crosses": 1,
+        "coverage": {
+          "covered": 3,
+          "uncovered": 5,
+          "total": 8
+        }
+      }
+    }
+  ],
+  "summary": {
+    "artifacts": 3,
+    "included_artifacts": 3,
+    "excluded_artifacts": 0,
+    "passed_artifacts": 1,
+    "failed_artifacts": 1,
+    "errored_artifacts": 1,
+    "groups": 1,
+    "items": 3,
+    "coverpoints": 2,
+    "crosses": 1,
+    "coverage": {
+      "covered": 7,
+      "uncovered": 1,
+      "total": 8
+    }
+  },
+  "groups": [
+    {
+      "definition": {
+        "name": "decoder",
+        "revision": 0,
+        "fingerprint": "__DECODER_FINGERPRINT__"
+      },
+      "instance_path": "dut.decoder",
+      "summary": {
+        "items": 3,
+        "coverpoints": 2,
+        "crosses": 1,
+        "coverage": {
+          "covered": 7,
+          "uncovered": 1,
+          "total": 8
+        }
+      },
+      "items": [
+        {
+          "kind": "coverpoint",
+          "name": "left",
+          "samples": 3,
+          "ignored_samples": 0,
+          "illegal_samples": 0,
+          "unmatched_samples": 0,
+          "coverage": {
+            "covered": 2,
+            "uncovered": 0,
+            "total": 2
+          },
+          "bins": [
+            {
+              "id": 0,
+              "name": "one",
+              "kind": "normal",
+              "matcher": {
+                "kind": "value",
+                "operand_count": 1
+              },
+              "hits": 2,
+              "required_hits": 1
+            },
+            {
+              "id": 1,
+              "name": "two",
+              "kind": "normal",
+              "matcher": {
+                "kind": "value",
+                "operand_count": 1
+              },
+              "hits": 1,
+              "required_hits": 1
+            }
+          ]
+        },
+        {
+          "kind": "coverpoint",
+          "name": "right",
+          "samples": 3,
+          "ignored_samples": 0,
+          "illegal_samples": 0,
+          "unmatched_samples": 0,
+          "coverage": {
+            "covered": 2,
+            "uncovered": 0,
+            "total": 2
+          },
+          "bins": [
+            {
+              "id": 0,
+              "name": "ten",
+              "kind": "normal",
+              "matcher": {
+                "kind": "value",
+                "operand_count": 1
+              },
+              "hits": 1,
+              "required_hits": 1
+            },
+            {
+              "id": 1,
+              "name": "twenty",
+              "kind": "normal",
+              "matcher": {
+                "kind": "value",
+                "operand_count": 1
+              },
+              "hits": 2,
+              "required_hits": 1
+            }
+          ]
+        },
+        {
+          "kind": "cross2",
+          "name": "left_x_right",
+          "left_coverpoint": "left",
+          "right_coverpoint": "right",
+          "samples": 3,
+          "skipped_samples": 0,
+          "coverage": {
+            "covered": 3,
+            "uncovered": 1,
+            "total": 4
+          },
+          "bins": [
+            {
+              "id": 0,
+              "left_bin_id": 0,
+              "left_bin_name": "one",
+              "right_bin_id": 0,
+              "right_bin_name": "ten",
+              "hits": 1,
+              "required_hits": 1
+            },
+            {
+              "id": 1,
+              "left_bin_id": 0,
+              "left_bin_name": "one",
+              "right_bin_id": 1,
+              "right_bin_name": "twenty",
+              "hits": 1,
+              "required_hits": 1
+            },
+            {
+              "id": 2,
+              "left_bin_id": 1,
+              "left_bin_name": "two",
+              "right_bin_id": 0,
+              "right_bin_name": "ten",
+              "hits": 0,
+              "required_hits": 1
+            },
+            {
+              "id": 3,
+              "left_bin_id": 1,
+              "left_bin_name": "two",
+              "right_bin_id": 1,
+              "right_bin_name": "twenty",
+              "hits": 1,
+              "required_hits": 1
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

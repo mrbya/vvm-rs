@@ -1,0 +1,6 @@
+header:set_core_clk(bool value)
+header:set_peripheral_clk(bool value)
+source:model->core_clk
+bridge:fn set_peripheral_enable(self: Pin<&mut MultiClockCounter>, value: bool);
+wrapper:set_core_clk(
+wrapper:pub fn peripheral_count(&self) -> Result<bool>

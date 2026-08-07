@@ -22,8 +22,8 @@ documented support surface remains intentionally explicit.
 
 VVM is not a four-state simulator, not a UVM replacement, and not a substitute
 for dedicated CDC or metastability tools. Verilator remains the actual HDL
-execution engine, so the common integration path is two-state and Linux-focused
-today.
+execution engine, so the common integration path is two-state and Linux-only for
+the validated `v0.2.0` support matrix.
 
 ## Components
 
@@ -42,9 +42,11 @@ future minor release may still make intentional breaking changes, but the
 Current support notes:
 
 - Rust edition 2024 with MSRV 1.87.0.
-- Native verification is Linux-focused.
+- The current stable Rust toolchain is also validated in CI.
+- Native verification support is Linux-only.
 - Ordinary models use the existing C++17 path.
-- Timing-enabled models additionally require coroutine-capable C++ support.
+- Timing-enabled models additionally require a C++20 compiler with coroutine
+  support.
 - Verilator 5.000 as the minimum supported version and 5.050 as the current
   validated version.
 

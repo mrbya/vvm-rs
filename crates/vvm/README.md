@@ -58,8 +58,10 @@ mod tests {
 
 ## Support Notes
 
-- Rust 1.87.0 or newer
-- Linux-focused native support
+- Rust 1.87.0 and the current stable Rust toolchain
+- Linux-only native support for the `v0.2.0` line
+- Verilator 5.000 minimum, with 5.050 as the current CI-validated image
+- GCC validated in native CI and Clang validated through Linux native fixtures
 - Verilator-backed two-state execution
 - pre-`1.0` API with the `v0.2.0` release-cycle surface frozen
 

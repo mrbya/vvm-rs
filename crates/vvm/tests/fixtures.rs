@@ -446,6 +446,18 @@ fn native_timing_delay_fixture_preserves_generated_port_regression()
 }
 
 #[test]
+fn native_thread_confinement_fixture_rejects_send_and_sync()
+-> Result<(), Box<dyn std::error::Error>> {
+    run_native_compile_fail_fixture(
+        "native-thread-confinement",
+        &[
+            "cannot be sent between threads safely",
+            "cannot be shared between threads safely",
+        ],
+    )
+}
+
+#[test]
 fn native_unpacked_array_fixture_preserves_generated_port_regression()
 -> Result<(), Box<dyn std::error::Error>> {
     run_native_fixture("native-unpacked-array")
@@ -478,6 +490,52 @@ fn run_native_fixture(fixture_name: &str) -> Result<(), Box<dyn std::error::Erro
         .output()?;
 
     assert_command_success(fixture_name, &output)
+}
+
+fn run_native_compile_fail_fixture(
+    fixture_name: &str,
+    expected_fragments: &[&str],
+) -> Result<(), Box<dyn std::error::Error>> {
+    let fixture = workspace_root()?.join("tests/fixtures").join(fixture_name);
+    let temporary_workspace = tempfile::tempdir()?;
+    let consumer_root = temporary_workspace.path().join(fixture_name);
+
+    copy_fixture_tree(&fixture, &consumer_root)?;
+    configure_build_dependencies(&consumer_root)?;
+
+    let target_dir = temporary_workspace.path().join("target");
+    let output = Command::new("cargo")
+        .arg("check")
+        .arg("--tests")
+        .arg("--manifest-path")
+        .arg(consumer_root.join("Cargo.toml"))
+        .env("CARGO_TARGET_DIR", &target_dir)
+        .output()?;
+
+    if output.status.success() {
+        let message = format!(
+            "{fixture_name} unexpectedly compiled\nstdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr),
+        );
+
+        return Err(std::io::Error::other(message).into());
+    }
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    for fragment in expected_fragments {
+        if !stderr.contains(fragment) {
+            let message = format!(
+                "{fixture_name} failed for the wrong reason; missing diagnostic fragment \
+                 `{fragment}`\nstderr:\n{stderr}"
+            );
+
+            return Err(std::io::Error::other(message).into());
+        }
+    }
+
+    Ok(())
 }
 
 fn package_and_extract(

@@ -9,7 +9,7 @@
 
 ## First-Time Setup
 
-nstall just if needed:
+Install `just` if needed:
 
 ```bash
 cargo install just
@@ -29,6 +29,7 @@ The bootstrap installs or checks the tools used by the project gates:
 - cargo-llvm-cov
 - cargo-udeps
 - cargo-audit
+- cargo-deny
 - mdbook
 - global markdown-toc
 - pre-commit hooks
@@ -41,7 +42,9 @@ The justfile has set dotenv-load := true, so recipes automatically load a local 
 | --- | --- |
 | `just fmt` | applies formatting to rust sources |
 | `just fmt --check` | checks formatting |
-| `just check` | clippy across the workspace |
+| `just check -- -D warnings` | clippy across the workspace with warnings denied |
+| `just deny` | advisory, license, ban, and source policy checks |
+| `just repro-check` | focused deterministic and isolated reproducibility checks |
 | `just thorough-check` | checks formatting, audit, unused deps and more |
 | `just test-all` | full test matrix |
 | `just test-*` | focused test target |

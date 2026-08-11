@@ -981,6 +981,9 @@ pub struct PackedEnumPorts {
 
     /// Current logical simulation time.
     time: ::vvm::__private::SimulationTime,
+
+    /// Conservatively binds the generated wrapper to one thread context.
+    thread_bound: ::core::marker::PhantomData<::std::rc::Rc<()>>,
 }
 
 #[allow(dead_code)]
@@ -1006,6 +1009,7 @@ impl PackedEnumPorts {
             inner,
             finished: false,
             time: ::vvm::__private::SimulationTime::ZERO,
+            thread_bound: ::core::marker::PhantomData,
         })
     }
 

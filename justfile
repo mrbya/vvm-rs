@@ -224,9 +224,21 @@ benchmark-target PACKAGE TARGET *FLAGS:
 audit *FLAGS:
     cargo audit {{FLAGS}}
 
+# Checks dependency advisories, licenses, bans, and sources.
+deny *FLAGS:
+    cargo deny check {{FLAGS}}
+
 # Checks for unused dependencies.
 unused *FLAGS:
     cargo +nightly udeps --all-targets --workspace
+
+# Runs focused deterministic and isolated reproducibility checks.
+repro-check:
+    cargo test -p vvm-build --lib generates_deterministic_output
+    cargo test -p vvm-core --lib renderers_and_metric_are_deterministic
+    cargo test -p vvm-rs --test fixtures clean_consumer_generates_and_executes_a_dut -- --exact
+    @just test-package
+    @just docs-test
 
 # Check formatting and linter checks, check for unused dependencies and audits for vulnerabilities.
 thorough-check:
@@ -257,6 +269,10 @@ ci:
 # Runs the dry-run release verification flow and assembles retained artifacts.
 release-verify TAG='':
     bash scripts/release-verify.sh {{TAG}}
+
+# Runs the full pre-RC release audit without publishing.
+release-audit:
+    bash scripts/release-audit.sh
 
 # Publishes the release only when explicitly authorized and tag-aligned.
 release-publish TAG='':
@@ -338,6 +354,7 @@ init:
     echo # things required by thorough-check
     cargo udeps -V || cargo binstall cargo-udeps --no-confirm
     cargo audit -V || cargo binstall cargo-audit --no-confirm
+    cargo deny -V || cargo binstall cargo-deny --no-confirm
     cargo public-api --version || cargo binstall cargo-public-api --no-confirm
     echo # installing markdown-toc
     npm list -g markdown-toc || npm install -g markdown-toc

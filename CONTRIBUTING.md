@@ -28,7 +28,7 @@ just init
 
 `just init` installs or checks the tools used by repository validation,
 including nightly `rustfmt`, `cargo-nextest`, `cargo-llvm-cov`,
-`cargo-udeps`, `cargo-audit`, `cargo-public-api`, `mdbook`, Markdown TOC,
+`cargo-udeps`, `cargo-audit`, `cargo-deny`, `cargo-public-api`, `mdbook`, Markdown TOC,
 and pre-commit hooks.
 
 The `justfile` uses `dotenv-load := true`, so recipes automatically load a
@@ -61,6 +61,9 @@ Prefer `just` recipes over ad hoc commands whenever a recipe exists.
 | `just ci` | repository CI-equivalent validation |
 | `just docs` | assemble the published documentation site |
 | `just api-diff` | compare the current public API against `docs/dev/api/0.2.0` |
+| `just deny` | run dependency advisory, license, ban, and source policy checks |
+| `just repro-check` | run focused deterministic and isolated reproducibility checks |
+| `just release-audit` | run the full pre-RC release audit and retain audit logs |
 
 Run `just --list` for the full recipe list.
 
@@ -71,10 +74,22 @@ Match validation depth to the change.
 - Run the smallest focused test or fixture that proves the contract you changed.
 - Run `just fmt` or `just fmt --check` before finalizing Rust changes.
 - Run `just check -- -D warnings` for implementation changes.
+- Run `just deny` when dependency or release-policy changes affect advisories, licenses, bans, or sources.
+- Run `just repro-check` when codegen, packaging, documentation assembly, or release-facing reproducibility behavior changes.
 - Run `just docs` or at least `mdbook build docs/book` for book-content changes.
 - Run `just test-package` for package metadata, package layout, packaged fixtures,
   or release-facing workflow changes.
 - Run `just ci` before merging broad or release-facing work when feasible.
+
+## FFI And Codegen Expectations
+
+- Treat `docs/dev/ffi-safety-audit.md` as the current inventory of the generated
+  Rust/C++/Verilator boundary.
+- Preserve the generated wrapper ownership, pinning, finalization, trace, and
+  transfer-length invariants when changing codegen or runtime boundary code.
+- Generated DUT wrappers are intentionally thread-confined and are not part of a
+  supported `Send` or `Sync` surface.
+- Do not let a Rust panic or C++ exception cross an unsupported boundary.
 
 Do not suppress lint failures to make the gate pass. Fix the implementation.
 
@@ -198,7 +213,8 @@ Include the most relevant environment details when reporting an issue:
 Run the release-facing validation before any production publish attempt:
 
 ```bash
-just ci
+just release-audit
+just deny
 just test-package
 mdbook build docs/book
 cargo package --list -p vvm-core
@@ -214,6 +230,9 @@ cargo publish --dry-run -p cargo-vvm
 ```
 
 Review package file lists manually before publishing.
+
+The release audit retains tool-version and command logs under
+`target/vvm-release-audit/`.
 
 ### Protected credentials
 

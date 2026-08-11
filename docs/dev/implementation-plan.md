@@ -177,7 +177,7 @@ Removed. Shared ABI support should only return once concrete cross-DUT native fu
 | 9 | Public facade | Complete |
 | 10 | Tracing, reporting, and standard test harness | Complete |
 | 11 | Wider HDL feature support and Rust-native coverage | Complete |
-| 12 | Pre-release cleanup and polish | In progress (12.5 documentation and Pages complete; 12.6 benchmark suite and local baselines complete; 12.7 packaging, compatibility, and release-engineering dry-run validation complete; 12.8 final release audit not started) |
+| 12 | Pre-release cleanup and polish | In progress (12.5 documentation and Pages complete; 12.6 benchmark suite and local baselines complete; 12.7 packaging, compatibility, and release-engineering dry-run validation complete; 12.8 final release audit complete; 12.9 release-candidate publication and dogfooding not started) |
 
 ---
 
@@ -2729,7 +2729,7 @@ examples/*/benches/
 
 Verify that every supported VVM package can be independently packaged, installed, documented, and consumed outside the workspace.
 
-Status: complete for the `v0.2.0` release line dry-run scope. Milestones `12.8`, `12.9`, and `12.10` remain intentionally unstarted beyond the release-preparation boundaries recorded here.
+Status: complete for the `v0.2.0` release line dry-run scope. Milestone `12.8` is the final technical and repository-level audit before release-candidate freeze. Milestones `12.9` and `12.10` remain intentionally unstarted beyond the release-preparation boundaries recorded here.
 
 ### Package publication policy
 
@@ -2847,14 +2847,17 @@ timing-enabled C++ requirements
 
 ### Release documents
 
-Create:
+Maintain:
 
 ```text
 CHANGELOG.md
-RELEASING.md
-SECURITY.md
 CONTRIBUTING.md
 ```
+
+Release procedure, publication order, rollback guidance, and security-reporting
+channels are intentionally consolidated into `CONTRIBUTING.md` for the `v0.2.0`
+line instead of being split into standalone `RELEASING.md` or `SECURITY.md`
+files.
 
 * [x] Use a consistent changelog format.
 * [x] Describe the release checklist.
@@ -2896,73 +2899,73 @@ CONTRIBUTING.md
 
 Perform the final technical and repository-level audit before freezing the release candidate.
 
-Status: not started. Milestone `12.7` closed without beginning the `12.8` final audit work.
+Status: complete. Milestone `12.8` completed the final technical and repository-level audit before `v0.2.0-rc.1` publication work in milestone `12.9`.
 
 ### FFI and unsafe audit
 
 Review:
 
-* [ ] Every handwritten unsafe block.
-* [ ] Every generated unsafe block.
-* [ ] CXX bridge signatures.
-* [ ] DUT ownership and pinning.
-* [ ] Verilator context and model lifetimes.
-* [ ] Finalization and drop ordering.
-* [ ] Trace object lifetime.
-* [ ] Timing-enabled coroutine integration.
-* [ ] Panic behavior across FFI.
-* [ ] C++ exception containment.
-* [ ] Thread confinement.
-* [ ] `Send` and `Sync` behavior.
-* [ ] Aliasing and mutable-reference assumptions.
-* [ ] Inout transfer and buffer-size invariants.
+* [x] Every handwritten unsafe block.
+* [x] Every generated unsafe block.
+* [x] CXX bridge signatures.
+* [x] DUT ownership and pinning.
+* [x] Verilator context and model lifetimes.
+* [x] Finalization and drop ordering.
+* [x] Trace object lifetime.
+* [x] Timing-enabled coroutine integration.
+* [x] Panic behavior across FFI.
+* [x] C++ exception containment.
+* [x] Thread confinement.
+* [x] `Send` and `Sync` behavior.
+* [x] Aliasing and mutable-reference assumptions.
+* [x] Inout transfer and buffer-size invariants.
 
 For every unsafe operation:
 
-* [ ] Document the safety invariant.
-* [ ] Verify generated code preserves the invariant.
-* [ ] Add a regression test where practical.
-* [ ] Remove unnecessary unsafe code.
-* [ ] Ensure no Rust panic or C++ exception crosses an unsupported boundary.
+* [x] Document the safety invariant.
+* [x] Verify generated code preserves the invariant.
+* [x] Add a regression test where practical.
+* [x] Remove unnecessary unsafe code.
+* [x] Ensure no Rust panic or C++ exception crosses an unsupported boundary.
 
 ### Dependency audit
 
-* [ ] Run `cargo audit`.
-* [ ] Run `cargo deny check`.
-* [ ] Run `cargo udeps`.
-* [ ] Review duplicate dependency versions.
-* [ ] Review license compatibility.
-* [ ] Reject unapproved Git dependencies in published packages.
-* [ ] Review default features.
-* [ ] Review proc-macro dependency footprint.
-* [ ] Review CLI dependency footprint.
-* [ ] Commit required deny policy configuration.
-* [ ] Document advisory exceptions with expiration or review criteria.
+* [x] Run `cargo audit`.
+* [x] Run `cargo deny check`.
+* [x] Run `cargo udeps`.
+* [x] Review duplicate dependency versions.
+* [x] Review license compatibility.
+* [x] Reject unapproved Git dependencies in published packages.
+* [x] Review default features.
+* [x] Review proc-macro dependency footprint.
+* [x] Review CLI dependency footprint.
+* [x] Commit required deny policy configuration.
+* [x] Document advisory exceptions with expiration or review criteria.
 
 ### Reproducibility audit
 
-* [ ] Verify generated source is deterministic.
-* [ ] Verify metadata normalization is deterministic.
-* [ ] Verify coverage artifacts and reports are deterministic.
-* [ ] Verify package contents do not depend on untracked files.
-* [ ] Verify clean builds work from fresh clones.
-* [ ] Verify fixture workspaces are isolated.
-* [ ] Verify documentation builds without network-only local assumptions.
-* [ ] Verify release commands use locked dependencies where appropriate.
+* [x] Verify generated source is deterministic.
+* [x] Verify metadata normalization is deterministic.
+* [x] Verify coverage artifacts and reports are deterministic.
+* [x] Verify package contents do not depend on untracked files.
+* [x] Verify clean builds work from fresh clones.
+* [x] Verify fixture workspaces are isolated.
+* [x] Verify documentation builds without network-only local assumptions.
+* [x] Verify release commands use locked dependencies where appropriate.
 
 ### Repository hygiene
 
-* [ ] Remove stale implementation notes from user-facing docs.
-* [ ] Remove obsolete examples and fixtures.
-* [ ] Remove dead feature flags.
-* [ ] Remove unused dependencies.
-* [ ] Remove obsolete lint allowances.
-* [ ] Remove temporary compatibility aliases not intended for release.
-* [ ] Resolve or explicitly defer every release-related `TODO`.
-* [ ] Review ignored tests.
-* [ ] Review committed generated files.
-* [ ] Review package sizes.
-* [ ] Review repository links and badges.
+* [x] Remove stale implementation notes from user-facing docs.
+* [x] Remove obsolete examples and fixtures.
+* [x] Remove dead feature flags.
+* [x] Remove unused dependencies.
+* [x] Remove obsolete lint allowances.
+* [x] Remove temporary compatibility aliases not intended for release.
+* [x] Resolve or explicitly defer every release-related `TODO`.
+* [x] Review ignored tests.
+* [x] Review committed generated files.
+* [x] Review package sizes.
+* [x] Review repository links and badges.
 
 ### Release gate
 
@@ -2984,19 +2987,19 @@ Pages build
 benchmark smoke run
 ```
 
-* [ ] Record exact tool versions.
-* [ ] Retain all reports.
-* [ ] Resolve every release-blocking failure.
-* [ ] Document accepted non-blocking limitations.
+* [x] Record exact tool versions.
+* [x] Retain all reports.
+* [x] Resolve every release-blocking failure.
+* [x] Document accepted non-blocking limitations.
 
 ### Acceptance criteria
 
-* [ ] Unsafe and FFI invariants are documented and reviewed.
-* [ ] Dependency and license policies pass.
-* [ ] Clean and packaged builds are reproducible.
-* [ ] No release-blocking stale code or documentation remains.
-* [ ] The full release validation succeeds.
-* [ ] Remaining limitations are documented.
+* [x] Unsafe and FFI invariants are documented and reviewed.
+* [x] Dependency and license policies pass.
+* [x] Clean and packaged builds are reproducible.
+* [x] No release-blocking stale code or documentation remains.
+* [x] The full release validation succeeds.
+* [x] Remaining limitations are documented.
 
 ---
 
@@ -3160,7 +3163,7 @@ Milestone 12 is complete when:
 * [ ] All intended packages pass package and dry-run publication checks.
 * [ ] Published-package consumer fixtures work.
 * [ ] The supported Rust, Verilator, compiler, and OS matrix is explicit.
-* [ ] Release and security documentation exists.
+* [ ] Release procedure and security-reporting documentation exist.
 * [ ] Unsafe and FFI invariants are reviewed and documented.
 * [ ] Dependency, advisory, and license policies pass.
 * [ ] `v0.2.0-rc.1` is published and externally validated.

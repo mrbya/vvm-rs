@@ -25,6 +25,8 @@ fi
 expected_tag="v${version}"
 release_build_jobs="${CARGO_BUILD_JOBS:-1}"
 
+cargo metadata --locked --no-deps --format-version 1 >/dev/null
+
 if [[ -n "$release_tag" && "$release_tag" != "$expected_tag" ]]; then
   printf 'release tag mismatch: expected %s but received %s\n' "$expected_tag" "$release_tag" >&2
   exit 1
@@ -75,8 +77,7 @@ rm -rf "$artifact_root"
 rm -rf "$extracted_packages"
 mkdir -p "$package_target" "$docs_artifact" "$package_lists" "$extracted_packages"
 
-CARGO_BUILD_JOBS="$release_build_jobs" just ci
-just api-diff
+CARGO_BUILD_JOBS="$release_build_jobs" just release-audit
 
 for package in "${publishable_packages[@]}"; do
   package_patch_args=()

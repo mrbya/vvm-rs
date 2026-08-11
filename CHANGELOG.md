@@ -22,12 +22,14 @@ Upcoming release line: `v0.2.0`
 - The public facade was reorganized around canonical modules instead of the earlier flatter export surface, and the reviewed `v0.2.0` API is now treated as the supported baseline for `0.2.x` patch releases.
 - Native support claims are now explicitly Linux-only for the `v0.2.0` cycle, with Rust 1.87.0 plus current stable Rust, Verilator 5.000 minimum, Verilator 5.050 current validation, GCC-based native CI, and Linux Clang native-fixture validation documented as the tested matrix.
 - Timing-enabled generated builds now document the actual native requirement: ordinary DUTs use C++17 while timing-enabled DUTs require a C++20 compiler with coroutine support.
-- Contributor and maintainer documentation now covers Backlog workflow, release-facing validation, package verification, changelog expectations, and public API review against the checked-in `v0.2.0` baseline.
+- Contributor and maintainer documentation now covers Backlog workflow, release-facing validation, package verification, dependency and license policy through `cargo-deny`, reproducibility checks through `just repro-check`, the `just release-audit` gate, and public API review against the checked-in `v0.2.0` baseline.
 
 ### Fixed
 
 - Package metadata, included support files, and extracted crate layouts now hold up under `cargo package`, `cargo publish --dry-run`, and packaged consumer validation instead of depending on workspace-only assumptions.
 - Public coverage schema documentation now matches the implemented deterministic merge behavior and fingerprint-based compatibility checks.
+- Generated DUT wrappers now enforce a conservative thread-confinement policy instead of leaving `Send` and `Sync` behavior implicit at the Rust/C++ boundary.
+- Release-facing Cargo and documentation commands now use locked dependency resolution where appropriate, and the assembled documentation build metadata no longer varies on the current wall clock for one commit.
 
 ## [0.1.0-alpha.1] - 2026-07-03
 

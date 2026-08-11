@@ -36,6 +36,8 @@ Windows, MSVC, or other compiler families for native verification in the
 - Rust-visible ports do not preserve HDL `X` or `Z` values directly.
 - Bidirectional ports are exposed as caller-resolved split state, not as a hidden
   electrical simulation model.
+- Generated DUT wrappers are intentionally thread-confined; they are not part of
+  the supported `Send` or `Sync` surface.
 - Supported generated type mappings cover the common public workflows, but some
   HDL shapes still rely on fixture-level validation rather than a polished general
   user path.

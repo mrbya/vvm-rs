@@ -537,6 +537,7 @@ mod tests {
         assert!(wrapper.contains("pub enum CounterError"));
         assert!(wrapper.contains("impl ::vvm::__private::Dut for Counter"));
         assert!(wrapper.contains("impl Drop for Counter"));
+        assert!(wrapper.contains("thread_bound: ::core::marker::PhantomData<::std::rc::Rc<()>>"));
         assert!(wrapper.contains("impl std::fmt::Debug for Counter"));
 
         Ok(())
@@ -627,6 +628,7 @@ mod tests {
         assert!(wrapper.contains("*::core::borrow::Borrow::borrow(&value)"));
         assert!(wrapper.contains("pub fn output_i1(&self) -> Result<i8> {"));
         assert!(wrapper.contains("pub fn output_i64(&self) -> Result<i64> {"));
+        assert!(wrapper.contains("thread_bound: ::core::marker::PhantomData<::std::rc::Rc<()>>"));
 
         Ok(())
     }
@@ -675,6 +677,7 @@ mod tests {
         assert!(wrapper.contains("evaluated"));
         assert!(wrapper.contains("trace_configured"));
         assert!(wrapper.contains("trace_open"));
+        assert!(wrapper.contains("thread_bound: ::core::marker::PhantomData<::std::rc::Rc<()>>"));
         assert!(wrapper.contains("impl ::vvm::__private::TraceableDut"));
         assert!(wrapper.contains("impl ::vvm::__private::Dut"));
         assert!(wrapper.contains("SimulationTime"));

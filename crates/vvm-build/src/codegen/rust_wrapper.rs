@@ -1953,6 +1953,15 @@ fn render_struct(output: &mut String, metadata: &DutMetadata, names: &DutNames, 
     push_line(output, "");
     push_line(output, "    /// Current logical simulation time.");
     push_line(output, "    time: ::vvm::__private::SimulationTime,");
+    push_line(output, "");
+    push_line(
+        output,
+        "    /// Conservatively binds the generated wrapper to one thread context.",
+    );
+    push_line(
+        output,
+        "    thread_bound: ::core::marker::PhantomData<::std::rc::Rc<()>>,",
+    );
     if traced {
         push_line(output, "");
         push_line(output, "    /// Whether the DUT has been evaluated.");
@@ -2026,6 +2035,10 @@ fn render_constructor(
     push_line(
         output,
         "            time: ::vvm::__private::SimulationTime::ZERO,",
+    );
+    push_line(
+        output,
+        "            thread_bound: ::core::marker::PhantomData,",
     );
     if traced {
         push_line(output, "            evaluated: TraceFlag::new(false),");

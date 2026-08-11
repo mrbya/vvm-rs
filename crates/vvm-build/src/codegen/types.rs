@@ -436,12 +436,6 @@ impl<'a> PackedEnumType<'a> {
         PortType::from_port(self.port)
     }
 
-    /// Returns normalized enum shape.
-    #[allow(dead_code)]
-    pub const fn shape(self) -> &'a PackedEnumShape {
-        self.shape
-    }
-
     /// Returns declared variants.
     pub fn variants(self) -> impl ExactSizeIterator<Item = &'a PackedEnumVariant> {
         self.shape.variants.iter()
@@ -1468,7 +1462,7 @@ mod tests {
 
         assert_eq!(enum_type.total_width(), 3);
         assert!(!enum_type.storage_signed());
-        assert_eq!(enum_type.shape().width.get(), 3);
+        assert_eq!(enum_type.shape.width.get(), 3);
         assert_eq!(enum_type.storage_rust_type(), "::vvm::__private::Bits<3>");
         assert_eq!(
             enum_type.storage_constructor_type(),
@@ -1516,7 +1510,7 @@ mod tests {
 
         assert_eq!(enum_type.total_width(), 4);
         assert!(enum_type.storage_signed());
-        assert!(enum_type.shape().signed);
+        assert!(enum_type.shape.signed);
         assert_eq!(
             enum_type.storage_rust_type(),
             "::vvm::__private::SignedBits<4>"

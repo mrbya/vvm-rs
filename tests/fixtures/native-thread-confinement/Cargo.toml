@@ -1,0 +1,14 @@
+[workspace]
+
+[package]
+name = "vvm-native-thread-confinement"
+version = "0.0.0"
+edition = "2024"
+publish = false
+build = "build.rs"
+
+[dependencies]
+vvm = { package = "vvm-rs", path = "__VVM_PATH__" }
+
+[build-dependencies]
+vvm-build = { path = "__VVM_BUILD_PATH__" }

@@ -324,7 +324,7 @@ docker-build:
     sudo docker push "${IMAGE_LATEST}"
 
 # Build a checksum-verified native CI image for one Verilator release.
-docker-build-verilator VERSION SHA256:
+docker-build-verilator VERSION:
     #!/usr/bin/env bash
     set -euo pipefail
     if [ -z "${GITLAB_IMAGE_REGISTRY}" ]; then
@@ -333,7 +333,6 @@ docker-build-verilator VERSION SHA256:
     IMAGE="${GITLAB_IMAGE_REGISTRY}:verilator-{{VERSION}}"
     sudo docker buildx build -f "ci/Dockerfile.verilator" \
         --build-arg "VERILATOR_VERSION={{VERSION}}" \
-        --build-arg "VERILATOR_SHA256={{SHA256}}" \
         --tag "${IMAGE}" \
         --load .
     sudo docker push "${IMAGE}"

@@ -31,7 +31,7 @@ tool.
   multi-clock, and inout-oriented examples.
 
 For a fuller comparison against commercial simulators, vendor tools, cocotb, and
-raw Verilator+C++, start with the book chapter:
+raw Verilator+C++, read the following book chapter:
 <https://byacrates.gitlab.io/vvm-rs/why-vvm.html>
 
 ## Current Status
@@ -92,7 +92,7 @@ cargo install cargo-vvm
 
 ## Crate layout
 
-- `vvm-build` runs Verilator during `build.rs`, generates rust-to-c++ bridges, and compiles rust-native native wrappers.
+- `vvm-build` runs Verilator during `build.rs`, generates rust-to-c++ bridges, and compiles rust-native wrappers.
 - `vvm` is the public VVM library entrypoint.
 - `cargo-vvm` is a cargo utility cli tool to manage functional coverage artifacts and reports.
 

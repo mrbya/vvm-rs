@@ -6,13 +6,6 @@ VVM gives a Rust crate a generated DUT wrapper, typed drive/sample APIs,
 testbench composition, replayable randomization, waveform tracing, timing-mode
 support for delayed HDL events, and Rust-native functional coverage.
 
-> [!IMPORTANT]
-> VVM is a pre-`1.0` verification framework. The public API planned for `v0.2.0`
-> is established for this release cycle, milestone 12.8 is the final audit
-> before release-candidate freeze, milestone 12.9 will handle
-> `v0.2.0-rc.1` publication and dogfooding, supported workflows are CI-tested,
-> and documented platform and HDL limitations still apply.
-
 ## What Is VVM?
 
 VVM wraps Verilator-generated simulation models of RTL designs in a Rust verification workflow.
